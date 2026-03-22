@@ -1,0 +1,23 @@
+{
+  "name": "subagent-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Claude multi-agent orchestration platform",
+  "workspaces": [
+    "packages/shared",
+    "packages/server",
+    "packages/client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm run dev -w @subagent/server\" \"npm run dev -w @subagent/client\"",
+    "dev:server": "npm run dev -w @subagent/server",
+    "dev:client": "npm run dev -w @subagent/client",
+    "build": "npm run build -w @subagent/shared && npm run build -w @subagent/server && npm run build -w @subagent/client",
+    "typecheck": "tsc -b packages/shared packages/server packages/client",
+    "clean": "rm -rf packages/*/dist packages/*/node_modules node_modules"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,60 @@
+import { FileCode, Loader2 } from 'lucide-react';
+import { CodeBlock } from '../ui/code-block';
+import { useFileContent } from '../../api/hooks/use-workspace';
+
+interface FileViewerProps {
+  projectId: string;
+  filePath: string | null;
+}
+
+export function FileViewer({ projectId, filePath }: FileViewerProps) {
+  const { data, isLoading, error } = useFileContent(projectId, filePath ?? '');
+
+  if (!filePath) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full py-12 text-center">
+        <FileCode className="h-7 w-7 text-[#5a5a5a] mb-2.5" />
+        <p className="text-[12px] text-[#5a5a5a]">Select a file to view its contents</p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full py-12">
+        <Loader2 className="h-4 w-4 text-[#5a5a5a] animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full py-12 text-center">
+        <p className="text-[12px] text-error">Failed to load file</p>
+        <p className="text-[11px] text-[#5a5a5a] mt-1">{(error as Error).message}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* File header */}
+      <div className="flex items-center gap-2 border-b border-[#333333] px-2.5 py-1.5 shrink-0 bg-[#252526]">
+        <FileCode className="h-3.5 w-3.5 text-[#5a5a5a]" />
+        <span className="text-[11px] font-mono text-[#858585] truncate">
+          {filePath}
+        </span>
+      </div>
+
+      {/* Code content */}
+      <div className="flex-1 overflow-auto">
+        <CodeBlock
+          code={data?.content ?? ''}
+          showLineNumbers
+          maxHeight="none"
+          className="border-0 rounded-none"
+        />
+      </div>
+    </div>
+  );
+}
