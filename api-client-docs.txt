@@ -1,0 +1,146 @@
+API CLIENT DOCUMENTATION
+========================
+
+JSDoc'lu Kaynak Kod
+-------------------
+
+/** Base URL for all API requests. Configure via environment variable in production. */
+const API_BASE = '';
+
+/**
+ * Represents an HTTP API error with an associated status code.
+ *
+ * @example
+ * try {
+ *   await apiGet('/users/1');
+ * } catch (err) {
+ *   if (err instanceof ApiError) {
+ *     console.error(`HTTP ${err.status}: ${err.message}`);
+ *   }
+ * }
+ */
+class ApiError extends Error {
+  /**
+   * @param status - HTTP status code (e.g. 404, 500)
+   * @param message - Human-readable error message from the server
+   */
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+/**
+ * Parses an HTTP response and returns the typed JSON body.
+ * Throws `ApiError` for non-2xx responses.
+ *
+ * @template T - Expected shape of the response body
+ * @param response - The raw `Response` object from `fetch`
+ * @returns Parsed JSON body cast to `T`, or `undefined` for 204 No Content
+ * @throws {ApiError} When `response.ok` is false
+ */
+async function handleResponse<T>(response: Response): Promise<T> { ... }
+
+/**
+ * Performs a GET request and returns the typed response body.
+ *
+ * @template T - Expected response type
+ * @param path - API path (e.g. `/users/1`)
+ * @returns Parsed response body
+ * @throws {ApiError} On HTTP error responses
+ *
+ * @example
+ * const user = await apiGet<User>('/users/1');
+ */
+export async function apiGet<T>(path: string): Promise<T>
+
+/**
+ * Performs a POST request with an optional JSON body.
+ *
+ * @template T - Expected response type
+ * @param path - API path
+ * @param body - Optional request payload (serialized to JSON)
+ * @throws {ApiError} On HTTP error responses
+ *
+ * @example
+ * const created = await apiPost<User>('/users', { name: 'Alice' });
+ */
+export async function apiPost<T>(path: string, body?: unknown): Promise<T>
+
+/**
+ * Performs a PATCH request to partially update a resource.
+ *
+ * @template T - Expected response type
+ * @param path - API path
+ * @param body - Partial update payload (serialized to JSON)
+ * @throws {ApiError} On HTTP error responses
+ *
+ * @example
+ * const updated = await apiPatch<User>('/users/1', { name: 'Bob' });
+ */
+export async function apiPatch<T>(path: string, body: unknown): Promise<T>
+
+/**
+ * Performs a DELETE request to remove a resource.
+ *
+ * @template T - Response type, defaults to `void`
+ * @param path - API path
+ * @throws {ApiError} On HTTP error responses
+ *
+ * @example
+ * await apiDelete('/users/1');
+ */
+export async function apiDelete<T = void>(path: string): Promise<T>
+
+
+README Bölümü
+-------------
+
+## API Client
+
+`src/api/client.ts` provides a thin, type-safe wrapper around the browser `fetch` API.
+
+### Overview
+
+Sequence:
+  Caller -> client.ts: apiGet<T>('/resource')
+  client.ts -> Server: GET /resource
+  Server --> client.ts: 200 OK { data }
+  client.ts --> Caller: T
+
+  Server --> client.ts: 4xx/5xx
+  client.ts --> Caller: throws ApiError
+
+### Functions
+
+| Function              | Method | Body     | Description                    |
+|-----------------------|--------|----------|--------------------------------|
+| apiGet<T>(path)       | GET    | —        | Fetch a resource               |
+| apiPost<T>(path,body) | POST   | optional | Create a resource              |
+| apiPatch<T>(path,body)| PATCH  | required | Partially update a resource    |
+| apiDelete<T>(path)    | DELETE | —        | Remove a resource              |
+
+### Error Handling
+
+All functions throw `ApiError` on non-2xx responses.
+
+  import { apiGet } from '@/api/client';
+
+  try {
+    const data = await apiGet<MyType>('/endpoint');
+  } catch (err) {
+    if (err instanceof ApiError) {
+      if (err.status === 401) redirectToLogin();
+      else console.error(err.message);
+    }
+  }
+
+### Configuration
+
+Set `API_BASE` via environment variable before building:
+
+  VITE_API_BASE_URL=https://api.example.com
+
+NOTE: The current implementation hardcodes `API_BASE = ''` — update
+`client.ts` to read from `import.meta.env.VITE_API_BASE_URL` for
+environment-specific deployments.

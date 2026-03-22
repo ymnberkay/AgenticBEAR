@@ -1,89 +1,174 @@
-# AgenticBEAR — SubAgent Manager
+# AgenticBEAR
 
-Multi-agent orchestration platform. Agent'lar oluştur, takımlara ekle, VS Code'dan MCP ile kullan.
+Build and manage a personal army of AI agents — then use them directly inside Claude Code CLI via MCP.
 
-## MCP Entegrasyonu
+You define agents once (name, role, system prompt, model). From that point, anyone using Claude Code CLI can call those agents without touching the UI again.
 
-AgenticBEAR, projelerindeki agent'ları VS Code ve diğer MCP destekli editörlere **Model Context Protocol (MCP)** üzerinden expose eder.
+---
 
-### Kurulum
+## How It Works
 
-#### 1. API Key'leri ayarla
-
-`.env` dosyana OpenAI ve/veya Gemini key'lerini ekle (Anthropic key'i uygulama içinden Settings sayfasından girilir):
-
-```env
-OPENAI_API_KEY=sk-...
-GEMINI_API_KEY=AI...
+```
+Claude Code CLI
+      │
+      │  MCP (SSE)
+      ▼
+AgenticBEAR Server  ──→  Returns agent system prompt + your query
+      │
+      ▼
+Claude Code answers as that agent (uses your own Claude session)
 ```
 
-#### 2. Sunucuyu başlat
+No extra API keys. No extra costs. Your Claude Code subscription handles everything.
+
+---
+
+## Getting Started
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Start the server
 
 ```bash
 npm run dev
 ```
 
-Sunucu `http://localhost:3001` üzerinde çalışır.
+Server runs on `http://localhost:3001`, UI on `http://localhost:5173`.
 
-#### 3. Proje ID'ni öğren
+### 3. Create a project and add agents
 
-Uygulamada bir proje oluştur. Proje ID'si URL'de görünür:
+Open `http://localhost:5173`, create a project, and define your agents. Each agent needs:
+- A **name** (e.g. "Backend Engineer")
+- A **role** (orchestrator or specialist)
+- A **system prompt** describing how it should behave
+
+### 4. Get your MCP URL
+
+Go to **Project Settings** → copy the MCP URL. It looks like:
+
 ```
-http://localhost:5173/projects/PROJE_ID/agents
+http://localhost:3001/mcp/projects/YOUR_PROJECT_ID
 ```
 
-### VS Code Bağlantısı
+### 5. Connect Claude Code CLI
 
-VS Code ayarlarına (`settings.json`) ekle:
+```bash
+claude mcp add agenticbear --transport sse http://localhost:3001/mcp/projects/YOUR_PROJECT_ID
+```
 
-```json
-{
-  "mcpServers": {
-    "agenticbear": {
-      "url": "http://localhost:3001/mcp/projects/PROJE_ID"
-    }
-  }
+Done. Open a new Claude Code session — your agents are ready.
+
+---
+
+## Example Usage Scenarios
+
+### List all agents in your project
+
+```
+List all agents in agenticbear
+```
+
+Claude Code calls `list_agents` and shows every agent with their ID, role, and model.
+
+---
+
+### Ask a specific agent
+
+```
+Use the agenticbear backend agent to review this function for performance issues:
+
+function processUsers(users) {
+  return users.map(u => db.query(`SELECT * FROM orders WHERE user_id = ${u.id}`))
 }
 ```
 
-`PROJE_ID` yerine kendi proje ID'ni yaz.
+Claude Code calls `ask_agent`, loads the Backend Engineer's system prompt, and responds from that agent's perspective — pointing out the N+1 query problem, suggesting batch loading, etc.
 
-### Cursor Bağlantısı
+---
 
-`.cursor/mcp.json` dosyasına ekle:
-
-```json
-{
-  "mcpServers": {
-    "agenticbear": {
-      "url": "http://localhost:3001/mcp/projects/PROJE_ID"
-    }
-  }
-}
-```
-
-### Mevcut MCP Tool'ları
-
-| Tool | Açıklama |
-|------|----------|
-| `ask_orchestrator` | Soruyu orkestratör aracılığıyla otomatik en uygun agent'a yönlendir |
-| `ask_agent` | Belirli bir agent'a direkt soru sor |
-| `list_agents` | Projedeki tüm agent'ları ve bilgilerini listele |
-| `multi_agent_discuss` | Birden fazla agent'a aynı konuyu paralel sor, tüm cevapları topla |
-
-### Endpoint'ler
+### Let the orchestrator decide who to ask
 
 ```
-GET  /mcp/projects/:projectId   → SSE bağlantısı
-POST /mcp/messages              → MCP mesaj handler (?sessionId=...)
-POST /mcp/cache/invalidate      → Cache temizle { "projectId": "..." }
-GET  /health/mcp                → Sağlık durumu ve aktif session sayısı
+Ask agenticbear to help me write a migration script for adding a new column to the users table
 ```
 
-### Desteklenen Modeller
+Claude Code calls `ask_orchestrator`. It automatically routes to the most relevant agent (e.g. Database Engineer) based on keyword matching, then answers from that agent's perspective.
 
-| Provider | Modeller |
-|----------|----------|
-| Anthropic | claude-opus-4, claude-sonnet-4, claude-haiku-4.5 |
-| OpenAI | gpt-4o, gpt-4o-mini, o1, o3, o3-mini |
-| Google | gemini-* |
+---
+
+### Get multiple perspectives at once
+
+```
+Use agenticbear multi_agent_discuss with the backend and security agents — topic: "Is JWT or session-based auth better for our API?"
+```
+
+Claude Code calls `multi_agent_discuss` with both agent IDs, loads each agent's system prompt, then gives you both perspectives in a single structured response.
+
+---
+
+### Mid-task delegation
+
+You're already working on something and hit a problem:
+
+```
+I'm refactoring the auth middleware. Ask the security agent in agenticbear whether storing refresh tokens in httpOnly cookies is sufficient or if we need additional CSRF protection.
+```
+
+Claude Code grabs the security agent's context and answers inline — without breaking your flow.
+
+---
+
+## MCP Tools Reference
+
+| Tool | Parameters | Description |
+|------|-----------|-------------|
+| `list_agents` | — | Lists all agents with ID, role, model, and description |
+| `ask_agent` | `agent_id`, `query`, `context?` | Loads a specific agent's system prompt and answers as that agent |
+| `ask_orchestrator` | `query`, `context?` | Routes to the best-matching agent automatically via keyword scoring |
+| `multi_agent_discuss` | `agent_ids[]`, `topic` | Loads multiple agents, answers from each perspective |
+
+---
+
+## Project Structure
+
+```
+packages/
+  client/     React frontend (Vite + TanStack Router)
+  server/     Fastify API + MCP server (SQLite)
+  shared/     TypeScript types and constants
+```
+
+---
+
+## Supported Models
+
+When creating agents, you can assign any of these models:
+
+**Anthropic (Current)**
+- `claude-opus-4-6` — Most capable, 1M context
+- `claude-sonnet-4-6` — Balanced speed/quality, 1M context
+- `claude-haiku-4-5-20251001` — Fast and lightweight
+
+**Anthropic (Legacy)**
+- claude-opus-4-5, claude-sonnet-4-5, claude-opus-4-1, claude-opus-4, claude-sonnet-4
+
+**OpenAI**
+- gpt-4o, gpt-4o-mini, o1, o3, o3-mini
+
+> Model selection in the UI is for documentation/labeling purposes. Actual inference runs through Claude Code's own session.
+
+---
+
+## Environment Variables
+
+```env
+SERVER_PORT=3001        # API server port (default: 3001)
+CLIENT_URL=http://localhost:5173
+DB_PATH=~/.subagent-manager/data.db
+```
+
+No API keys required.
