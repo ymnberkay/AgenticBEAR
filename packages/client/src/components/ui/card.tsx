@@ -35,7 +35,7 @@ export function Card({
           ? (e) => {
               e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
               e.currentTarget.style.background = 'var(--color-bg-card-hover)';
-              e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.2), 0 0 22px rgba(0, 212, 255, 0.08)';
+              e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.2), 0 0 22px rgba(212, 146, 78, 0.08)';
             }
           : undefined
       }

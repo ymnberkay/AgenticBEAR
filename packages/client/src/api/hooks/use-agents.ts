@@ -27,8 +27,8 @@ export function useAgent(id: string) {
 export function useCreateAgent() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreateAgentInput) =>
-      apiPost<Agent>('/api/agents', input),
+    mutationFn: ({ projectId, ...rest }: CreateAgentInput) =>
+      apiPost<Agent>(`/api/projects/${projectId}/agents`, rest),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: agentKeys.list(data.projectId) });
     },

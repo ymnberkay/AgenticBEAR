@@ -14,9 +14,9 @@ interface AgentListProps {
 export function AgentList({ agents, isLoading, onAddAgent, onSelectAgent }: AgentListProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} height={88} />
+          <Skeleton key={i} height={96} />
         ))}
       </div>
     );
@@ -27,33 +27,58 @@ export function AgentList({ agents, isLoading, onAddAgent, onSelectAgent }: Agen
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-[11px] font-semibold uppercase text-text-tertiary tracking-wider">
-          Specialist Agents
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-text-disabled">
+            Specialist Agents
+          </span>
           {specialists.length > 0 && (
-            <span className="text-text-disabled ml-1.5">({specialists.length})</span>
+            <span
+              className="text-[10px] font-mono px-1.5 py-0.5"
+              style={{
+                background: 'var(--color-bg-raised)',
+                border: '1px solid var(--color-border-subtle)',
+                color: 'var(--color-text-tertiary)',
+              }}
+            >
+              {specialists.length}
+            </span>
           )}
-        </h3>
+        </div>
         <Button size="sm" variant="outline" icon={<Plus className="h-3 w-3" />} onClick={onAddAgent}>
           Add Agent
         </Button>
       </div>
 
       {specialists.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center py-14 px-6"
+        <button
+          onClick={onAddAgent}
+          className="flex flex-col items-center justify-center py-12 px-6 w-full transition-all duration-200 group"
           style={{
             border: '1px dashed var(--color-border-default)',
-            background: 'rgba(15, 33, 50, 0.3)',
+            background: 'transparent',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'var(--color-accent)';
+            e.currentTarget.style.background = 'var(--color-accent-subtle)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'var(--color-border-default)';
+            e.currentTarget.style.background = 'transparent';
           }}
         >
-          <Bot className="h-8 w-8 text-text-disabled mb-3" />
-          <p className="text-[13px] text-text-tertiary mb-3">
+          <div
+            className="h-10 w-10 flex items-center justify-center mb-3"
+            style={{ background: 'var(--color-bg-raised)', border: '1px solid var(--color-border-subtle)' }}
+          >
+            <Bot className="h-5 w-5 text-text-disabled group-hover:text-text-tertiary transition-colors duration-200" />
+          </div>
+          <p className="text-[13px] font-medium text-text-secondary group-hover:text-text-primary transition-colors duration-200">
             No specialist agents yet
           </p>
-          <Button size="sm" variant="outline" onClick={onAddAgent}>
-            Add Specialist
-          </Button>
-        </div>
+          <p className="text-[11px] text-text-disabled mt-1">
+            Click to add your first agent
+          </p>
+        </button>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {specialists.map((agent) => (

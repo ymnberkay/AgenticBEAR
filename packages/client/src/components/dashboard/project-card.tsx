@@ -35,7 +35,7 @@ export function ProjectCard({ project, agentCount = 0, index = 0 }: ProjectCardP
         el.style.background = 'var(--color-bg-card-hover)';
         el.style.borderColor = 'var(--glass-border-hover)';
         el.style.transform = 'translateY(-2px)';
-        el.style.boxShadow = '0 8px 30px rgba(0, 0, 0, 0.3), 0 0 34px rgba(0, 212, 255, 0.12)';
+        el.style.boxShadow = '0 8px 30px rgba(0, 0, 0, 0.3), 0 0 34px rgba(212, 146, 78, 0.12)';
       }}
       onMouseLeave={(e) => {
         const el = e.currentTarget;
@@ -48,7 +48,7 @@ export function ProjectCard({ project, agentCount = 0, index = 0 }: ProjectCardP
       {/* Gradient accent line at top */}
       <div
         className="absolute top-0 left-6 right-6 h-[1px] opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-        style={{ background: 'linear-gradient(90deg, transparent, var(--color-accent), #00e6a8, transparent)' }}
+        style={{ background: 'linear-gradient(90deg, transparent, var(--color-accent), var(--color-accent-muted), transparent)' }}
       />
 
       {/* Top: icon + status */}
@@ -56,11 +56,11 @@ export function ProjectCard({ project, agentCount = 0, index = 0 }: ProjectCardP
         <div
           className="h-10 w-10 flex items-center justify-center shrink-0 transition-all duration-300"
           style={{
-            background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.17), rgba(0, 230, 168, 0.15))',
-            border: '1px solid rgba(0, 212, 255, 0.25)',
+            background: 'linear-gradient(135deg, rgba(212, 146, 78, 0.17), rgba(107, 191, 160, 0.15))',
+            border: '1px solid rgba(212, 146, 78, 0.25)',
           }}
         >
-          <Hexagon className="h-5 w-5 text-[#64ecff]" />
+          <Hexagon className="h-5 w-5 text-[#d4924e]" />
         </div>
         <div className="flex items-center gap-1.5">
           <span
@@ -98,8 +98,8 @@ export function ProjectCard({ project, agentCount = 0, index = 0 }: ProjectCardP
             {formatRelativeTime(project.updatedAt)}
           </span>
         </div>
-        <div className="h-6 w-6 flex items-center justify-center bg-transparent group-hover:bg-[rgba(0,212,255,0.12)] transition-all duration-200">
-          <ChevronRight className="h-3.5 w-3.5 text-text-tertiary group-hover:text-[#00d4ff] transition-colors duration-200" />
+        <div className="h-6 w-6 flex items-center justify-center bg-transparent group-hover:bg-[rgba(212,146,78,0.12)] transition-all duration-200">
+          <ChevronRight className="h-3.5 w-3.5 text-text-tertiary group-hover:text-[#d4924e] transition-colors duration-200" />
         </div>
       </div>
     </button>

@@ -10,7 +10,7 @@ export function ProjectWorkspacePage() {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
 
   return (
-    <div className="flex border border-border-default overflow-hidden h-[calc(100vh-240px)] min-h-[360px]">
+    <div className="flex border border-border-default overflow-hidden h-[calc(100vh-160px)] min-h-[360px]">
       {/* File tree */}
       <div className="w-[200px] shrink-0 border-r border-border-default bg-bg-nav overflow-y-auto">
         <FileTree

@@ -78,7 +78,7 @@ function FileTreeNodeItem({
         onClick={handleClick}
         className={cn(
           'flex w-full items-center gap-1.5 py-0.5 pr-2 text-[12px] transition-colors duration-150 hover:bg-bg-raised',
-          isSelected && 'bg-[#00d4ff]/10 text-[#00d4ff]',
+          isSelected && 'bg-[#d4924e]/10 text-[#d4924e]',
           !isSelected && 'text-text-secondary',
         )}
         style={{ paddingLeft: `${depth * 14 + 6}px` }}
@@ -95,7 +95,7 @@ function FileTreeNodeItem({
 
         {isDir ? (
           expanded ? (
-            <FolderOpen className="h-3.5 w-3.5 text-[#00d4ff]/70 shrink-0" />
+            <FolderOpen className="h-3.5 w-3.5 text-[#d4924e]/70 shrink-0" />
           ) : (
             <Folder className="h-3.5 w-3.5 text-text-disabled shrink-0" />
           )
@@ -106,7 +106,7 @@ function FileTreeNodeItem({
         <span className="truncate text-[12px]">{node.name}</span>
 
         {isChanged && (
-          <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#00d4ff] shrink-0" />
+          <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#d4924e] shrink-0" />
         )}
       </button>
 

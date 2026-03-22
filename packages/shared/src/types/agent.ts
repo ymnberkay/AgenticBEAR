@@ -1,9 +1,20 @@
 export type AgentRole = 'orchestrator' | 'specialist';
 
 export type ClaudeModel =
-  | 'claude-sonnet-4-20250514'
+  | 'claude-opus-4-6'
+  | 'claude-sonnet-4-6'
+  | 'claude-haiku-4-5-20251001'
+  | 'claude-opus-4-5-20251101'
+  | 'claude-sonnet-4-5-20250929'
+  | 'claude-opus-4-1-20250805'
   | 'claude-opus-4-20250514'
-  | 'claude-haiku-4-5-20251001';
+  | 'claude-sonnet-4-20250514'
+  | 'claude-3-haiku-20240307'
+  | 'gpt-4o'
+  | 'gpt-4o-mini'
+  | 'o3'
+  | 'o3-mini'
+  | 'o1';
 
 export interface ModelConfig {
   model: ClaudeModel;

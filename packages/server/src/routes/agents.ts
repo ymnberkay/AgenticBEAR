@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { agentRepo } from '../db/repositories/agent.repo.js';
+import { invalidateMcpCache } from '../mcp/server.js';
 import type { CreateAgentInput, UpdateAgentInput } from '@subagent/shared';
 
 export async function agentRoutes(app: FastifyInstance): Promise<void> {
@@ -29,6 +30,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
         modelConfig: rest.modelConfig ?? { model: 'claude-sonnet-4-20250514', maxTokens: 8192, temperature: 0.7 },
       });
 
+      invalidateMcpCache(projectId);
       return reply.status(201).send(agent);
     },
   );
@@ -48,15 +50,18 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     if (!agent) {
       return reply.status(404).send({ error: true, message: 'Agent not found' });
     }
+    invalidateMcpCache(agent.projectId);
     return reply.send(agent);
   });
 
   // Delete agent
   app.delete<{ Params: { id: string } }>('/api/agents/:id', async (request, reply) => {
+    const existing = agentRepo.findById(request.params.id);
     const removed = agentRepo.remove(request.params.id);
     if (!removed) {
       return reply.status(404).send({ error: true, message: 'Agent not found' });
     }
+    if (existing) invalidateMcpCache(existing.projectId);
     return reply.status(204).send();
   });
 }

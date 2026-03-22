@@ -12,14 +12,14 @@ export function AppShell({ children }: AppShellProps) {
         className="pointer-events-none absolute inset-0"
         style={{
           backgroundImage:
-            'radial-gradient(1200px 540px at 8% -18%, rgba(0,212,255,0.14), transparent 60%), radial-gradient(920px 520px at 110% 0%, rgba(255,159,28,0.13), transparent 62%)',
+            'radial-gradient(1200px 540px at 8% -18%, rgba(212,146,78,0.13), transparent 60%), radial-gradient(920px 520px at 110% 0%, rgba(107,191,160,0.09), transparent 62%)',
         }}
       />
       <div
         className="pointer-events-none absolute inset-0 opacity-70"
         style={{
           backgroundImage:
-            'linear-gradient(rgba(95,120,145,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(95,120,145,0.08) 1px, transparent 1px)',
+            'linear-gradient(rgba(196,142,88,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(196,142,88,0.06) 1px, transparent 1px)',
           backgroundSize: '44px 44px',
           maskImage: 'radial-gradient(circle at center, black 30%, transparent 85%)',
         }}

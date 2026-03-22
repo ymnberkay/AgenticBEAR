@@ -10,13 +10,15 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
+    "@fastify/cors": "^11.0.1",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@subagent/shared": "*",
     "better-sqlite3": "^11.8.1",
     "chokidar": "^4.0.3",
     "dotenv": "^16.5.0",
     "fastify": "^5.3.2",
-    "@fastify/cors": "^11.0.1",
-    "nanoid": "^5.1.5"
+    "nanoid": "^5.1.5",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

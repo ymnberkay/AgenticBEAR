@@ -98,7 +98,7 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
   const iconOptions = Object.entries(AGENT_ICONS) as [string, string][];
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-7 max-w-2xl">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-7" style={{ maxWidth: '560px' }}>
       <h2 className="text-[16px] font-bold text-text-primary tracking-tight">
         {agent ? 'Edit Agent' : 'Create Agent'}
       </h2>
@@ -179,7 +179,7 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
                 onChange={(e) =>
                   setPermissions((p) => ({ ...p, [key]: e.target.checked }))
                 }
-                className="rounded accent-[#00d4ff] h-3.5 w-3.5 shrink-0"
+                className="rounded accent-[#d4924e] h-3.5 w-3.5 shrink-0"
               />
               <span className="truncate">{label}</span>
             </label>
@@ -248,14 +248,24 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
         <Button type="button" variant="ghost" onClick={onClose}>
           Cancel
         </Button>
-        <Button
+        <button
           type="submit"
-          variant="primary"
-          loading={createAgent.isPending || updateAgent.isPending}
-          disabled={!name.trim() || !systemPrompt.trim()}
+          disabled={createAgent.isPending || updateAgent.isPending || !name.trim() || !systemPrompt.trim()}
+          className="flex items-center gap-2 font-semibold whitespace-nowrap transition-all duration-200 hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            background: 'white',
+            color: '#0a0a0a',
+            fontSize: '13.5px',
+            height: '40px',
+            padding: '0 24px',
+          }}
         >
-          {agent ? 'Save Changes' : 'Create Agent'}
-        </Button>
+          {createAgent.isPending || updateAgent.isPending
+            ? 'Saving…'
+            : agent
+              ? 'Save Changes'
+              : 'Create Agent'}
+        </button>
       </div>
     </form>
   );

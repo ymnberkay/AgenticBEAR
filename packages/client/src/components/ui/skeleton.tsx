@@ -18,7 +18,7 @@ export function Skeleton({ className, width, height, rounded }: SkeletonProps) {
       style={{
         width,
         height,
-        background: 'linear-gradient(90deg, rgba(15,33,50,0.5) 0%, rgba(25,46,68,0.6) 50%, rgba(15,33,50,0.5) 100%)',
+        background: 'linear-gradient(90deg, rgba(20,16,9,0.6) 0%, rgba(37,32,26,0.7) 50%, rgba(20,16,9,0.6) 100%)',
         backgroundSize: '200% 100%',
         animation: 'shimmer 1.5s ease-in-out infinite',
       }}

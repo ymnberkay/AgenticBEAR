@@ -39,13 +39,13 @@ export function ProjectAgentsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6 max-w-3xl">
       <OrchestratorView
         orchestrator={orchestrator}
         onConfigure={handleConfigureOrchestrator}
       />
 
-      <div className="h-px bg-bg-raised" />
+      <div className="h-px" style={{ background: 'var(--color-border-subtle)' }} />
 
       <AgentList
         agents={agents}

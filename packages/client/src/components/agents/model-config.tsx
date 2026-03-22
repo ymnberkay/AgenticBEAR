@@ -1,7 +1,5 @@
 import type { ModelConfig, ClaudeModel } from '@subagent/shared';
-import { CLAUDE_MODELS } from '@subagent/shared';
-import { Select } from '../ui/select';
-import { Input } from '../ui/input';
+import { CLAUDE_MODELS, MODEL_GROUPS } from '@subagent/shared';
 
 interface ModelConfigFormProps {
   config: ModelConfig;
@@ -9,71 +7,89 @@ interface ModelConfigFormProps {
 }
 
 export function ModelConfigForm({ config, onChange }: ModelConfigFormProps) {
-  const models = Object.entries(CLAUDE_MODELS) as [ClaudeModel, (typeof CLAUDE_MODELS)[ClaudeModel]][];
   const currentModel = CLAUDE_MODELS[config.model];
 
   return (
     <div>
-      <h3 className="text-[10px] font-medium uppercase text-text-tertiary tracking-[0.08em] mb-3">Model Configuration</h3>
+      <h3
+        style={{
+          fontSize: '10px',
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          color: 'var(--color-text-disabled)',
+          marginBottom: '10px',
+        }}
+      >
+        Model Configuration
+      </h3>
 
       <div className="flex flex-col gap-3">
-        <Select
-          label="Model"
-          value={config.model}
-          onChange={(e) =>
-            onChange({ ...config, model: e.target.value as ClaudeModel })
-          }
-        >
-          {models.map(([key, info]) => (
-            <option key={key} value={key}>
-              {info.label}
-            </option>
-          ))}
-        </Select>
-
-        {currentModel && (
-          <div className="flex items-center gap-2.5 text-[10px] text-text-tertiary px-1">
-            <span>Context: {(currentModel.contextWindow / 1000).toFixed(0)}K tokens</span>
-            <span>Input: ${currentModel.costPer1kInput}/1K</span>
-            <span>Output: ${currentModel.costPer1kOutput}/1K</span>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="Max Tokens"
-            type="number"
-            value={config.maxTokens}
-            onChange={(e) =>
-              onChange({ ...config, maxTokens: parseInt(e.target.value) || 0 })
-            }
-            min={1}
-            max={200000}
-          />
-
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium uppercase text-text-tertiary tracking-[0.08em]">
-              Temperature: {config.temperature.toFixed(1)}
-            </label>
-            <div className="flex items-center gap-2 h-7">
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={config.temperature}
-                onChange={(e) =>
-                  onChange({ ...config, temperature: parseFloat(e.target.value) })
-                }
-                className="w-full h-1 appearance-none rounded-full bg-bg-raised accent-[#00d4ff] cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#00d4ff]"
-              />
-            </div>
-            <div className="flex justify-between text-[10px] text-text-tertiary">
-              <span>Precise</span>
-              <span>Creative</span>
+        <div className="flex flex-col gap-1.5">
+          <label
+            style={{
+              fontSize: '12.5px',
+              fontWeight: 600,
+              color: 'var(--color-text-secondary)',
+            }}
+          >
+            Model
+          </label>
+          <div className="relative">
+            <select
+              value={config.model}
+              onChange={(e) => onChange({ ...config, model: e.target.value as ClaudeModel })}
+              className="w-full appearance-none pr-8 focus:outline-none transition-all duration-200"
+              style={{
+                height: '40px',
+                padding: '0 12px',
+                fontSize: '13px',
+                color: 'var(--color-text-primary)',
+                background: 'var(--glass-bg)',
+                border: '1px solid var(--color-border-default)',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(212, 146, 78, 0.5)';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(212, 146, 78, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-border-default)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              {MODEL_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.models.map((key) => (
+                    <option key={key} value={key}>
+                      {CLAUDE_MODELS[key].label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <div
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
+              style={{ color: 'var(--color-text-tertiary)' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
           </div>
         </div>
+
+        {currentModel && (
+          <div
+            className="flex items-center gap-3"
+            style={{ fontSize: '10px', color: 'var(--color-text-disabled)', paddingLeft: '2px' }}
+          >
+            <span>Context: {(currentModel.contextWindow / 1000).toFixed(0)}K tokens</span>
+            <span style={{ color: 'var(--color-border-subtle)' }}>·</span>
+            <span>Input: ${currentModel.costPer1kInput}/1K</span>
+            <span style={{ color: 'var(--color-border-subtle)' }}>·</span>
+            <span>Output: ${currentModel.costPer1kOutput}/1K</span>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from '@tanstack/react-router';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Copy, Check } from 'lucide-react';
 import { useProject, useUpdateProject, useDeleteProject } from '../../api/hooks/use-projects';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
@@ -18,6 +18,15 @@ export function ProjectSettingsPage() {
   const [description, setDescription] = useState('');
   const [workspacePath, setWorkspacePath] = useState('');
   const [status, setStatus] = useState<ProjectStatus>('active');
+  const [copied, setCopied] = useState<'id' | 'url' | null>(null);
+
+  const mcpUrl = `http://localhost:3001/mcp/projects/${projectId}`;
+
+  const copyToClipboard = (text: string, type: 'id' | 'url') => {
+    navigator.clipboard.writeText(text);
+    setCopied(type);
+    setTimeout(() => setCopied(null), 2000);
+  };
 
   useEffect(() => {
     if (project) {
@@ -48,7 +57,7 @@ export function ProjectSettingsPage() {
   };
 
   return (
-    <div className="max-w-md">
+    <div style={{ maxWidth: '440px', paddingLeft: '48px' }}>
       <span className="text-[10px] font-medium uppercase text-text-tertiary tracking-[0.08em]">
         Project Settings
       </span>
@@ -85,16 +94,102 @@ export function ProjectSettingsPage() {
         </Select>
 
         <div className="flex items-center justify-end pt-3 border-t border-border-default">
-          <Button
+          <button
             type="submit"
-            variant="primary"
-            size="sm"
-            loading={updateProject.isPending}
+            disabled={updateProject.isPending}
+            className="flex items-center gap-2 text-[13.5px] font-semibold whitespace-nowrap transition-all duration-200 hover:bg-white/90 disabled:opacity-60"
+            style={{
+              background: 'white',
+              color: '#0a0a0a',
+              height: '40px',
+              padding: '0 24px',
+            }}
           >
-            Save Changes
-          </Button>
+            {updateProject.isPending ? 'Saving…' : 'Save Changes'}
+          </button>
         </div>
       </form>
+
+      <div className="h-px bg-bg-raised my-6" />
+
+      {/* MCP Integration */}
+      <div style={{ marginBottom: '24px' }}>
+        <span
+          style={{
+            fontSize: '10px',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: 'var(--color-text-disabled)',
+          }}
+        >
+          MCP Integration
+        </span>
+
+        <div className="flex flex-col gap-2 mt-3">
+          {/* Project ID */}
+          <div
+            className="flex items-center justify-between gap-3"
+            style={{
+              padding: '10px 12px',
+              background: 'var(--color-bg-card)',
+              border: '1px solid var(--color-border-subtle)',
+            }}
+          >
+            <div className="min-w-0">
+              <div style={{ fontSize: '10px', color: 'var(--color-text-disabled)', marginBottom: '2px' }}>
+                Project ID
+              </div>
+              <div
+                className="truncate"
+                style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}
+              >
+                {projectId}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => copyToClipboard(projectId, 'id')}
+              className="shrink-0 transition-colors duration-200"
+              style={{ color: copied === 'id' ? 'var(--color-accent)' : 'var(--color-text-disabled)' }}
+              title="Kopyala"
+            >
+              {copied === 'id' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+
+          {/* MCP URL */}
+          <div
+            className="flex items-center justify-between gap-3"
+            style={{
+              padding: '10px 12px',
+              background: 'var(--color-bg-card)',
+              border: '1px solid var(--color-border-subtle)',
+            }}
+          >
+            <div className="min-w-0">
+              <div style={{ fontSize: '10px', color: 'var(--color-text-disabled)', marginBottom: '2px' }}>
+                MCP URL (VS Code / Cursor)
+              </div>
+              <div
+                className="truncate"
+                style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}
+              >
+                {mcpUrl}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => copyToClipboard(mcpUrl, 'url')}
+              className="shrink-0 transition-colors duration-200"
+              style={{ color: copied === 'url' ? 'var(--color-accent)' : 'var(--color-text-disabled)' }}
+              title="Kopyala"
+            >
+              {copied === 'url' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div className="h-px bg-bg-raised my-6" />
 

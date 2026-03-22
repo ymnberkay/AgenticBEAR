@@ -46,15 +46,15 @@ export function StreamingOutput({ className }: StreamingOutputProps) {
         </span>
         {isStreaming && (
           <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#00d4ff] animate-pulse" />
-            <span className="text-[10px] text-[#00d4ff] font-medium">Streaming</span>
+            <span className="h-1.5 w-1.5 rounded-full bg-[#d4924e] animate-pulse" />
+            <span className="text-[10px] text-[#d4924e] font-medium">Streaming</span>
           </span>
         )}
       </div>
       <pre className="p-4 font-mono text-[12px] leading-relaxed text-text-secondary whitespace-pre-wrap break-words overflow-x-hidden">
         {output}
         {isStreaming && (
-          <span className="inline-block w-[6px] h-[14px] bg-[#00d4ff]/70 animate-cursor-blink ml-px align-middle" />
+          <span className="inline-block w-[6px] h-[14px] bg-[#d4924e]/70 animate-cursor-blink ml-px align-middle" />
         )}
       </pre>
     </div>

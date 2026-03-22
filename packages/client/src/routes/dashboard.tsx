@@ -18,8 +18,12 @@ export function DashboardPage() {
     <div className="h-full flex flex-col" style={{ background: 'var(--color-bg-base)' }}>
       {/* Top bar */}
       <div
-        className="flex items-center justify-between px-6 sm:px-10 lg:px-12 py-5 sm:py-6 gap-4 animate-fade-in-up"
-        style={{ borderBottom: '1px solid var(--color-border-subtle)', animationDelay: '30ms' }}
+        className="flex items-center justify-between gap-4 animate-fade-in-up"
+        style={{
+          borderBottom: '1px solid var(--color-border-subtle)',
+          animationDelay: '30ms',
+          padding: '20px 48px',
+        }}
       >
         <div className="flex items-center gap-3 min-w-0">
           <div
@@ -43,14 +47,17 @@ export function DashboardPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Search hint */}
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Search */}
           <button
             onClick={() => openModal('command-palette')}
-            className="hidden sm:flex items-center gap-2 h-[40px] px-3.5 text-[13px] text-text-tertiary transition-all duration-200"
+            className="flex items-center gap-2.5 text-[13px] text-text-tertiary transition-all duration-200"
             style={{
               background: 'var(--glass-bg)',
               border: '1px solid var(--glass-border)',
+              height: '40px',
+              padding: '0 20px',
+              minWidth: '130px',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
@@ -63,15 +70,18 @@ export function DashboardPage() {
           >
             <Search className="h-3.5 w-3.5 shrink-0" />
             <span>Search</span>
-            <kbd className="text-[10px] font-mono px-1.5 py-0.5 ml-2" style={{ background: 'rgba(20, 43, 63, 0.85)' }}>
-              ⌘K
-            </kbd>
           </button>
 
           {/* New Project button */}
           <button
             onClick={() => openModal('create-project')}
-            className="flex items-center gap-2 h-[40px] bg-white text-[#0a0a0a] text-[13.5px] font-semibold px-5 whitespace-nowrap transition-all duration-200 hover:bg-white/90"
+            className="flex items-center gap-2 text-[13.5px] font-semibold whitespace-nowrap transition-all duration-200 hover:bg-white/90"
+            style={{
+              background: 'white',
+              color: '#0a0a0a',
+              height: '40px',
+              padding: '0 24px',
+            }}
           >
             <Plus className="h-4 w-4 shrink-0" />
             New Project
@@ -80,7 +90,10 @@ export function DashboardPage() {
       </div>
 
       {/* Project grid */}
-      <div className="flex-1 overflow-y-auto px-6 sm:px-10 lg:px-12 py-8 animate-fade-in-up" style={{ animationDelay: '90ms' }}>
+      <div
+        className="flex-1 overflow-y-auto animate-fade-in-up"
+        style={{ padding: '32px 48px', animationDelay: '90ms' }}
+      >
         <ProjectList
           projects={projects}
           isLoading={isLoading}
@@ -89,11 +102,13 @@ export function DashboardPage() {
       </div>
 
       {/* Bottom-left settings button */}
-      <div className="fixed bottom-6 left-6 z-10 animate-fade-in-up" style={{ animationDelay: '160ms' }}>
+      <div className="fixed z-10 animate-fade-in-up" style={{ bottom: '28px', left: '48px', animationDelay: '160ms' }}>
         <button
           onClick={() => navigate({ to: '/settings' })}
-          className="flex items-center gap-2 h-[40px] px-3.5 text-text-tertiary text-[13px] font-medium transition-all duration-200"
+          className="flex items-center gap-2.5 text-text-tertiary text-[13px] font-medium transition-all duration-200"
           style={{
+            height: '40px',
+            padding: '0 20px',
             background: 'var(--glass-bg)',
             border: '1px solid var(--glass-border)',
             backdropFilter: 'blur(12px)',

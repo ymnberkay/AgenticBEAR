@@ -47,38 +47,45 @@ export function Dialog({
     <AnimatePresence>
       {open && (
         <>
+          {/* Backdrop */}
           <motion.div
             className="fixed inset-0 z-50"
-            style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)' }}
+            style={{ background: 'rgba(5, 4, 3, 0.8)', backdropFilter: 'blur(8px)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             onClick={onClose}
           />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Container — clicking empty area closes the dialog */}
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            onClick={onClose}
+          >
             <motion.div
-              className={cn('w-full shadow-2xl overflow-hidden', className)}
+              className={cn('w-full flex flex-col', className)}
               style={{
                 maxWidth,
+                maxHeight: '90vh',
                 background: 'var(--color-bg-surface)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                boxShadow: '0 24px 80px rgba(0, 0, 0, 0.6)',
+                border: '1px solid var(--color-border-default)',
+                boxShadow: '0 24px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(212,146,78,0.06)',
               }}
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}
+              transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
               onClick={(e) => e.stopPropagation()}
             >
+              {/* Header (optional) */}
               {(title || description) && (
                 <div
-                  className="flex items-start justify-between px-6 py-5"
-                  style={{ borderBottom: '1px solid var(--color-border-subtle)' }}
+                  className="flex items-start justify-between shrink-0"
+                  style={{ padding: '20px 40px', borderBottom: '1px solid var(--color-border-subtle)' }}
                 >
                   <div className="min-w-0 flex-1">
                     {title && (
-                      <h2 className="text-[16px] font-bold text-text-primary">
+                      <h2 className="text-[16px] font-bold text-text-primary tracking-tight">
                         {title}
                       </h2>
                     )}
@@ -96,7 +103,13 @@ export function Dialog({
                   </button>
                 </div>
               )}
-              <div className="px-6 py-5">{children}</div>
+              {/* Scrollable content area */}
+              <div
+                className="overflow-y-auto flex-1 min-h-0"
+                style={{ padding: '24px 40px' }}
+              >
+                {children}
+              </div>
             </motion.div>
           </div>
         </>

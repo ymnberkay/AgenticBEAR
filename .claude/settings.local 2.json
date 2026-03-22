@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc -b packages/server)",
+      "Bash(npx tsc -b packages/client)"
+    ]
+  }
+}

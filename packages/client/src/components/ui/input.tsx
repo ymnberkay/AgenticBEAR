@@ -37,10 +37,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             border: `1px solid ${error ? 'rgba(239, 68, 68, 0.5)' : 'var(--color-border-default)'}`,
           }}
           onFocus={(e) => {
-            e.currentTarget.style.borderColor = error ? 'rgba(239, 68, 68, 0.7)' : 'rgba(0, 212, 255, 0.5)';
+            e.currentTarget.style.borderColor = error ? 'rgba(239, 68, 68, 0.7)' : 'rgba(212, 146, 78, 0.5)';
             e.currentTarget.style.boxShadow = error
               ? '0 0 0 3px rgba(239, 68, 68, 0.1)'
-              : '0 0 0 3px rgba(0, 212, 255, 0.1)';
+              : '0 0 0 3px rgba(212, 146, 78, 0.1)';
             props.onFocus?.(e);
           }}
           onBlur={(e) => {

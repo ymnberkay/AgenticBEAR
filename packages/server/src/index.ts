@@ -10,6 +10,7 @@ import { templateRoutes } from './routes/templates.js';
 import { settingsRoutes } from './routes/settings.js';
 import { workspaceRoutes } from './routes/workspace.js';
 import { eventRoutes } from './routes/events.js';
+import { mcpRoutes } from './mcp/transport.js';
 import { templateRepo } from './db/repositories/template.repo.js';
 import { BUILT_IN_TEMPLATES } from './seed-templates.js';
 import { logger } from './utils/logger.js';
@@ -39,6 +40,7 @@ async function main() {
   await app.register(settingsRoutes);
   await app.register(workspaceRoutes);
   await app.register(eventRoutes);
+  await app.register(mcpRoutes);
 
   // Health check
   app.get('/api/health', async () => {

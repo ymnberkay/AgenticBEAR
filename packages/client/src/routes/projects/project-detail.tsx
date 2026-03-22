@@ -49,7 +49,7 @@ export function ProjectDetailPage() {
   return (
     <div className="h-full flex">
       <ProjectNav project={project} />
-      <div className="flex-1 overflow-y-auto p-8" style={{ background: 'var(--color-bg-base)' }}>
+      <div className="flex-1 overflow-y-auto px-10 py-8" style={{ background: 'var(--color-bg-base)' }}>
         <Outlet />
       </div>
     </div>

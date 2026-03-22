@@ -46,12 +46,12 @@ export function ProjectList({ projects, isLoading, onCreateProject }: ProjectLis
         <div
           className="relative flex h-20 w-20 items-center justify-center mb-6"
           style={{
-            background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(0, 230, 168, 0.1))',
-            border: '1px solid rgba(0, 212, 255, 0.2)',
+            background: 'linear-gradient(135deg, rgba(212, 146, 78, 0.1), rgba(107, 191, 160, 0.1))',
+            border: '1px solid rgba(212, 146, 78, 0.2)',
           }}
         >
-          <FolderPlus className="h-8 w-8 text-[#00d4ff]" />
-          <Sparkles className="absolute -top-1 -right-1 h-4 w-4 text-[#40d9ff] animate-float" />
+          <FolderPlus className="h-8 w-8 text-[#d4924e]" />
+          <Sparkles className="absolute -top-1 -right-1 h-4 w-4 text-[#d4924e] animate-float" />
         </div>
         <h3 className="text-[18px] font-semibold text-text-primary mb-2">
           No projects yet

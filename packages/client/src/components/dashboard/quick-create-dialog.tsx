@@ -69,8 +69,8 @@ export function QuickCreateDialog({ open, onClose }: QuickCreateDialogProps) {
               border: '1px solid var(--color-border-default)',
             }}
             onFocus={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(0, 212, 255, 0.5)';
-              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 212, 255, 0.1)';
+              e.currentTarget.style.borderColor = 'rgba(212, 146, 78, 0.5)';
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(212, 146, 78, 0.1)';
             }}
             onBlur={(e) => {
               e.currentTarget.style.borderColor = 'var(--color-border-default)';
