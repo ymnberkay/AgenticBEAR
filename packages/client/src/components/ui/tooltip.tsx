@@ -49,7 +49,7 @@ export function Tooltip({
       {visible && (
         <div
           className={cn(
-            'absolute z-[60] rounded bg-[#252526] border border-[#333333] px-2 py-1 text-[10px] text-[#cccccc] whitespace-nowrap pointer-events-none shadow-md',
+            'absolute z-[60] bg-bg-raised border border-border-default px-2 py-1 text-[10px] text-text-primary whitespace-nowrap pointer-events-none shadow-md',
             positionStyles[side],
           )}
         >

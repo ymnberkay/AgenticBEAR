@@ -45,7 +45,7 @@ export function TokenUsageChart({ steps, agents }: TokenUsageChartProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <h4 className="text-[11px] font-semibold uppercase text-[#5a5a6e] tracking-wider">Token Usage by Agent</h4>
+      <h4 className="text-[11px] font-semibold uppercase text-text-tertiary tracking-wider">Token Usage by Agent</h4>
       <div className="flex flex-col gap-4">
         {entries.map((entry) => {
           const total = entry.inputTokens + entry.outputTokens;
@@ -55,12 +55,12 @@ export function TokenUsageChart({ steps, agents }: TokenUsageChartProps) {
           return (
             <div key={entry.agentId} className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-[11px] min-w-0">
-                <span className="text-[#8b8b9e] truncate mr-2">{entry.name}</span>
-                <span className="text-[#5a5a6e] shrink-0 whitespace-nowrap">{formatTokenCount(total)}</span>
+                <span className="text-text-secondary truncate mr-2">{entry.name}</span>
+                <span className="text-text-tertiary shrink-0 whitespace-nowrap">{formatTokenCount(total)}</span>
               </div>
               <div
                 className="flex h-1.5 rounded-full overflow-hidden"
-                style={{ background: 'rgba(255, 255, 255, 0.04)' }}
+                style={{ background: 'var(--color-bg-hover)' }}
               >
                 <div
                   className="h-full rounded-l-full transition-all duration-200"
@@ -80,7 +80,7 @@ export function TokenUsageChart({ steps, agents }: TokenUsageChartProps) {
                   title={`Output: ${formatTokenCount(entry.outputTokens)}`}
                 />
               </div>
-              <div className="flex gap-3 text-[10px] text-[#5a5a6e]">
+              <div className="flex gap-3 text-[10px] text-text-tertiary">
                 <span>In: {formatTokenCount(entry.inputTokens)}</span>
                 <span>Out: {formatTokenCount(entry.outputTokens)}</span>
               </div>

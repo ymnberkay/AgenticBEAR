@@ -51,16 +51,16 @@ export function RunControls({ run }: RunControlsProps) {
 
   return (
     <div
-      className="flex items-center justify-between rounded-xl px-5 py-4 transition-all duration-200 flex-wrap gap-3"
+      className="flex items-center justify-between px-5 py-4 transition-all duration-200 flex-wrap gap-3"
       style={{
-        background: 'rgba(255, 255, 255, 0.03)',
-        border: '1px solid rgba(255, 255, 255, 0.07)',
+        background: 'var(--color-bg-card)',
+        border: '1px solid var(--color-border-default)',
       }}
     >
       <div className="flex items-center gap-2.5 min-w-0">
         <Badge variant={status.variant}>{status.label}</Badge>
         {(isRunning || isFinished) && elapsed > 0 && (
-          <div className="flex items-center gap-1 text-[11px] text-[#8b8b9e] whitespace-nowrap">
+          <div className="flex items-center gap-1 text-[11px] text-text-secondary whitespace-nowrap">
             <Clock className="h-3 w-3 shrink-0" />
             {formatDuration(elapsed)}
           </div>

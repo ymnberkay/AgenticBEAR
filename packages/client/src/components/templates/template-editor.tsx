@@ -141,7 +141,7 @@ export function TemplateEditor({ template, onClose }: TemplateEditorProps) {
                 key={key}
                 type="button"
                 onClick={() => setColor(val)}
-                className="h-5 w-5 rounded-[3px] border-2 transition-all duration-150"
+                className="h-5 w-5 border-2 transition-all duration-150"
                 style={{
                   backgroundColor: val,
                   borderColor: color === val ? 'white' : 'transparent',

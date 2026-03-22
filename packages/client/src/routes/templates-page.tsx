@@ -26,8 +26,8 @@ export function TemplatesPage() {
     <div className="max-w-5xl mx-auto px-6 py-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-[15px] font-semibold text-[#cccccc] tracking-tight">Templates</h1>
-          <p className="text-[12px] text-[#5a5a5a] mt-0.5">
+          <h1 className="text-[15px] font-semibold text-text-primary tracking-tight">Templates</h1>
+          <p className="text-[12px] text-text-tertiary mt-0.5">
             Reusable prompt templates for your agents
           </p>
         </div>

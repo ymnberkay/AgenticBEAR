@@ -44,7 +44,7 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
         {/* Header */}
         <div className="flex items-center gap-3 min-w-0">
           <div
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-200"
+            className="flex h-9 w-9 shrink-0 items-center justify-center transition-colors duration-200"
             style={{
               backgroundColor: `${agent.color}15`,
               color: agent.color,
@@ -53,19 +53,19 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
             <Icon className="h-4 w-4" />
           </div>
           <div className="flex-1 min-w-0 overflow-hidden">
-            <div className="text-[13px] font-semibold text-[#e2e2e8] truncate">
+            <div className="text-[13px] font-semibold text-text-primary truncate">
               {agent.name}
             </div>
             <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
               <Badge color={agent.color}>{agent.role}</Badge>
-              <span className="text-[10px] text-[#5a5a6e] truncate">{modelLabel}</span>
+              <span className="text-[10px] text-text-tertiary truncate">{modelLabel}</span>
             </div>
           </div>
         </div>
 
         {/* Prompt preview */}
         {agent.systemPrompt && (
-          <p className="text-[11px] text-[#5a5a6e] line-clamp-2 font-mono leading-relaxed break-words">
+          <p className="text-[11px] text-text-tertiary line-clamp-2 font-mono leading-relaxed break-words">
             {agent.systemPrompt}
           </p>
         )}

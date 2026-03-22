@@ -17,23 +17,26 @@ export function DashboardPage() {
   return (
     <div className="h-full flex flex-col" style={{ background: 'var(--color-bg-base)' }}>
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 sm:px-10 lg:px-12 py-5 sm:py-6 gap-4" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+      <div
+        className="flex items-center justify-between px-6 sm:px-10 lg:px-12 py-5 sm:py-6 gap-4 animate-fade-in-up"
+        style={{ borderBottom: '1px solid var(--color-border-subtle)', animationDelay: '30ms' }}
+      >
         <div className="flex items-center gap-3 min-w-0">
           <div
-            className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
+            className="h-9 w-9 flex items-center justify-center shrink-0"
             style={{
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              boxShadow: '0 2px 10px rgba(99, 102, 241, 0.3)',
+              background: 'rgba(255,255,255,0.07)',
+              border: '1px solid rgba(255,255,255,0.10)',
             }}
           >
-            <Command className="h-4.5 w-4.5 text-white" />
+            <Command className="h-4.5 w-4.5 text-text-secondary" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-[18px] font-bold text-[#e2e2e8] tracking-tight truncate">
+            <h1 className="text-[18px] font-bold text-text-primary tracking-tight truncate">
               Projects
             </h1>
             {!isLoading && (
-              <p className="text-[12px] text-[#5a5a6e] mt-0.5">
+              <p className="text-[12px] text-text-tertiary mt-0.5">
                 {projectCount} {projectCount === 1 ? 'project' : 'projects'}
               </p>
             )}
@@ -44,23 +47,23 @@ export function DashboardPage() {
           {/* Search hint */}
           <button
             onClick={() => openModal('command-palette')}
-            className="hidden sm:flex items-center gap-2 h-[38px] rounded-lg px-3.5 text-[13px] text-[#5a5a6e] transition-all duration-200"
+            className="hidden sm:flex items-center gap-2 h-[40px] px-3.5 text-[13px] text-text-tertiary transition-all duration-200"
             style={{
-              background: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid rgba(255, 255, 255, 0.07)',
+              background: 'var(--glass-bg)',
+              border: '1px solid var(--glass-border)',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
+              e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
+              e.currentTarget.style.background = 'var(--glass-bg-hover)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.07)';
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+              e.currentTarget.style.borderColor = 'var(--glass-border)';
+              e.currentTarget.style.background = 'var(--glass-bg)';
             }}
           >
             <Search className="h-3.5 w-3.5 shrink-0" />
             <span>Search</span>
-            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded ml-2" style={{ background: 'rgba(255, 255, 255, 0.06)' }}>
+            <kbd className="text-[10px] font-mono px-1.5 py-0.5 ml-2" style={{ background: 'rgba(20, 43, 63, 0.85)' }}>
               ⌘K
             </kbd>
           </button>
@@ -68,17 +71,7 @@ export function DashboardPage() {
           {/* New Project button */}
           <button
             onClick={() => openModal('create-project')}
-            className="flex items-center gap-2 h-[38px] rounded-lg text-white text-[13.5px] font-medium px-5 whitespace-nowrap transition-all duration-200 hover:-translate-y-0.5"
-            style={{
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              boxShadow: '0 2px 12px rgba(99, 102, 241, 0.25)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = '0 4px 20px rgba(99, 102, 241, 0.35)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = '0 2px 12px rgba(99, 102, 241, 0.25)';
-            }}
+            className="flex items-center gap-2 h-[40px] bg-white text-[#0a0a0a] text-[13.5px] font-semibold px-5 whitespace-nowrap transition-all duration-200 hover:bg-white/90"
           >
             <Plus className="h-4 w-4 shrink-0" />
             New Project
@@ -87,7 +80,7 @@ export function DashboardPage() {
       </div>
 
       {/* Project grid */}
-      <div className="flex-1 overflow-y-auto px-6 sm:px-10 lg:px-12 py-8">
+      <div className="flex-1 overflow-y-auto px-6 sm:px-10 lg:px-12 py-8 animate-fade-in-up" style={{ animationDelay: '90ms' }}>
         <ProjectList
           projects={projects}
           isLoading={isLoading}
@@ -96,26 +89,26 @@ export function DashboardPage() {
       </div>
 
       {/* Bottom-left settings button */}
-      <div className="fixed bottom-6 left-6 z-10">
+      <div className="fixed bottom-6 left-6 z-10 animate-fade-in-up" style={{ animationDelay: '160ms' }}>
         <button
           onClick={() => navigate({ to: '/settings' })}
-          className="flex items-center gap-2 h-[38px] rounded-lg px-3.5 text-[#5a5a6e] text-[13px] font-medium transition-all duration-200"
+          className="flex items-center gap-2 h-[40px] px-3.5 text-text-tertiary text-[13px] font-medium transition-all duration-200"
           style={{
-            background: 'rgba(255, 255, 255, 0.04)',
-            border: '1px solid rgba(255, 255, 255, 0.07)',
+            background: 'var(--glass-bg)',
+            border: '1px solid var(--glass-border)',
             backdropFilter: 'blur(12px)',
           }}
           onMouseEnter={(e) => {
             const el = e.currentTarget;
-            el.style.borderColor = 'rgba(255, 255, 255, 0.14)';
-            el.style.background = 'rgba(255, 255, 255, 0.07)';
-            el.style.color = '#e2e2e8';
+            el.style.borderColor = 'var(--glass-border-hover)';
+            el.style.background = 'var(--glass-bg-hover)';
+            el.style.color = 'var(--color-text-primary)';
           }}
           onMouseLeave={(e) => {
             const el = e.currentTarget;
-            el.style.borderColor = 'rgba(255, 255, 255, 0.07)';
-            el.style.background = 'rgba(255, 255, 255, 0.04)';
-            el.style.color = '#5a5a6e';
+            el.style.borderColor = 'var(--glass-border)';
+            el.style.background = 'var(--glass-bg)';
+            el.style.color = 'var(--color-text-tertiary)';
           }}
           title="Global Settings"
         >

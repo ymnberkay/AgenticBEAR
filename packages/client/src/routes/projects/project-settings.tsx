@@ -49,7 +49,7 @@ export function ProjectSettingsPage() {
 
   return (
     <div className="max-w-md">
-      <span className="text-[10px] font-medium uppercase text-[#5a5a5a] tracking-[0.08em]">
+      <span className="text-[10px] font-medium uppercase text-text-tertiary tracking-[0.08em]">
         Project Settings
       </span>
 
@@ -84,7 +84,7 @@ export function ProjectSettingsPage() {
           <option value="archived">Archived</option>
         </Select>
 
-        <div className="flex items-center justify-end pt-3 border-t border-[#333333]">
+        <div className="flex items-center justify-end pt-3 border-t border-border-default">
           <Button
             type="submit"
             variant="primary"
@@ -96,12 +96,12 @@ export function ProjectSettingsPage() {
         </div>
       </form>
 
-      <div className="h-px bg-[#2d2d2d] my-6" />
+      <div className="h-px bg-bg-raised my-6" />
 
-      <div className="flex items-center justify-between rounded border border-error/15 bg-error/5 px-4 py-3">
+      <div className="flex items-center justify-between border border-error/15 bg-error/5 px-4 py-3">
         <div>
           <h4 className="text-[12px] font-medium text-error">Danger Zone</h4>
-          <p className="text-[11px] text-[#5a5a5a] mt-0.5">
+          <p className="text-[11px] text-text-tertiary mt-0.5">
             Permanently delete this project and all its data.
           </p>
         </div>

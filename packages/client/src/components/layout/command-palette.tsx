@@ -139,11 +139,11 @@ export function CommandPalette() {
           />
           <div className="fixed inset-0 z-[70] flex items-start justify-center pt-[16vh]">
             <motion.div
-              className="w-full max-w-[520px] rounded-xl overflow-hidden"
+              className="w-full max-w-[520px] overflow-hidden"
               style={{
                 background: 'var(--color-bg-surface)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
-                boxShadow: '0 24px 80px rgba(0, 0, 0, 0.6), 0 0 40px rgba(99, 102, 241, 0.05)',
+                boxShadow: '0 24px 80px rgba(0, 0, 0, 0.6), 0 0 40px rgba(0, 212, 255, 0.06)',
               }}
               initial={{ opacity: 0, scale: 0.97, y: -8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -153,23 +153,23 @@ export function CommandPalette() {
               {/* Search */}
               <div
                 className="flex items-center gap-3 px-4 py-3.5"
-                style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.07)' }}
+                style={{ borderBottom: '1px solid var(--color-border-subtle)' }}
               >
-                <Search className="h-4 w-4 text-[#5a5a6e] shrink-0" />
+                <Search className="h-4 w-4 text-text-tertiary shrink-0" />
                 <input
                   ref={inputRef}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Search commands, projects..."
-                  className="w-full bg-transparent text-[14px] text-[#e2e2e8] placeholder:text-[#3a3a4a] outline-none"
+                  className="w-full bg-transparent text-[14px] text-text-primary placeholder:text-text-disabled outline-none"
                 />
               </div>
 
               {/* Results */}
               <div className="max-h-[320px] overflow-y-auto py-1.5">
                 {filtered.length === 0 && (
-                  <div className="px-4 py-10 text-center text-[13px] text-[#3a3a4a]">
+                  <div className="px-4 py-10 text-center text-[13px] text-text-disabled">
                     No results found
                   </div>
                 )}
@@ -179,15 +179,15 @@ export function CommandPalette() {
                     onClick={item.action}
                     onMouseEnter={() => setSelectedIndex(i)}
                     className={cn(
-                      'flex w-full items-center gap-3 px-4 py-2.5 text-left transition-all duration-150 mx-1.5 rounded-xl',
+                      'flex w-full items-center gap-3 px-4 py-2.5 text-left transition-all duration-150 mx-1.5',
                       i === selectedIndex
-                        ? 'text-[#e2e2e8]'
-                        : 'text-[#5a5a6e]',
+                        ? 'text-text-primary'
+                        : 'text-text-tertiary',
                     )}
                     style={
                       i === selectedIndex
                         ? {
-                            background: 'rgba(255, 255, 255, 0.05)',
+                            background: 'var(--color-bg-hover)',
                             width: 'calc(100% - 12px)',
                           }
                         : { width: 'calc(100% - 12px)' }
@@ -196,7 +196,7 @@ export function CommandPalette() {
                     <span
                       className={cn(
                         'shrink-0 transition-colors duration-150',
-                        i === selectedIndex ? 'text-[#a78bfa]' : 'text-[#5a5a6e]',
+                        i === selectedIndex ? 'text-[#40d9ff]' : 'text-text-tertiary',
                       )}
                     >
                       {item.icon}
@@ -204,16 +204,16 @@ export function CommandPalette() {
                     <div className="flex-1 min-w-0">
                       <div className="text-[13px] font-medium truncate">{item.label}</div>
                       {item.description && (
-                        <div className="text-[11px] text-[#3a3a4a] truncate mt-0.5">
+                        <div className="text-[11px] text-text-disabled truncate mt-0.5">
                           {item.description}
                         </div>
                       )}
                     </div>
                     <span
-                      className="text-[10px] font-medium px-2 py-0.5 rounded-md shrink-0"
+                      className="text-[10px] font-medium px-2 py-0.5 shrink-0"
                       style={{
-                        background: 'rgba(255, 255, 255, 0.04)',
-                        color: '#5a5a6e',
+                        background: 'var(--color-bg-hover)',
+                        color: 'var(--color-text-tertiary)',
                       }}
                     >
                       {item.category}
@@ -224,19 +224,19 @@ export function CommandPalette() {
 
               {/* Footer */}
               <div
-                className="flex items-center gap-4 px-4 py-2.5 text-[10px] text-[#3a3a4a]"
-                style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}
+                className="flex items-center gap-4 px-4 py-2.5 text-[10px] text-text-disabled"
+                style={{ borderTop: '1px solid var(--color-border-subtle)' }}
               >
                 <span className="flex items-center gap-1">
-                  <kbd className="font-mono px-1 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)' }}>{'\u2191\u2193'}</kbd>
+                  <kbd className="font-mono px-1 py-0.5" style={{ background: 'var(--color-bg-hover)' }}>{"\u2191\u2193"}</kbd>
                   navigate
                 </span>
                 <span className="flex items-center gap-1">
-                  <kbd className="font-mono px-1 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)' }}>{'\u21B5'}</kbd>
+                  <kbd className="font-mono px-1 py-0.5" style={{ background: 'var(--color-bg-hover)' }}>{"\u21B5"}</kbd>
                   select
                 </span>
                 <span className="flex items-center gap-1">
-                  <kbd className="font-mono px-1 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)' }}>esc</kbd>
+                  <kbd className="font-mono px-1 py-0.5" style={{ background: 'var(--color-bg-hover)' }}>esc</kbd>
                   close
                 </span>
               </div>

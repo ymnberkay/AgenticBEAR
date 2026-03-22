@@ -2,45 +2,45 @@
 @import "./tokens.css";
 
 @theme {
-  --color-bg-base: #0a0a0f;
-  --color-bg-surface: #12121a;
-  --color-bg-raised: #1a1a25;
-  --color-bg-overlay: #222230;
-  --color-bg-muted: #16161f;
-  --color-bg-inset: #07070b;
+  --color-bg-base: #070d14;
+  --color-bg-surface: #0d1826;
+  --color-bg-raised: #122336;
+  --color-bg-overlay: #1a3046;
+  --color-bg-muted: #101f30;
+  --color-bg-inset: #050a10;
 
-  --color-border-default: rgba(255, 255, 255, 0.08);
-  --color-border-subtle: rgba(255, 255, 255, 0.05);
-  --color-border-focus: #6366f1;
+  --color-border-default: rgba(111, 168, 211, 0.26);
+  --color-border-subtle: rgba(111, 168, 211, 0.15);
+  --color-border-focus: #00d4ff;
 
-  --color-text-primary: #e2e2e8;
-  --color-text-secondary: #8b8b9e;
-  --color-text-tertiary: #5a5a6e;
-  --color-text-disabled: #3a3a4a;
+  --color-text-primary: #e7f5ff;
+  --color-text-secondary: #9fb5ca;
+  --color-text-tertiary: #5f7891;
+  --color-text-disabled: #355067;
 
-  --color-accent: #6366f1;
-  --color-accent-hover: #7c7ff7;
-  --color-accent-muted: #4f46e5;
-  --color-accent-subtle: rgba(99, 102, 241, 0.12);
+  --color-accent: #00d4ff;
+  --color-accent-hover: #37e8ff;
+  --color-accent-muted: #00b89a;
+  --color-accent-subtle: rgba(0, 212, 255, 0.14);
 
-  --color-success: #10b981;
+  --color-success: #00d084;
   --color-success-subtle: rgba(16, 185, 129, 0.12);
-  --color-warning: #f59e0b;
-  --color-warning-subtle: rgba(245, 158, 11, 0.12);
+  --color-warning: #ff9f1c;
+  --color-warning-subtle: rgba(255, 159, 28, 0.12);
   --color-error: #ef4444;
   --color-error-subtle: rgba(239, 68, 68, 0.12);
-  --color-info: #6366f1;
-  --color-info-subtle: rgba(99, 102, 241, 0.12);
+  --color-info: #00d4ff;
+  --color-info-subtle: rgba(0, 212, 255, 0.12);
 
-  --color-agent-orchestrator: #a78bfa;
-  --color-agent-backend: #22d3ee;
-  --color-agent-frontend: #fb923c;
-  --color-agent-database: #60a5fa;
-  --color-agent-devops: #34d399;
-  --color-agent-qa: #f472b6;
+  --color-agent-orchestrator: #40d9ff;
+  --color-agent-backend: #56f0cd;
+  --color-agent-frontend: #ff9f1c;
+  --color-agent-database: #74b9ff;
+  --color-agent-devops: #00d084;
+  --color-agent-qa: #ff6f91;
 
-  --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-mono: 'IBM Plex Mono', 'SF Mono', 'Menlo', monospace;
+  --font-sans: 'Chakra Petch', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
 }
 
 /* ─── Reset ─── */
@@ -59,6 +59,11 @@ html {
 html, body {
   height: 100%;
   background-color: var(--color-bg-base);
+  background-image:
+    radial-gradient(900px 500px at -12% -22%, rgba(0, 212, 255, 0.16), transparent 60%),
+    radial-gradient(750px 420px at 115% -15%, rgba(255, 159, 28, 0.14), transparent 62%),
+    linear-gradient(180deg, #050b11 0%, #070d14 40%, #0a1724 100%);
+  background-attachment: fixed;
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: 14px;
@@ -68,6 +73,7 @@ html, body {
 #root {
   height: 100%;
   isolation: isolate;
+  position: relative;
 }
 
 /* ─── Scrollbar ─── */
@@ -82,7 +88,7 @@ html, body {
 
 /* ─── Selection & Focus ─── */
 ::selection {
-  background-color: rgba(99, 102, 241, 0.35);
+  background-color: rgba(0, 212, 255, 0.35);
   color: #fff;
 }
 

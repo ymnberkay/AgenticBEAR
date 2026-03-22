@@ -45,7 +45,7 @@ export function ProjectAgentsPage() {
         onConfigure={handleConfigureOrchestrator}
       />
 
-      <div className="h-px bg-[#2d2d2d]" />
+      <div className="h-px bg-bg-raised" />
 
       <AgentList
         agents={agents}

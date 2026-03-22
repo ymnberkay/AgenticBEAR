@@ -14,7 +14,7 @@ export function ProjectDetailPage() {
           className="w-[260px] shrink-0 p-4 flex flex-col gap-3"
           style={{
             background: 'var(--color-bg-nav)',
-            borderRight: '1px solid rgba(255, 255, 255, 0.06)',
+            borderRight: '1px solid var(--color-border-subtle)',
           }}
         >
           <Skeleton height={14} width={80} />
@@ -41,7 +41,7 @@ export function ProjectDetailPage() {
   if (!project) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-2" style={{ background: 'var(--color-bg-base)' }}>
-        <p className="text-[14px] text-[#5a5a6e]">Project not found</p>
+        <p className="text-[14px] text-text-tertiary">Project not found</p>
       </div>
     );
   }

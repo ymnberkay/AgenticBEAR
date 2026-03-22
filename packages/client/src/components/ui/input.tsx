@@ -16,7 +16,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="text-[12.5px] font-medium text-[#8b8b9e]"
+            className="text-[12.5px] font-medium text-text-secondary"
           >
             {label}
           </label>
@@ -25,7 +25,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           ref={ref}
           id={inputId}
           className={cn(
-            'h-[38px] w-full rounded-lg px-3 text-[13.5px] text-[#e2e2e8] placeholder:text-[#3a3a4a]',
+            'h-[38px] w-full px-3 text-[13.5px] text-text-primary placeholder:text-text-disabled',
             'transition-all duration-200',
             'focus:outline-none',
             error && 'focus:ring-error/20',
@@ -33,18 +33,18 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             className,
           )}
           style={{
-            background: 'rgba(255, 255, 255, 0.04)',
-            border: `1px solid ${error ? 'rgba(239, 68, 68, 0.5)' : 'rgba(255, 255, 255, 0.08)'}`,
+            background: 'var(--glass-bg)',
+            border: `1px solid ${error ? 'rgba(239, 68, 68, 0.5)' : 'var(--color-border-default)'}`,
           }}
           onFocus={(e) => {
-            e.currentTarget.style.borderColor = error ? 'rgba(239, 68, 68, 0.7)' : 'rgba(99, 102, 241, 0.5)';
+            e.currentTarget.style.borderColor = error ? 'rgba(239, 68, 68, 0.7)' : 'rgba(0, 212, 255, 0.5)';
             e.currentTarget.style.boxShadow = error
               ? '0 0 0 3px rgba(239, 68, 68, 0.1)'
-              : '0 0 0 3px rgba(99, 102, 241, 0.1)';
+              : '0 0 0 3px rgba(0, 212, 255, 0.1)';
             props.onFocus?.(e);
           }}
           onBlur={(e) => {
-            e.currentTarget.style.borderColor = error ? 'rgba(239, 68, 68, 0.5)' : 'rgba(255, 255, 255, 0.08)';
+            e.currentTarget.style.borderColor = error ? 'rgba(239, 68, 68, 0.5)' : 'var(--color-border-default)';
             e.currentTarget.style.boxShadow = 'none';
             props.onBlur?.(e);
           }}
@@ -54,7 +54,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <p className="text-[11.5px] text-[#ef4444] font-medium">{error}</p>
         )}
         {helperText && !error && (
-          <p className="text-[11.5px] text-[#5a5a6e]">{helperText}</p>
+          <p className="text-[11.5px] text-text-tertiary">{helperText}</p>
         )}
       </div>
     );

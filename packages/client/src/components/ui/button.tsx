@@ -26,9 +26,9 @@ const variantStyles: Record<ButtonVariant, string> = {
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: 'h-[32px] px-3.5 text-[12.5px] gap-1.5 rounded-lg',
-  md: 'h-[38px] px-5 text-[13.5px] gap-2 rounded-lg',
-  lg: 'h-[42px] px-6 text-[14px] gap-2 rounded-lg',
+  sm: 'h-[34px] px-3.5 text-[12px] leading-none gap-1.5',
+  md: 'h-[40px] px-5 text-[13px] leading-none gap-2',
+  lg: 'h-[44px] px-6 text-[14px] leading-none gap-2',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -53,7 +53,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || loading}
         className={cn(
-          'inline-flex items-center justify-center font-medium transition-all duration-200 whitespace-nowrap select-none',
+          'inline-flex items-center justify-center font-medium transition-all duration-200 whitespace-nowrap leading-none select-none overflow-hidden',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 focus-visible:ring-offset-1 focus-visible:ring-offset-bg-base',
           'disabled:opacity-35 disabled:pointer-events-none',
           variantStyles[variant],
@@ -63,8 +63,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         style={{
           ...(isPrimary
             ? {
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                boxShadow: '0 2px 10px rgba(99, 102, 241, 0.25)',
+                background: 'var(--gradient-accent)',
+                boxShadow: '0 3px 14px var(--color-accent-glow)',
               }
             : {}),
           ...style,

@@ -9,7 +9,7 @@ export function PromptEditor({ value, onChange }: PromptEditorProps) {
 
   return (
     <div>
-      <label className="text-[10px] font-medium uppercase text-[#5a5a5a] tracking-[0.08em] block mb-1.5">
+      <label className="text-[10px] font-medium uppercase text-text-tertiary tracking-[0.08em] block mb-1.5">
         System Prompt
       </label>
       <div className="relative">
@@ -18,9 +18,9 @@ export function PromptEditor({ value, onChange }: PromptEditorProps) {
           onChange={(e) => onChange(e.target.value)}
           placeholder="You are a specialist agent responsible for..."
           rows={12}
-          className="w-full rounded-md border border-[#333333] bg-[#252526] px-3 py-2 font-mono text-[12px] leading-relaxed text-[#858585] placeholder:text-[#5a5a5a] resize-y min-h-[160px] transition-colors duration-150 hover:border-[#333333] focus:outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4]/20"
+          className="w-full border border-border-default bg-bg-raised px-3 py-2 font-mono text-[12px] leading-relaxed text-text-secondary placeholder:text-text-disabled resize-y min-h-[160px] transition-colors duration-150 hover:border-border-default focus:outline-none focus:border-[#00d4ff] focus:ring-1 focus:ring-[#00d4ff]/20"
         />
-        <div className="absolute bottom-2 right-2.5 flex items-center gap-2.5 text-[10px] text-[#5a5a5a] pointer-events-none">
+        <div className="absolute bottom-2 right-2.5 flex items-center gap-2.5 text-[10px] text-text-tertiary pointer-events-none">
           <span>{wordCount} words</span>
           <span>{charCount} chars</span>
         </div>

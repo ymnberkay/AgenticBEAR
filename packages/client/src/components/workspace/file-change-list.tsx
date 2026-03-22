@@ -17,7 +17,7 @@ const opConfig = {
 export function FileChangeList({ changes, agents }: FileChangeListProps) {
   if (!changes || changes.length === 0) {
     return (
-      <div className="py-5 text-center text-[12px] text-[#5a5a5a]">
+      <div className="py-5 text-center text-[12px] text-text-disabled">
         No file changes recorded.
       </div>
     );
@@ -35,10 +35,10 @@ export function FileChangeList({ changes, agents }: FileChangeListProps) {
         return (
           <div
             key={change.id}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-[#2d2d2d] transition-colors duration-150"
+            className="flex items-center gap-2 px-2 py-1.5 hover:bg-bg-raised transition-colors duration-150"
           >
             <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: op.color }} />
-            <span className="text-[12px] font-mono text-[#858585] truncate flex-1">
+            <span className="text-[12px] font-mono text-text-secondary truncate flex-1">
               {change.filePath}
             </span>
             <Badge

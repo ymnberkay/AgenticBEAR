@@ -7,8 +7,26 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   return (
-    <div className="h-screen overflow-hidden bg-bg-base">
-      {children}
+    <div className="relative h-screen overflow-hidden bg-bg-base">
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage:
+            'radial-gradient(1200px 540px at 8% -18%, rgba(0,212,255,0.14), transparent 60%), radial-gradient(920px 520px at 110% 0%, rgba(255,159,28,0.13), transparent 62%)',
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-70"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(95,120,145,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(95,120,145,0.08) 1px, transparent 1px)',
+          backgroundSize: '44px 44px',
+          maskImage: 'radial-gradient(circle at center, black 30%, transparent 85%)',
+        }}
+      />
+      <div className="relative z-10 h-full animate-fade-in">
+        {children}
+      </div>
       <CommandPalette />
     </div>
   );

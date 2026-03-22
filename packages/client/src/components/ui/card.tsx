@@ -19,13 +19,13 @@ export function Card({
   return (
     <div
       className={cn(
-        'rounded-xl transition-all duration-200',
+        'transition-all duration-200',
         hoverable && 'hover:-translate-y-0.5 cursor-pointer',
         className,
       )}
       style={{
-        background: 'rgba(255, 255, 255, 0.03)',
-        border: '1px solid rgba(255, 255, 255, 0.07)',
+        background: 'var(--color-bg-card)',
+        border: '1px solid var(--color-border-default)',
         ...(hoverable
           ? {}
           : {}),
@@ -33,17 +33,17 @@ export function Card({
       onMouseEnter={
         hoverable
           ? (e) => {
-              e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)';
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-              e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.2)';
+              e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
+              e.currentTarget.style.background = 'var(--color-bg-card-hover)';
+              e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.2), 0 0 22px rgba(0, 212, 255, 0.08)';
             }
           : undefined
       }
       onMouseLeave={
         hoverable
           ? (e) => {
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.07)';
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+              e.currentTarget.style.borderColor = 'var(--color-border-default)';
+              e.currentTarget.style.background = 'var(--color-bg-card)';
               e.currentTarget.style.boxShadow = 'none';
             }
           : undefined
@@ -52,8 +52,8 @@ export function Card({
     >
       {header && (
         <div
-          className="flex items-center justify-between px-5 py-3.5"
-          style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}
+          className="flex items-center justify-between px-5 py-4"
+          style={{ borderBottom: '1px solid var(--color-border-subtle)' }}
         >
           {header}
         </div>
@@ -61,8 +61,8 @@ export function Card({
       <div className="p-5">{children}</div>
       {footer && (
         <div
-          className="px-5 py-3.5"
-          style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}
+          className="px-5 py-4"
+          style={{ borderTop: '1px solid var(--color-border-subtle)' }}
         >
           {footer}
         </div>
@@ -73,7 +73,7 @@ export function Card({
 
 export function CardTitle({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <h3 className={cn('text-[14px] font-semibold text-[#e2e2e8]', className)}>
+    <h3 className={cn('text-[15px] leading-tight font-semibold text-text-primary', className)}>
       {children}
     </h3>
   );
@@ -81,7 +81,7 @@ export function CardTitle({ children, className }: { children: ReactNode; classN
 
 export function CardDescription({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <p className={cn('text-[12.5px] text-[#5a5a6e] mt-1', className)}>
+    <p className={cn('text-[13px] leading-snug text-text-tertiary mt-1.5', className)}>
       {children}
     </p>
   );

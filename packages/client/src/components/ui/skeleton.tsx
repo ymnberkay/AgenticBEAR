@@ -12,13 +12,13 @@ export function Skeleton({ className, width, height, rounded }: SkeletonProps) {
     <div
       className={cn(
         'animate-pulse',
-        rounded ? 'rounded-full' : 'rounded-xl',
+        rounded ? 'rounded-full' : '',
         className,
       )}
       style={{
         width,
         height,
-        background: 'linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 100%)',
+        background: 'linear-gradient(90deg, rgba(15,33,50,0.5) 0%, rgba(25,46,68,0.6) 50%, rgba(15,33,50,0.5) 100%)',
         backgroundSize: '200% 100%',
         animation: 'shimmer 1.5s ease-in-out infinite',
       }}

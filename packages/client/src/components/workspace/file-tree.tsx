@@ -20,13 +20,13 @@ interface FileTreeProps {
 export function FileTree({ nodes, isLoading, selectedPath, onSelectFile, changedFiles }: FileTreeProps) {
   if (isLoading) {
     return (
-      <div className="p-2.5 text-[12px] text-[#5a5a5a]">Loading file tree...</div>
+      <div className="p-2.5 text-[12px] text-text-disabled">Loading file tree...</div>
     );
   }
 
   if (!nodes || nodes.length === 0) {
     return (
-      <div className="p-2.5 text-[12px] text-[#5a5a5a]">No files found in workspace.</div>
+      <div className="p-2.5 text-[12px] text-text-disabled">No files found in workspace.</div>
     );
   }
 
@@ -77,17 +77,17 @@ function FileTreeNodeItem({
       <button
         onClick={handleClick}
         className={cn(
-          'flex w-full items-center gap-1.5 py-0.5 pr-2 text-[12px] transition-colors duration-150 hover:bg-[#2d2d2d]',
-          isSelected && 'bg-[#0078d4]/10 text-[#0078d4]',
-          !isSelected && 'text-[#858585]',
+          'flex w-full items-center gap-1.5 py-0.5 pr-2 text-[12px] transition-colors duration-150 hover:bg-bg-raised',
+          isSelected && 'bg-[#00d4ff]/10 text-[#00d4ff]',
+          !isSelected && 'text-text-secondary',
         )}
         style={{ paddingLeft: `${depth * 14 + 6}px` }}
       >
         {isDir ? (
           expanded ? (
-            <ChevronDown className="h-3 w-3 text-[#5a5a5a] shrink-0" />
+            <ChevronDown className="h-3 w-3 text-text-disabled shrink-0" />
           ) : (
-            <ChevronRight className="h-3 w-3 text-[#5a5a5a] shrink-0" />
+            <ChevronRight className="h-3 w-3 text-text-disabled shrink-0" />
           )
         ) : (
           <span className="w-3 shrink-0" />
@@ -95,18 +95,18 @@ function FileTreeNodeItem({
 
         {isDir ? (
           expanded ? (
-            <FolderOpen className="h-3.5 w-3.5 text-[#0078d4]/70 shrink-0" />
+            <FolderOpen className="h-3.5 w-3.5 text-[#00d4ff]/70 shrink-0" />
           ) : (
-            <Folder className="h-3.5 w-3.5 text-[#5a5a5a] shrink-0" />
+            <Folder className="h-3.5 w-3.5 text-text-disabled shrink-0" />
           )
         ) : (
-          <File className="h-3.5 w-3.5 text-[#5a5a5a] shrink-0" />
+          <File className="h-3.5 w-3.5 text-text-disabled shrink-0" />
         )}
 
         <span className="truncate text-[12px]">{node.name}</span>
 
         {isChanged && (
-          <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#0078d4] shrink-0" />
+          <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#00d4ff] shrink-0" />
         )}
       </button>
 

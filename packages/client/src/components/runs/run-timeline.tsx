@@ -22,7 +22,7 @@ export function RunTimeline({ steps, agents, isLoading }: RunTimelineProps) {
 
   if (!steps || steps.length === 0) {
     return (
-      <div className="py-8 text-center text-[13px] text-[#5a5a6e]">
+      <div className="py-8 text-center text-[13px] text-text-tertiary">
         No steps recorded yet. Start a run to see the timeline.
       </div>
     );
@@ -35,7 +35,7 @@ export function RunTimeline({ steps, agents, isLoading }: RunTimelineProps) {
       {/* Vertical connector line */}
       <div
         className="absolute left-[23px] top-4 bottom-4 w-px"
-        style={{ background: 'rgba(255, 255, 255, 0.06)' }}
+        style={{ background: 'var(--color-border-subtle)' }}
       />
 
       {steps.map((step, i) => {

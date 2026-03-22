@@ -18,13 +18,13 @@ export function OrchestratorView({ orchestrator, onConfigure }: OrchestratorView
     return (
       <button
         onClick={onConfigure}
-        className="w-full rounded-md border border-dashed border-[#333333] p-5 text-center hover:border-[#333333] hover:bg-[#252526] transition-colors duration-150"
+        className="w-full border border-dashed border-border-default p-5 text-center hover:border-border-default hover:bg-bg-raised transition-colors duration-150"
       >
-        <Brain className="h-7 w-7 text-[#5a5a5a] mx-auto mb-1.5" />
-        <p className="text-[12px] font-medium text-[#858585] mb-0.5">
+        <Brain className="h-7 w-7 text-text-disabled mx-auto mb-1.5" />
+        <p className="text-[12px] font-medium text-text-secondary mb-0.5">
           No Orchestrator Configured
         </p>
-        <p className="text-[11px] text-[#5a5a5a]">
+        <p className="text-[11px] text-text-tertiary">
           Add an orchestrator agent to coordinate your specialist agents.
         </p>
       </button>
@@ -35,7 +35,7 @@ export function OrchestratorView({ orchestrator, onConfigure }: OrchestratorView
 
   return (
     <div
-      className="rounded-md border p-3 cursor-pointer transition-colors duration-150 hover:bg-[#252526]"
+      className="border p-3 cursor-pointer transition-colors duration-150 hover:bg-bg-raised"
       style={{
         borderColor: `${color}20`,
         backgroundColor: `${color}06`,
@@ -47,7 +47,7 @@ export function OrchestratorView({ orchestrator, onConfigure }: OrchestratorView
     >
       <div className="flex items-start gap-2.5">
         <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
+          className="flex h-9 w-9 shrink-0 items-center justify-center"
           style={{
             backgroundColor: `${color}15`,
             color,
@@ -58,24 +58,24 @@ export function OrchestratorView({ orchestrator, onConfigure }: OrchestratorView
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <h3 className="text-[13px] font-semibold text-[#cccccc] tracking-tight">
+            <h3 className="text-[13px] font-semibold text-text-primary tracking-tight">
               {orchestrator.name}
             </h3>
             <Badge color={color}>Orchestrator</Badge>
             <div className="flex items-center gap-1 ml-auto">
-              <Sparkles className="h-3 w-3 text-[#5a5a5a]" />
-              <span className="text-[10px] text-[#5a5a5a]">{modelLabel}</span>
+              <Sparkles className="h-3 w-3 text-text-disabled" />
+              <span className="text-[10px] text-text-disabled">{modelLabel}</span>
             </div>
           </div>
 
           {orchestrator.description && (
-            <p className="text-[11px] text-[#858585] mb-1.5">
+            <p className="text-[11px] text-text-secondary mb-1.5">
               {orchestrator.description}
             </p>
           )}
 
-          <div className="rounded-md bg-[#252526] border border-[#333333] p-1.5">
-            <p className="text-[10px] font-mono text-[#858585] line-clamp-3 leading-relaxed">
+          <div className="bg-bg-raised border border-border-default p-1.5">
+            <p className="text-[10px] font-mono text-text-secondary line-clamp-3 leading-relaxed">
               {orchestrator.systemPrompt}
             </p>
           </div>

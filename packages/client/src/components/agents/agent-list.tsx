@@ -27,10 +27,10 @@ export function AgentList({ agents, isLoading, onAddAgent, onSelectAgent }: Agen
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-[11px] font-semibold uppercase text-[#5a5a6e] tracking-wider">
+        <h3 className="text-[11px] font-semibold uppercase text-text-tertiary tracking-wider">
           Specialist Agents
           {specialists.length > 0 && (
-            <span className="text-[#3a3a4a] ml-1.5">({specialists.length})</span>
+            <span className="text-text-disabled ml-1.5">({specialists.length})</span>
           )}
         </h3>
         <Button size="sm" variant="outline" icon={<Plus className="h-3 w-3" />} onClick={onAddAgent}>
@@ -40,14 +40,14 @@ export function AgentList({ agents, isLoading, onAddAgent, onSelectAgent }: Agen
 
       {specialists.length === 0 ? (
         <div
-          className="flex flex-col items-center justify-center py-14 px-6 rounded-xl"
+          className="flex flex-col items-center justify-center py-14 px-6"
           style={{
-            border: '1px dashed rgba(255, 255, 255, 0.1)',
-            background: 'rgba(255, 255, 255, 0.02)',
+            border: '1px dashed var(--color-border-default)',
+            background: 'rgba(15, 33, 50, 0.3)',
           }}
         >
-          <Bot className="h-8 w-8 text-[#3a3a4a] mb-3" />
-          <p className="text-[13px] text-[#5a5a6e] mb-3">
+          <Bot className="h-8 w-8 text-text-disabled mb-3" />
+          <p className="text-[13px] text-text-tertiary mb-3">
             No specialist agents yet
           </p>
           <Button size="sm" variant="outline" onClick={onAddAgent}>

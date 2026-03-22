@@ -23,38 +23,38 @@ export function StreamingOutput({ className }: StreamingOutputProps) {
     <div
       ref={containerRef}
       className={cn(
-        'rounded-xl overflow-hidden',
+        'overflow-hidden',
         className,
       )}
       style={{
         maxHeight: '400px',
-        background: 'rgba(255, 255, 255, 0.03)',
-        border: '1px solid rgba(255, 255, 255, 0.07)',
+        background: 'var(--color-bg-card)',
+        border: '1px solid var(--color-border-default)',
         overflowY: 'auto',
       }}
     >
       <div
         className="sticky top-0 flex items-center justify-between px-5 py-3 z-10"
         style={{
-          background: 'rgba(10, 10, 15, 0.95)',
+          background: 'rgba(7, 13, 20, 0.95)',
           backdropFilter: 'blur(8px)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+          borderBottom: '1px solid var(--color-border-subtle)',
         }}
       >
-        <span className="text-[10px] font-semibold text-[#5a5a6e] uppercase tracking-wider">
+        <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">
           Live Output
         </span>
         {isStreaming && (
           <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#6366f1] animate-pulse" />
-            <span className="text-[10px] text-[#6366f1] font-medium">Streaming</span>
+            <span className="h-1.5 w-1.5 rounded-full bg-[#00d4ff] animate-pulse" />
+            <span className="text-[10px] text-[#00d4ff] font-medium">Streaming</span>
           </span>
         )}
       </div>
-      <pre className="p-4 font-mono text-[12px] leading-relaxed text-[#8b8b9e] whitespace-pre-wrap break-words overflow-x-hidden">
+      <pre className="p-4 font-mono text-[12px] leading-relaxed text-text-secondary whitespace-pre-wrap break-words overflow-x-hidden">
         {output}
         {isStreaming && (
-          <span className="inline-block w-[6px] h-[14px] bg-[#6366f1]/70 animate-cursor-blink ml-px align-middle" />
+          <span className="inline-block w-[6px] h-[14px] bg-[#00d4ff]/70 animate-cursor-blink ml-px align-middle" />
         )}
       </pre>
     </div>

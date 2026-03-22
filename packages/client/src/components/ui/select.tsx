@@ -16,7 +16,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         {label && (
           <label
             htmlFor={selectId}
-            className="text-[12.5px] font-medium text-[#8b8b9e]"
+            className="text-[12.5px] font-medium text-text-secondary"
           >
             {label}
           </label>
@@ -26,23 +26,23 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             ref={ref}
             id={selectId}
             className={cn(
-              'h-[38px] w-full appearance-none rounded-lg px-3 pr-9 text-[13.5px] text-[#e2e2e8]',
+              'h-[38px] w-full appearance-none px-3 pr-9 text-[13.5px] text-text-primary',
               'transition-all duration-200',
               'focus:outline-none',
               'disabled:opacity-35 disabled:pointer-events-none',
               className,
             )}
             style={{
-              background: 'rgba(255, 255, 255, 0.04)',
-              border: `1px solid ${error ? 'rgba(239, 68, 68, 0.5)' : 'rgba(255, 255, 255, 0.08)'}`,
+              background: 'var(--glass-bg)',
+              border: `1px solid ${error ? 'rgba(239, 68, 68, 0.5)' : 'var(--color-border-default)'}`,
             }}
             onFocus={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.5)';
-              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.1)';
+              e.currentTarget.style.borderColor = 'rgba(0, 212, 255, 0.5)';
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 212, 255, 0.1)';
               props.onFocus?.(e);
             }}
             onBlur={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+              e.currentTarget.style.borderColor = 'var(--color-border-default)';
               e.currentTarget.style.boxShadow = 'none';
               props.onBlur?.(e);
             }}
@@ -50,7 +50,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           >
             {children}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5a5a6e] pointer-events-none" />
+          <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary pointer-events-none" />
         </div>
         {error && <p className="text-[11.5px] text-[#ef4444] font-medium">{error}</p>}
       </div>

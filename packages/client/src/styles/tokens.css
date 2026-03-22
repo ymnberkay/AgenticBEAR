@@ -1,68 +1,68 @@
 :root {
-  /* ─── Surfaces (Deep dark with depth) ─── */
-  --color-bg-base: #0a0a0f;
-  --color-bg-surface: #12121a;
-  --color-bg-raised: #1a1a25;
-  --color-bg-overlay: #222230;
-  --color-bg-muted: #16161f;
-  --color-bg-inset: #07070b;
-  --color-bg-nav: #0e0e15;
-  --color-bg-hover: rgba(255, 255, 255, 0.04);
-  --color-bg-card: rgba(255, 255, 255, 0.03);
-  --color-bg-card-hover: rgba(255, 255, 255, 0.06);
+  /* ─── Surfaces (Night terminal + glass depth) ─── */
+  --color-bg-base: #070d14;
+  --color-bg-surface: #0d1826;
+  --color-bg-raised: #122336;
+  --color-bg-overlay: #1a3046;
+  --color-bg-muted: #101f30;
+  --color-bg-inset: #050a10;
+  --color-bg-nav: #0a1420;
+  --color-bg-hover: rgba(255, 255, 255, 0.05);
+  --color-bg-card: rgba(15, 33, 50, 0.7);
+  --color-bg-card-hover: rgba(25, 46, 68, 0.78);
 
   /* ─── Glass ─── */
-  --glass-bg: rgba(255, 255, 255, 0.04);
-  --glass-bg-hover: rgba(255, 255, 255, 0.07);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-border-hover: rgba(255, 255, 255, 0.14);
+  --glass-bg: rgba(15, 35, 54, 0.62);
+  --glass-bg-hover: rgba(24, 49, 74, 0.7);
+  --glass-border: rgba(95, 162, 212, 0.2);
+  --glass-border-hover: rgba(106, 214, 240, 0.35);
   --glass-blur: blur(20px);
 
   /* ─── Borders ─── */
-  --color-border-default: rgba(255, 255, 255, 0.08);
-  --color-border-subtle: rgba(255, 255, 255, 0.05);
-  --color-border-focus: #6366f1;
-  --color-border-active: #6366f1;
+  --color-border-default: rgba(111, 168, 211, 0.26);
+  --color-border-subtle: rgba(111, 168, 211, 0.15);
+  --color-border-focus: #00d4ff;
+  --color-border-active: #00e6a8;
 
   /* ─── Text ─── */
-  --color-text-primary: #e2e2e8;
-  --color-text-secondary: #8b8b9e;
-  --color-text-tertiary: #5a5a6e;
-  --color-text-disabled: #3a3a4a;
+  --color-text-primary: #e7f5ff;
+  --color-text-secondary: #9fb5ca;
+  --color-text-tertiary: #5f7891;
+  --color-text-disabled: #355067;
 
-  /* ─── Accent (Indigo/Violet gradient) ─── */
-  --color-accent: #6366f1;
-  --color-accent-hover: #7c7ff7;
-  --color-accent-muted: #4f46e5;
-  --color-accent-subtle: rgba(99, 102, 241, 0.12);
-  --color-accent-glow: rgba(99, 102, 241, 0.25);
-  --gradient-accent: linear-gradient(135deg, #6366f1, #8b5cf6);
-  --gradient-accent-hover: linear-gradient(135deg, #7c7ff7, #a78bfa);
-  --gradient-accent-subtle: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
+  /* ─── Accent (Neon cyan + ember highlights) ─── */
+  --color-accent: #00d4ff;
+  --color-accent-hover: #37e8ff;
+  --color-accent-muted: #00b89a;
+  --color-accent-subtle: rgba(0, 212, 255, 0.14);
+  --color-accent-glow: rgba(0, 212, 255, 0.32);
+  --gradient-accent: linear-gradient(125deg, #00d4ff 0%, #00e6a8 58%, #ff9f1c 100%);
+  --gradient-accent-hover: linear-gradient(125deg, #47e9ff 0%, #3df3be 58%, #ffb347 100%);
+  --gradient-accent-subtle: linear-gradient(125deg, rgba(0, 212, 255, 0.16), rgba(0, 230, 168, 0.16));
 
   /* ─── Semantic ─── */
-  --color-success: #10b981;
+  --color-success: #00d084;
   --color-success-subtle: rgba(16, 185, 129, 0.12);
-  --color-warning: #f59e0b;
-  --color-warning-subtle: rgba(245, 158, 11, 0.12);
+  --color-warning: #ff9f1c;
+  --color-warning-subtle: rgba(255, 159, 28, 0.12);
   --color-error: #ef4444;
   --color-error-subtle: rgba(239, 68, 68, 0.12);
-  --color-info: #6366f1;
-  --color-info-subtle: rgba(99, 102, 241, 0.12);
+  --color-info: #00d4ff;
+  --color-info-subtle: rgba(0, 212, 255, 0.12);
 
   /* ─── Agent Colors ─── */
-  --color-agent-orchestrator: #a78bfa;
-  --color-agent-backend: #22d3ee;
-  --color-agent-frontend: #fb923c;
-  --color-agent-database: #60a5fa;
-  --color-agent-devops: #34d399;
-  --color-agent-qa: #f472b6;
-  --color-agent-documentation: #c4b5fd;
-  --color-agent-design: #fda4af;
+  --color-agent-orchestrator: #40d9ff;
+  --color-agent-backend: #56f0cd;
+  --color-agent-frontend: #ff9f1c;
+  --color-agent-database: #74b9ff;
+  --color-agent-devops: #00d084;
+  --color-agent-qa: #ff6f91;
+  --color-agent-documentation: #8ce7ff;
+  --color-agent-design: #ffafcc;
 
   /* ─── Typography ─── */
-  --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-mono: 'IBM Plex Mono', 'SF Mono', 'Menlo', monospace;
+  --font-sans: 'Chakra Petch', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
 
   /* ─── Radius (Modern, rounded) ─── */
   --radius-sm: 6px;
@@ -76,7 +76,7 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 1px rgba(255, 255, 255, 0.05);
-  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15), 0 0 60px rgba(99, 102, 241, 0.08);
+  --shadow-glow: 0 0 24px rgba(0, 212, 255, 0.2), 0 0 56px rgba(0, 230, 168, 0.12);
 
   /* ─── Transitions ─── */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);

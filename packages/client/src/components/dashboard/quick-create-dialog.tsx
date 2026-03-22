@@ -54,26 +54,26 @@ export function QuickCreateDialog({ open, onClose }: QuickCreateDialogProps) {
         />
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-[12.5px] font-medium text-[#8b8b9e]">
+          <label className="text-[12.5px] font-medium text-text-secondary">
             Description
-            <span className="text-[#3a3a4a] font-normal ml-1.5">(optional)</span>
+            <span className="text-text-disabled font-normal ml-1.5">(optional)</span>
           </label>
           <textarea
             placeholder="What will this project accomplish?"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            className="w-full rounded-lg px-3 py-2.5 text-[13.5px] text-[#e2e2e8] placeholder:text-[#3a3a4a] resize-none transition-all duration-200 focus:outline-none"
+            className="w-full px-3 py-2.5 text-[13.5px] text-text-primary placeholder:text-text-disabled resize-none transition-all duration-200 focus:outline-none"
             style={{
-              background: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'var(--glass-bg)',
+              border: '1px solid var(--color-border-default)',
             }}
             onFocus={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.5)';
-              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.1)';
+              e.currentTarget.style.borderColor = 'rgba(0, 212, 255, 0.5)';
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 212, 255, 0.1)';
             }}
             onBlur={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+              e.currentTarget.style.borderColor = 'var(--color-border-default)';
               e.currentTarget.style.boxShadow = 'none';
             }}
           />
@@ -81,7 +81,7 @@ export function QuickCreateDialog({ open, onClose }: QuickCreateDialogProps) {
 
         {error && (
           <div
-            className="rounded-lg px-3.5 py-2.5 text-[12.5px] text-[#ef4444]"
+            className="px-3.5 py-2.5 text-[12.5px] text-[#ef4444]"
             style={{
               background: 'rgba(239, 68, 68, 0.08)',
               border: '1px solid rgba(239, 68, 68, 0.2)',
@@ -93,7 +93,7 @@ export function QuickCreateDialog({ open, onClose }: QuickCreateDialogProps) {
 
         <div
           className="flex items-center justify-end gap-3 pt-4"
-          style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}
+          style={{ borderTop: '1px solid var(--color-border-subtle)' }}
         >
           <Button type="button" variant="ghost" size="md" onClick={onClose}>
             Cancel

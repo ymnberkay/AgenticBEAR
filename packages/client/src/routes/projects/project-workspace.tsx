@@ -10,9 +10,9 @@ export function ProjectWorkspacePage() {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
 
   return (
-    <div className="flex rounded border border-[#333333] overflow-hidden h-[calc(100vh-240px)] min-h-[360px]">
+    <div className="flex border border-border-default overflow-hidden h-[calc(100vh-240px)] min-h-[360px]">
       {/* File tree */}
-      <div className="w-[200px] shrink-0 border-r border-[#333333] bg-[#0e0e11] overflow-y-auto">
+      <div className="w-[200px] shrink-0 border-r border-border-default bg-bg-nav overflow-y-auto">
         <FileTree
           nodes={fileTree}
           isLoading={isLoading}
@@ -22,7 +22,7 @@ export function ProjectWorkspacePage() {
       </div>
 
       {/* Viewer */}
-      <div className="flex-1 bg-[#08080a] overflow-hidden">
+      <div className="flex-1 bg-bg-inset overflow-hidden">
         <FileViewer projectId={projectId} filePath={selectedPath} />
       </div>
     </div>

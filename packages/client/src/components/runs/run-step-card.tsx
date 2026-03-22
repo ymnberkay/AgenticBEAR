@@ -40,15 +40,15 @@ export function RunStepCard({ step, agent }: RunStepCardProps) {
     <div className="relative flex gap-4 py-3 pl-3">
       {/* Node dot */}
       <div
-        className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+        className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center"
         style={{
-          border: `1px solid ${agent ? `${agent.color}30` : 'rgba(255, 255, 255, 0.08)'}`,
-          background: agent ? `${agent.color}08` : 'rgba(255, 255, 255, 0.03)',
+          border: `1px solid ${agent ? `${agent.color}30` : 'var(--color-border-default)'}`,
+          background: agent ? `${agent.color}08` : 'var(--color-bg-card)',
         }}
       >
         <Icon
           className="h-4 w-4"
-          style={agent ? { color: agent.color } : { color: '#5a5a6e' }}
+          style={agent ? { color: agent.color } : { color: 'var(--color-text-tertiary)' }}
         />
       </div>
 
@@ -59,24 +59,24 @@ export function RunStepCard({ step, agent }: RunStepCardProps) {
           className="flex items-center gap-2 w-full text-left group transition-colors duration-200"
         >
           {expanded ? (
-            <ChevronDown className="h-3 w-3 text-[#5a5a6e] shrink-0" />
+            <ChevronDown className="h-3 w-3 text-text-tertiary shrink-0" />
           ) : (
-            <ChevronRight className="h-3 w-3 text-[#5a5a6e] shrink-0" />
+            <ChevronRight className="h-3 w-3 text-text-tertiary shrink-0" />
           )}
-          <span className="text-[13px] font-medium text-[#e2e2e8] truncate">
+          <span className="text-[13px] font-medium text-text-primary truncate">
             {typeLabels[step.type] || step.type}
           </span>
           {agent && (
-            <span className="text-[11px] text-[#5a5a6e] truncate shrink-0 max-w-[120px]">{agent.name}</span>
+            <span className="text-[11px] text-text-tertiary truncate shrink-0 max-w-[120px]">{agent.name}</span>
           )}
           <div className="flex items-center gap-2 ml-auto shrink-0">
             {totalTokens > 0 && (
-              <span className="text-[10px] text-[#5a5a6e] whitespace-nowrap">
+              <span className="text-[10px] text-text-tertiary whitespace-nowrap">
                 {formatTokenCount(totalTokens)} tokens
               </span>
             )}
             {step.durationMs > 0 && (
-              <span className="text-[10px] text-[#5a5a6e] whitespace-nowrap">
+              <span className="text-[10px] text-text-tertiary whitespace-nowrap">
                 {formatDuration(step.durationMs)}
               </span>
             )}
@@ -86,7 +86,7 @@ export function RunStepCard({ step, agent }: RunStepCardProps) {
 
         {/* Preview (always show truncated) */}
         {!expanded && step.output && (
-          <p className="text-[11px] text-[#5a5a6e] truncate mt-1 pl-5">
+          <p className="text-[11px] text-text-tertiary truncate mt-1 pl-5">
             {step.output.slice(0, 120)}
           </p>
         )}
@@ -96,14 +96,14 @@ export function RunStepCard({ step, agent }: RunStepCardProps) {
           <div className="mt-2 pl-5 flex flex-col gap-2">
             {step.input && (
               <div>
-                <span className="text-[10px] font-semibold text-[#5a5a6e] uppercase tracking-wider">
+                <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">
                   Input
                 </span>
                 <div
-                  className="mt-1 rounded-xl p-3 text-[12px] font-mono text-[#8b8b9e] whitespace-pre-wrap break-words max-h-[200px] overflow-y-auto"
+                  className="mt-1 p-3 text-[12px] font-mono text-text-secondary whitespace-pre-wrap break-words max-h-[200px] overflow-y-auto"
                   style={{
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    background: 'var(--color-bg-card)',
+                    border: '1px solid var(--color-border-subtle)',
                   }}
                 >
                   {step.input}
@@ -112,21 +112,21 @@ export function RunStepCard({ step, agent }: RunStepCardProps) {
             )}
             {step.output && (
               <div>
-                <span className="text-[10px] font-semibold text-[#5a5a6e] uppercase tracking-wider">
+                <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">
                   Output
                 </span>
                 <div
-                  className="mt-1 rounded-xl p-3 text-[12px] font-mono text-[#8b8b9e] whitespace-pre-wrap break-words max-h-[200px] overflow-y-auto"
+                  className="mt-1 p-3 text-[12px] font-mono text-text-secondary whitespace-pre-wrap break-words max-h-[200px] overflow-y-auto"
                   style={{
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    background: 'var(--color-bg-card)',
+                    border: '1px solid var(--color-border-subtle)',
                   }}
                 >
                   {step.output}
                 </div>
               </div>
             )}
-            <div className="flex items-center gap-3 flex-wrap text-[10px] text-[#5a5a6e] pt-1">
+            <div className="flex items-center gap-3 flex-wrap text-[10px] text-text-tertiary pt-1">
               <span>Input: {formatTokenCount(step.inputTokens)}</span>
               <span>Output: {formatTokenCount(step.outputTokens)}</span>
               <span>Cost: ${step.costUsd.toFixed(4)}</span>

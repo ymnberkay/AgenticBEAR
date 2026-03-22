@@ -58,7 +58,7 @@ export function Dialog({
           />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div
-              className={cn('w-full rounded-xl shadow-2xl overflow-hidden', className)}
+              className={cn('w-full shadow-2xl overflow-hidden', className)}
               style={{
                 maxWidth,
                 background: 'var(--color-bg-surface)',
@@ -74,23 +74,23 @@ export function Dialog({
               {(title || description) && (
                 <div
                   className="flex items-start justify-between px-6 py-5"
-                  style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.07)' }}
+                  style={{ borderBottom: '1px solid var(--color-border-subtle)' }}
                 >
                   <div className="min-w-0 flex-1">
                     {title && (
-                      <h2 className="text-[16px] font-bold text-[#e2e2e8]">
+                      <h2 className="text-[16px] font-bold text-text-primary">
                         {title}
                       </h2>
                     )}
                     {description && (
-                      <p className="mt-1 text-[13px] text-[#5a5a6e]">
+                      <p className="mt-1 text-[13px] text-text-tertiary">
                         {description}
                       </p>
                     )}
                   </div>
                   <button
                     onClick={onClose}
-                    className="rounded-md p-1.5 text-[#5a5a6e] hover:bg-white/[0.06] hover:text-[#e2e2e8] transition-all duration-200 shrink-0 ml-3"
+                    className="p-1.5 text-text-tertiary hover:bg-white/[0.06] hover:text-text-primary transition-all duration-200 shrink-0 ml-3"
                   >
                     <X className="h-4 w-4" />
                   </button>

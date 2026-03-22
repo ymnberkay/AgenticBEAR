@@ -99,7 +99,7 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-7 max-w-2xl">
-      <h2 className="text-[16px] font-bold text-[#e2e2e8] tracking-tight">
+      <h2 className="text-[16px] font-bold text-text-primary tracking-tight">
         {agent ? 'Edit Agent' : 'Create Agent'}
       </h2>
 
@@ -158,7 +158,7 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
 
       {/* Permissions */}
       <div>
-        <h3 className="text-[11px] font-semibold uppercase text-[#5a5a6e] tracking-wider mb-3">Permissions</h3>
+        <h3 className="text-[11px] font-semibold uppercase text-text-tertiary tracking-wider mb-3">Permissions</h3>
         <div className="grid grid-cols-2 gap-2">
           {(
             [
@@ -170,7 +170,7 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
           ).map(([key, label]) => (
             <label
               key={key}
-              className="flex items-center gap-2.5 text-[12.5px] text-[#8b8b9e] cursor-pointer rounded-xl px-3 py-2 hover:bg-[rgba(255,255,255,0.04)] transition-all duration-200"
+              className="flex items-center gap-2.5 text-[12.5px] text-text-secondary cursor-pointer px-3 py-2 hover:bg-[rgba(255,255,255,0.04)] transition-all duration-200"
               style={{ border: '1px solid transparent' }}
             >
               <input
@@ -179,7 +179,7 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
                 onChange={(e) =>
                   setPermissions((p) => ({ ...p, [key]: e.target.checked }))
                 }
-                className="rounded accent-[#6366f1] h-3.5 w-3.5 shrink-0"
+                className="rounded accent-[#00d4ff] h-3.5 w-3.5 shrink-0"
               />
               <span className="truncate">{label}</span>
             </label>
@@ -209,7 +209,7 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
       {/* Color & Icon */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="text-[11px] font-semibold uppercase text-[#5a5a6e] tracking-wider block mb-2.5">
+          <label className="text-[11px] font-semibold uppercase text-text-tertiary tracking-wider block mb-2.5">
             Color
           </label>
           <div className="flex flex-wrap gap-2">
@@ -218,7 +218,7 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
                 key={key}
                 type="button"
                 onClick={() => setColor(val)}
-                className="h-6 w-6 rounded-lg transition-all duration-200"
+                className="h-6 w-6 transition-all duration-200"
                 style={{
                   backgroundColor: val,
                   border: color === val ? '2px solid white' : '2px solid transparent',

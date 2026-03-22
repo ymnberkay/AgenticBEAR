@@ -36,7 +36,7 @@ export function RunDetailPage() {
   if (!run) {
     return (
       <div className="flex items-center justify-center py-16">
-        <p className="text-[12px] text-[#5a5a5a]">Run not found</p>
+        <p className="text-[12px] text-text-disabled">Run not found</p>
       </div>
     );
   }
@@ -47,8 +47,8 @@ export function RunDetailPage() {
     <div className="flex flex-col gap-4">
       {/* Objective */}
       <div>
-        <h3 className="text-[14px] font-medium text-[#cccccc] leading-relaxed">{run.objective}</h3>
-        <div className="flex items-center gap-3 mt-1 text-[11px] text-[#5a5a5a]">
+        <h3 className="text-[14px] font-medium text-text-primary leading-relaxed">{run.objective}</h3>
+        <div className="flex items-center gap-3 mt-1 text-[11px] text-text-tertiary">
           {totalTokens > 0 && (
             <span className="tabular-nums">{formatTokenCount(totalTokens)} tokens</span>
           )}
@@ -61,7 +61,7 @@ export function RunDetailPage() {
       <RunControls run={run} />
       <StreamingOutput />
 
-      <div className="h-px bg-[#2d2d2d]" />
+      <div className="h-px bg-bg-raised" />
 
       <Tabs
         tabs={[

@@ -24,9 +24,9 @@ const navItems = [
 ];
 
 const statusConfig: Record<string, { color: string; glow: string }> = {
-  active: { color: '#10b981', glow: 'rgba(16, 185, 129, 0.4)' },
-  archived: { color: '#f59e0b', glow: 'rgba(245, 158, 11, 0.4)' },
-  draft: { color: '#8b8b9e', glow: 'rgba(139, 139, 158, 0.3)' },
+  active: { color: '#00d084', glow: 'rgba(0, 208, 132, 0.4)' },
+  archived: { color: '#ff9f1c', glow: 'rgba(255, 159, 28, 0.4)' },
+  draft: { color: '#9fb5ca', glow: 'rgba(159, 181, 202, 0.3)' },
 };
 
 export function ProjectNav({ project }: ProjectNavProps) {
@@ -41,47 +41,47 @@ export function ProjectNav({ project }: ProjectNavProps) {
       style={{
         width: collapsed ? 'var(--nav-collapsed)' : 'var(--nav-width)',
         background: 'var(--color-bg-nav)',
-        borderRight: '1px solid rgba(255, 255, 255, 0.06)',
+        borderRight: '1px solid var(--color-border-subtle)',
       }}
     >
       {/* Back button + Project identity */}
-      <div className="px-4 py-4" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+      <div className="px-4 py-4" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
         {collapsed ? (
           <div className="flex flex-col items-center gap-2">
-            <Link to="/" className="h-8 w-8 rounded-lg flex items-center justify-center text-[#5a5a6e] hover:text-[#e2e2e8] hover:bg-[rgba(255,255,255,0.06)] transition-all duration-200">
+            <Link to="/" className="h-8 w-8 flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.06)] transition-all duration-200">
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div
-              className="h-9 w-9 rounded-lg flex items-center justify-center"
+              className="h-9 w-9 flex items-center justify-center"
               style={{
-                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15))',
-                border: '1px solid rgba(99, 102, 241, 0.2)',
+                background: 'var(--gradient-accent-subtle)',
+                border: '1px solid rgba(0, 212, 255, 0.2)',
               }}
             >
-              <Hexagon className="h-4 w-4 text-[#a78bfa]" />
+              <Hexagon className="h-4 w-4 text-[#40d9ff]" />
             </div>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
             <Link
               to="/"
-              className="flex items-center gap-2 text-[12px] text-[#5a5a6e] hover:text-[#e2e2e8] transition-colors duration-200 w-fit"
+              className="flex items-center gap-2 text-[12px] text-text-tertiary hover:text-text-primary transition-colors duration-200 w-fit"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               <span>All Projects</span>
             </Link>
             <div className="flex items-center gap-3">
               <div
-                className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
+                className="h-9 w-9 flex items-center justify-center shrink-0"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15))',
-                  border: '1px solid rgba(99, 102, 241, 0.2)',
+                  background: 'var(--gradient-accent-subtle)',
+                  border: '1px solid rgba(0, 212, 255, 0.2)',
                 }}
               >
-                <Hexagon className="h-4 w-4 text-[#a78bfa]" />
+                <Hexagon className="h-4 w-4 text-[#40d9ff]" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-[14px] font-semibold text-[#e2e2e8] truncate">
+                <div className="text-[14px] font-semibold text-text-primary truncate">
                   {project.name}
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -92,7 +92,7 @@ export function ProjectNav({ project }: ProjectNavProps) {
                       boxShadow: `0 0 6px ${status.glow}`,
                     }}
                   />
-                  <span className="text-[11px] text-[#5a5a6e] capitalize font-medium">
+                  <span className="text-[11px] text-text-tertiary capitalize font-medium">
                     {project.status}
                   </span>
                 </div>
@@ -105,7 +105,7 @@ export function ProjectNav({ project }: ProjectNavProps) {
       {/* Nav section label */}
       {!collapsed && (
         <div className="px-5 pt-5 pb-2">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-[#3a3a4a]">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-text-disabled">
             Navigation
           </span>
         </div>
@@ -126,17 +126,17 @@ export function ProjectNav({ project }: ProjectNavProps) {
               to={`/projects/$projectId${item.to}`}
               params={{ projectId: project.id }}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] transition-all duration-200 relative group',
+                'flex items-center gap-3 px-3 py-2.5 text-[13px] transition-all duration-200 relative group',
                 isActive
                   ? 'text-white font-medium'
-                  : 'text-[#5a5a6e] hover:text-[#e2e2e8]',
+                  : 'text-text-tertiary hover:text-text-primary',
               )}
               style={
                 isActive
                   ? {
-                      background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.12))',
-                      border: '1px solid rgba(99, 102, 241, 0.2)',
-                      boxShadow: '0 2px 8px rgba(99, 102, 241, 0.1)',
+                      background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.15), rgba(0, 230, 168, 0.12))',
+                      border: '1px solid rgba(0, 212, 255, 0.2)',
+                      boxShadow: '0 2px 8px rgba(0, 212, 255, 0.1)',
                     }
                   : {
                       background: 'transparent',
@@ -145,8 +145,8 @@ export function ProjectNav({ project }: ProjectNavProps) {
               }
               onMouseEnter={(e) => {
                 if (!isActive) {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.06)';
+                  e.currentTarget.style.background = 'var(--color-bg-hover)';
+                  e.currentTarget.style.borderColor = 'var(--color-border-subtle)';
                 }
               }}
               onMouseLeave={(e) => {
@@ -159,14 +159,14 @@ export function ProjectNav({ project }: ProjectNavProps) {
               <item.icon
                 className={cn(
                   'h-4 w-4 shrink-0 transition-colors duration-200',
-                  isActive ? 'text-[#a78bfa]' : '',
+                  isActive ? 'text-[#40d9ff]' : '',
                 )}
               />
               {!collapsed && (
                 <div className="flex flex-col min-w-0">
                   <span>{item.label}</span>
                   {!isActive && (
-                    <span className="text-[10.5px] text-[#3a3a4a] group-hover:text-[#5a5a6e] transition-colors duration-200">
+                    <span className="text-[10.5px] text-text-disabled group-hover:text-text-tertiary transition-colors duration-200">
                       {item.description}
                     </span>
                   )}
@@ -178,18 +178,18 @@ export function ProjectNav({ project }: ProjectNavProps) {
       </div>
 
       {/* Bottom: project settings + collapse */}
-      <div className="px-3 py-3 flex flex-col gap-1.5" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+      <div className="px-3 py-3 flex flex-col gap-1.5" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
         <Link
           to="/projects/$projectId/settings"
           params={{ projectId: project.id }}
           className={cn(
-            'flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] transition-all duration-200',
+            'flex items-center gap-3 px-3 py-2.5 text-[13px] transition-all duration-200',
             matchRoute({
               to: '/projects/$projectId/settings',
               params: { projectId: project.id },
             })
               ? 'text-white font-medium'
-              : 'text-[#5a5a6e] hover:text-[#e2e2e8] hover:bg-[rgba(255,255,255,0.04)]',
+              : 'text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)]',
           )}
           style={
             matchRoute({
@@ -197,8 +197,8 @@ export function ProjectNav({ project }: ProjectNavProps) {
               params: { projectId: project.id },
             })
               ? {
-                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.12))',
-                  border: '1px solid rgba(99, 102, 241, 0.2)',
+                  background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.15), rgba(0, 230, 168, 0.12))',
+                  border: '1px solid rgba(0, 212, 255, 0.2)',
                 }
               : { border: '1px solid transparent' }
           }
@@ -209,7 +209,7 @@ export function ProjectNav({ project }: ProjectNavProps) {
 
         <button
           onClick={toggleNav}
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] text-[#5a5a6e] hover:text-[#e2e2e8] hover:bg-[rgba(255,255,255,0.04)] transition-all duration-200 w-full"
+          className="flex items-center gap-3 px-3 py-2 text-[13px] text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.04)] transition-all duration-200 w-full"
           style={{ border: '1px solid transparent' }}
         >
           {collapsed ? (
