@@ -215,6 +215,16 @@ a {
 .animate-stagger > *:nth-child(7) { animation-delay: 360ms; }
 .animate-stagger > *:nth-child(8) { animation-delay: 420ms; }
 
+/* ─── Agent status animations ─── */
+@keyframes agentPulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--agent-color, rgba(212, 146, 78, 0.3)); }
+  50% { box-shadow: 0 0 10px 3px var(--agent-color, rgba(212, 146, 78, 0.3)); }
+}
+
+.agent-running {
+  animation: agentPulse 2s ease-in-out infinite;
+}
+
 /* ─── Glass utilities ─── */
 .glass {
   background: var(--glass-bg);

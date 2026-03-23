@@ -1,11 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Agent, CreateAgentInput, UpdateAgentInput } from '@subagent/shared';
+import type { Agent, CreateAgentInput, UpdateAgentInput, Task, AgentActivity } from '@subagent/shared';
 import { apiGet, apiPost, apiPatch, apiDelete } from '../client';
 
 const agentKeys = {
   all: ['agents'] as const,
   list: (projectId: string) => [...agentKeys.all, 'list', projectId] as const,
   detail: (id: string) => [...agentKeys.all, 'detail', id] as const,
+  tasks: (id: string) => [...agentKeys.all, 'tasks', id] as const,
+  activities: (id: string) => [...agentKeys.all, 'activities', id] as const,
 };
 
 export function useAgents(projectId: string) {
@@ -21,6 +23,22 @@ export function useAgent(id: string) {
     queryKey: agentKeys.detail(id),
     queryFn: () => apiGet<Agent>(`/api/agents/${id}`),
     enabled: !!id,
+  });
+}
+
+export function useAgentTasks(agentId: string) {
+  return useQuery({
+    queryKey: agentKeys.tasks(agentId),
+    queryFn: () => apiGet<Task[]>(`/api/agents/${agentId}/tasks`),
+    enabled: !!agentId,
+  });
+}
+
+export function useAgentActivities(agentId: string) {
+  return useQuery({
+    queryKey: agentKeys.activities(agentId),
+    queryFn: () => apiGet<AgentActivity[]>(`/api/agents/${agentId}/activities`),
+    enabled: !!agentId,
   });
 }
 

@@ -43,3 +43,8 @@ export type {
   SSEEvent,
   SSEEventType,
 } from './events.js';
+
+export type {
+  AgentActivity,
+  ActivityStatus,
+} from './activity.js';

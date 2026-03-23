@@ -19,6 +19,11 @@ class RunEventBus extends EventEmitter {
   emitAndCreate(type: SSEEventType, runId: string, data: Record<string, unknown>): void {
     this.emitRunEvent(this.createEvent(type, runId, data));
   }
+
+  /** Proje bazli event — MCP activity vs. icin */
+  emitProjectEvent(projectId: string, data: Record<string, unknown>): void {
+    this.emit(`project:${projectId}`, data);
+  }
 }
 
 // Global singleton

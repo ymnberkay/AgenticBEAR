@@ -47,7 +47,7 @@ function runMigrations(): void {
     )
   `);
 
-  const migrationFiles = ['001_initial.sql'];
+  const migrationFiles = ['001_initial.sql', '002_agent_activity.sql'];
 
   const appliedStmt = db.prepare('SELECT name FROM _migrations WHERE name = ?');
   const insertStmt = db.prepare('INSERT INTO _migrations (name) VALUES (?)');

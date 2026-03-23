@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "agenticbear": {
+      "type": "sse",
+      "url": "http://localhost:3001/mcp/projects/MA00oQ2ePlr4IFOe2hAQ_"
+    }
+  }
+}

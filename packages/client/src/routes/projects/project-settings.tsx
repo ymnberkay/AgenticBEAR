@@ -5,7 +5,7 @@ import { useProject, useUpdateProject, useDeleteProject } from '../../api/hooks/
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Select } from '../../components/ui/select';
-import { Button } from '../../components/ui/button';
+
 import type { ProjectStatus } from '@subagent/shared';
 
 export function ProjectSettingsPage() {
@@ -16,7 +16,8 @@ export function ProjectSettingsPage() {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [workspacePath, setWorkspacePath] = useState('');
+
+
   const [status, setStatus] = useState<ProjectStatus>('active');
   const [copied, setCopied] = useState<'id' | 'url' | null>(null);
 
@@ -32,7 +33,7 @@ export function ProjectSettingsPage() {
     if (project) {
       setName(project.name);
       setDescription(project.description);
-      setWorkspacePath(project.workspacePath);
+
       setStatus(project.status);
     }
   }, [project]);
@@ -45,7 +46,7 @@ export function ProjectSettingsPage() {
       id: projectId,
       name,
       description,
-      workspacePath,
+
       status,
     });
   };
@@ -74,13 +75,6 @@ export function ProjectSettingsPage() {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-        />
-
-        <Input
-          label="Workspace Path"
-          value={workspacePath}
-          onChange={(e) => setWorkspacePath(e.target.value)}
-          className="font-mono text-[12px]"
         />
 
         <Select
@@ -193,23 +187,15 @@ export function ProjectSettingsPage() {
 
       <div className="h-px bg-bg-raised my-6" />
 
-      <div className="flex items-center justify-between border border-error/15 bg-error/5 px-4 py-3">
-        <div>
-          <h4 className="text-[12px] font-medium text-error">Danger Zone</h4>
-          <p className="text-[11px] text-text-tertiary mt-0.5">
-            Permanently delete this project and all its data.
-          </p>
-        </div>
-        <Button
-          variant="danger"
-          size="sm"
-          icon={<Trash2 className="h-3 w-3" />}
-          onClick={handleDelete}
-          loading={deleteProject.isPending}
-        >
-          Delete
-        </Button>
-      </div>
+      <button
+        type="button"
+        onClick={handleDelete}
+        disabled={deleteProject.isPending}
+        className="flex items-center gap-2 text-[12px] text-text-tertiary hover:text-error transition-colors duration-200 disabled:opacity-50"
+      >
+        <Trash2 className="h-3 w-3" />
+        {deleteProject.isPending ? 'Deleting…' : 'Delete this project'}
+      </button>
     </div>
   );
 }

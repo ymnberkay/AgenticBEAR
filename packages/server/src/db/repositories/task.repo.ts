@@ -155,6 +155,13 @@ export const taskRepo = {
     return rows.map(rowToTask);
   },
 
+  findByAgentId(agentId: string): Task[] {
+    const db = getDb();
+    const rows = db.prepare('SELECT * FROM tasks WHERE assigned_agent_id = ? ORDER BY created_at DESC')
+      .all(agentId) as TaskRow[];
+    return rows.map(rowToTask);
+  },
+
   findById(id: string): Task | undefined {
     const db = getDb();
     const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as TaskRow | undefined;

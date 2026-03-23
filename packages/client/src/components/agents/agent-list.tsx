@@ -1,22 +1,34 @@
 import { Plus, Bot } from 'lucide-react';
 import type { Agent } from '@subagent/shared';
 import { AgentCard } from './agent-card';
+import type { AgentStatus } from './agent-card';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 
 interface AgentListProps {
   agents: Agent[] | undefined;
   isLoading: boolean;
+  agentStatuses?: Record<string, AgentStatus>;
+  selectedAgentId?: string;
   onAddAgent: () => void;
-  onSelectAgent: (agent: Agent) => void;
+  onViewAgent: (agent: Agent) => void;
+  onEditAgent: (agent: Agent) => void;
 }
 
-export function AgentList({ agents, isLoading, onAddAgent, onSelectAgent }: AgentListProps) {
+export function AgentList({
+  agents,
+  isLoading,
+  agentStatuses = {},
+  selectedAgentId,
+  onAddAgent,
+  onViewAgent,
+  onEditAgent,
+}: AgentListProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} height={96} />
+      <div className="flex flex-col gap-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} height={64} />
         ))}
       </div>
     );
@@ -52,7 +64,7 @@ export function AgentList({ agents, isLoading, onAddAgent, onSelectAgent }: Agen
       {specialists.length === 0 ? (
         <button
           onClick={onAddAgent}
-          className="flex flex-col items-center justify-center py-12 px-6 w-full transition-all duration-200 group"
+          className="flex flex-col items-center justify-center py-16 px-6 w-full transition-all duration-200 group"
           style={{
             border: '1px dashed var(--color-border-default)',
             background: 'transparent',
@@ -80,12 +92,15 @@ export function AgentList({ agents, isLoading, onAddAgent, onSelectAgent }: Agen
           </p>
         </button>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="flex flex-col gap-2">
           {specialists.map((agent) => (
             <AgentCard
               key={agent.id}
               agent={agent}
-              onClick={() => onSelectAgent(agent)}
+              status={agentStatuses[agent.id] ?? 'idle'}
+              selected={selectedAgentId === agent.id}
+              onClick={() => onViewAgent(agent)}
+              onEdit={() => onEditAgent(agent)}
             />
           ))}
         </div>

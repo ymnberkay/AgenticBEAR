@@ -1,16 +1,16 @@
-import { Brain, Sparkles, ChevronRight } from 'lucide-react';
+import { Brain, Sparkles, Pencil, Check } from 'lucide-react';
 import type { Agent } from '@subagent/shared';
 import { CLAUDE_MODELS, AGENT_COLORS } from '@subagent/shared';
 import { Badge } from '../ui/badge';
-import { useSelectionStore } from '../../stores/selection.store';
+import type { AgentStatus } from './agent-card';
 
 interface OrchestratorViewProps {
   orchestrator: Agent | undefined;
+  status?: AgentStatus;
   onConfigure: () => void;
 }
 
-export function OrchestratorView({ orchestrator, onConfigure }: OrchestratorViewProps) {
-  const selectAgent = useSelectionStore((s) => s.selectAgent);
+export function OrchestratorView({ orchestrator, status = 'idle', onConfigure }: OrchestratorViewProps) {
   const color = AGENT_COLORS.orchestrator;
 
   if (!orchestrator) {
@@ -20,7 +20,7 @@ export function OrchestratorView({ orchestrator, onConfigure }: OrchestratorView
         className="w-full text-left transition-all duration-200 group"
         style={{
           border: '1px dashed var(--color-border-default)',
-          padding: '20px',
+          padding: '24px',
           background: 'transparent',
         }}
         onMouseEnter={(e) => {
@@ -47,7 +47,6 @@ export function OrchestratorView({ orchestrator, onConfigure }: OrchestratorView
               Click to add an orchestrator agent
             </p>
           </div>
-          <ChevronRight className="h-4 w-4 text-text-disabled group-hover:text-text-tertiary transition-colors duration-200 ml-auto shrink-0" />
         </div>
       </button>
     );
@@ -60,24 +59,13 @@ export function OrchestratorView({ orchestrator, onConfigure }: OrchestratorView
       <div className="text-[10px] font-semibold uppercase tracking-widest text-text-disabled mb-3">
         Orchestrator
       </div>
-      <button
-        className="w-full text-left transition-all duration-200 group"
+      <div
+        className={`w-full text-left transition-all duration-200 group ${status === 'running' ? 'agent-running' : ''}`}
         style={{
           background: `${color}08`,
           border: `1px solid ${color}22`,
           padding: '16px',
-        }}
-        onClick={() => {
-          selectAgent(orchestrator.id);
-          onConfigure();
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = `${color}12`;
-          e.currentTarget.style.borderColor = `${color}38`;
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = `${color}08`;
-          e.currentTarget.style.borderColor = `${color}22`;
+          ...(status === 'running' ? { '--agent-color': `${color}40` } as React.CSSProperties : {}),
         }}
       >
         <div className="flex items-start gap-3">
@@ -91,7 +79,7 @@ export function OrchestratorView({ orchestrator, onConfigure }: OrchestratorView
 
           {/* Info */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5">
+            <div className="flex items-center gap-2 mb-1">
               <span className="text-[14px] font-semibold text-text-primary tracking-tight">
                 {orchestrator.name}
               </span>
@@ -103,27 +91,43 @@ export function OrchestratorView({ orchestrator, onConfigure }: OrchestratorView
             </div>
 
             {orchestrator.description && (
-              <p className="text-[12px] text-text-secondary mb-2 leading-relaxed">
+              <p className="text-[12px] text-text-secondary leading-relaxed">
                 {orchestrator.description}
               </p>
             )}
 
-            <div
-              className="px-2.5 py-2"
-              style={{
-                background: 'var(--color-bg-inset)',
-                border: '1px solid var(--color-border-subtle)',
-              }}
-            >
-              <p className="text-[10px] font-mono text-text-tertiary line-clamp-2 leading-relaxed">
-                {orchestrator.systemPrompt}
-              </p>
-            </div>
+            {/* Status indicator */}
+            {status !== 'idle' && (
+              <div className="flex items-center gap-1.5 mt-2">
+                {status === 'running' && (
+                  <>
+                    <span
+                      className="h-1.5 w-1.5 rounded-full animate-pulse"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="text-[10px] text-text-tertiary">Running...</span>
+                  </>
+                )}
+                {status === 'completed' && (
+                  <div className="flex items-center gap-1 animate-fade-in">
+                    <Check className="h-3 w-3 text-[#6bbfa0]" />
+                    <span className="text-[10px] text-[#6bbfa0]">Completed</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          <ChevronRight className="h-4 w-4 text-text-disabled group-hover:text-text-tertiary transition-colors duration-200 shrink-0 mt-1" />
+          {/* Edit button */}
+          <button
+            onClick={onConfigure}
+            className="shrink-0 flex items-center gap-1 text-[10px] text-text-disabled hover:text-text-secondary transition-colors duration-200 opacity-0 group-hover:opacity-100 mt-1"
+          >
+            <Pencil className="h-3 w-3" />
+            <span>Edit</span>
+          </button>
         </div>
-      </button>
+      </div>
     </div>
   );
 }

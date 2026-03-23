@@ -10,6 +10,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { agentRepo } from '../db/repositories/agent.repo.js';
 import { projectRepo } from '../db/repositories/project.repo.js';
+import { activityRepo } from '../db/repositories/activity.repo.js';
+import { eventBus } from '../utils/event-bus.js';
 import { createLogger } from '../utils/logger.js';
 import type { Agent } from '@subagent/shared';
 
@@ -107,6 +109,16 @@ export function createMcpServer(projectId: string): McpServer {
 
       const target = routeByKeyword(specialists, query);
 
+      // Log activity
+      const activity = activityRepo.create({ projectId, agentId: target.id, type: 'mcp_call', query });
+      eventBus.emitProjectEvent(projectId, { type: 'agent:started', agentId: target.id, activityId: activity.id, query });
+
+      // Auto-complete after response is sent (MCP is prompt-only, Claude does the work)
+      setTimeout(() => {
+        activityRepo.complete(activity.id, 'completed');
+        eventBus.emitProjectEvent(projectId, { type: 'agent:completed', agentId: target.id, activityId: activity.id });
+      }, 2000);
+
       return {
         content: [{
           type: 'text',
@@ -141,6 +153,16 @@ export function createMcpServer(projectId: string): McpServer {
           isError: true,
         };
       }
+
+      // Log activity
+      const activity = activityRepo.create({ projectId, agentId: agent.id, type: 'mcp_call', query });
+      eventBus.emitProjectEvent(projectId, { type: 'agent:started', agentId: agent.id, activityId: activity.id, query });
+
+      // Auto-complete after response is sent
+      setTimeout(() => {
+        activityRepo.complete(activity.id, 'completed');
+        eventBus.emitProjectEvent(projectId, { type: 'agent:completed', agentId: agent.id, activityId: activity.id });
+      }, 2000);
 
       return {
         content: [{

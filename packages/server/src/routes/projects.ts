@@ -22,11 +22,12 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: CreateProjectInput }>('/api/projects', async (request, reply) => {
     const { name, description, workspacePath } = request.body;
 
-    if (!name || !workspacePath) {
-      return reply.status(400).send({ error: true, message: 'name and workspacePath are required' });
+    if (!name) {
+      return reply.status(400).send({ error: true, message: 'name is required' });
     }
 
-    const project = projectRepo.create({ name, description, workspacePath });
+    const resolvedPath = workspacePath || `/workspace/${name.trim().toLowerCase().replace(/\s+/g, '-')}`;
+    const project = projectRepo.create({ name, description, workspacePath: resolvedPath });
     return reply.status(201).send(project);
   });
 

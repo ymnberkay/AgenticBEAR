@@ -10,9 +10,7 @@ import { AppShell } from './components/layout/app-shell';
 import { DashboardPage } from './routes/dashboard';
 import { ProjectDetailPage } from './routes/projects/project-detail';
 import { ProjectAgentsPage } from './routes/projects/project-agents';
-import { ProjectRunsPage } from './routes/projects/project-runs';
-import { RunDetailPage } from './routes/projects/run-detail';
-import { ProjectWorkspacePage } from './routes/projects/project-workspace';
+
 import { ProjectSettingsPage } from './routes/projects/project-settings';
 import { TemplatesPage } from './routes/templates-page';
 import { SettingsPage } from './routes/settings-page';
@@ -65,26 +63,6 @@ const projectAgentsRoute = createRoute({
   component: ProjectAgentsPage,
 });
 
-// Project runs
-const projectRunsRoute = createRoute({
-  getParentRoute: () => projectRoute,
-  path: '/runs',
-  component: ProjectRunsPage,
-});
-
-// Run detail
-const runDetailRoute = createRoute({
-  getParentRoute: () => projectRoute,
-  path: '/runs/$runId',
-  component: RunDetailPage,
-});
-
-// Project workspace
-const projectWorkspaceRoute = createRoute({
-  getParentRoute: () => projectRoute,
-  path: '/workspace',
-  component: ProjectWorkspacePage,
-});
 
 // Project settings
 const projectSettingsRoute = createRoute({
@@ -113,9 +91,7 @@ const routeTree = rootRoute.addChildren([
   projectRoute.addChildren([
     projectIndexRoute,
     projectAgentsRoute,
-    projectRunsRoute,
-    runDetailRoute,
-    projectWorkspaceRoute,
+
     projectSettingsRoute,
   ]),
   templatesRoute,

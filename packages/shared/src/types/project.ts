@@ -14,7 +14,7 @@ export interface Project {
 export interface CreateProjectInput {
   name: string;
   description?: string;
-  workspacePath: string;
+  workspacePath?: string;
 }
 
 export interface UpdateProjectInput {

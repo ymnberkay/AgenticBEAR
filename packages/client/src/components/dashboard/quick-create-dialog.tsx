@@ -24,7 +24,6 @@ export function QuickCreateDialog({ open, onClose }: QuickCreateDialogProps) {
       {
         name: name.trim(),
         description: description.trim() || undefined,
-        workspacePath: `/workspace/${name.trim().toLowerCase().replace(/\s+/g, '-')}`,
       },
       {
         onSuccess: () => {
@@ -100,7 +99,7 @@ export function QuickCreateDialog({ open, onClose }: QuickCreateDialogProps) {
           </Button>
           <Button
             type="submit"
-            variant="primary"
+            variant="default"
             size="md"
             loading={createProject.isPending}
             disabled={!name.trim()}

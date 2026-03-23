@@ -6,6 +6,44 @@ import { createLogger } from '../utils/logger.js';
 const log = createLogger('sse');
 
 export async function eventRoutes(app: FastifyInstance): Promise<void> {
+  // ── Project-level SSE (for MCP agent activity) ──────────────────────────
+  app.get<{ Params: { projectId: string } }>('/api/events/project/:projectId', async (request, reply) => {
+    const { projectId } = request.params;
+    log.info(`Project SSE connection opened: ${projectId}`);
+
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    });
+
+    reply.raw.write(`data: ${JSON.stringify({ type: 'connected', projectId, timestamp: new Date().toISOString() })}\n\n`);
+
+    const keepAlive = setInterval(() => {
+      reply.raw.write(': keepalive\n\n');
+    }, 15000);
+
+    const onEvent = (data: Record<string, unknown>) => {
+      try {
+        reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
+      } catch {
+        // Connection closed
+      }
+    };
+
+    eventBus.on(`project:${projectId}`, onEvent);
+
+    request.raw.on('close', () => {
+      log.info(`Project SSE connection closed: ${projectId}`);
+      clearInterval(keepAlive);
+      eventBus.off(`project:${projectId}`, onEvent);
+    });
+
+    return reply;
+  });
+
+  // ── Run-level SSE ──────────────────────────────────────────────────────
   app.get<{ Params: { runId: string } }>('/api/events/:runId', async (request, reply) => {
     const { runId } = request.params;
 

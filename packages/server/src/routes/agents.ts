@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { agentRepo } from '../db/repositories/agent.repo.js';
+import { taskRepo } from '../db/repositories/task.repo.js';
+import { activityRepo } from '../db/repositories/activity.repo.js';
 import { invalidateMcpCache } from '../mcp/server.js';
 import type { CreateAgentInput, UpdateAgentInput } from '@subagent/shared';
 
@@ -52,6 +54,18 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     }
     invalidateMcpCache(agent.projectId);
     return reply.send(agent);
+  });
+
+  // Get tasks for an agent
+  app.get<{ Params: { id: string } }>('/api/agents/:id/tasks', async (request, reply) => {
+    const tasks = taskRepo.findByAgentId(request.params.id);
+    return reply.send(tasks);
+  });
+
+  // Get activities for an agent
+  app.get<{ Params: { id: string } }>('/api/agents/:id/activities', async (request, reply) => {
+    const activities = activityRepo.findByAgentId(request.params.id);
+    return reply.send(activities);
   });
 
   // Delete agent
