@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from '@tanstack/react-router';
-import { Trash2, Copy, Check } from 'lucide-react';
+import { Trash2, Copy, Check, FolderOpen } from 'lucide-react';
 import { useProject, useUpdateProject, useDeleteProject } from '../../api/hooks/use-projects';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
@@ -16,8 +16,7 @@ export function ProjectSettingsPage() {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-
-
+  const [workspacePath, setWorkspacePath] = useState('');
   const [status, setStatus] = useState<ProjectStatus>('active');
   const [copied, setCopied] = useState<'id' | 'url' | null>(null);
 
@@ -33,7 +32,7 @@ export function ProjectSettingsPage() {
     if (project) {
       setName(project.name);
       setDescription(project.description);
-
+      setWorkspacePath(project.workspacePath ?? '');
       setStatus(project.status);
     }
   }, [project]);
@@ -46,7 +45,7 @@ export function ProjectSettingsPage() {
       id: projectId,
       name,
       description,
-
+      workspacePath,
       status,
     });
   };
@@ -76,6 +75,35 @@ export function ProjectSettingsPage() {
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
         />
+
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+            <FolderOpen style={{ width: '12px', height: '12px', color: 'var(--color-text-disabled)' }} />
+            <span style={{ fontSize: '11px', color: 'var(--color-text-disabled)', fontWeight: 500 }}>Workspace Path</span>
+          </div>
+          <input
+            type="text"
+            value={workspacePath}
+            onChange={(e) => setWorkspacePath(e.target.value)}
+            placeholder="/Users/you/projects/my-app"
+            style={{
+              width: '100%',
+              background: 'var(--color-bg-base)',
+              border: '1px solid var(--color-border-subtle)',
+              color: 'var(--color-text-primary)',
+              fontSize: '12px',
+              fontFamily: 'var(--font-mono)',
+              padding: '8px 10px',
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; }}
+          />
+          <p style={{ fontSize: '10.5px', color: 'var(--color-text-disabled)', marginTop: '4px' }}>
+            Agents will read and write files in this directory
+          </p>
+        </div>
 
         <Select
           label="Status"

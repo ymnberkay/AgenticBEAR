@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useParams } from '@tanstack/react-router';
-import type { Agent } from '@subagent/shared';
+import type { Agent, AgentActivity } from '@subagent/shared';
 import { useAgents } from '../../api/hooks/use-agents';
 import { OrchestratorView } from '../../components/agents/orchestrator-view';
 import { AgentList } from '../../components/agents/agent-list';
 import { AgentBuilder } from '../../components/agents/agent-builder';
-import { AgentDetailPanel } from '../../components/agents/agent-detail-panel';
+import { AgentDetailPanel, ActivityDetailPanel } from '../../components/agents/agent-detail-panel';
 import { Dialog } from '../../components/ui/dialog';
 import { useAgentStatus } from '../../hooks/use-agent-status';
 import { useAgentStatusStore } from '../../stores/agent-status.store';
@@ -18,6 +18,7 @@ export function ProjectAgentsPage() {
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingAgent, setEditingAgent] = useState<Agent | undefined>(undefined);
   const [selectedAgent, setSelectedAgent] = useState<Agent | undefined>(undefined);
+  const [selectedActivity, setSelectedActivity] = useState<AgentActivity | undefined>(undefined);
 
   useAgentStatus(projectId);
 
@@ -35,6 +36,7 @@ export function ProjectAgentsPage() {
 
   const handleViewAgent = (agent: Agent) => {
     setSelectedAgent(agent);
+    setSelectedActivity(undefined);
   };
 
   const handleConfigureOrchestrator = () => {
@@ -49,9 +51,9 @@ export function ProjectAgentsPage() {
   // If an agent is selected, show split layout
   if (selectedAgent) {
     return (
-      <div className="flex gap-8 max-w-5xl">
+      <div className="flex gap-8" style={{ maxWidth: selectedActivity ? '1200px' : '900px' }}>
         {/* Left: agent list (narrower) */}
-        <div className="flex flex-col gap-10 w-[320px] shrink-0">
+        <div className="flex flex-col gap-6 w-[280px] shrink-0">
           <OrchestratorView
             orchestrator={orchestrator}
             status={orchestrator ? (statuses[orchestrator.id] ?? 'idle') : 'idle'}
@@ -71,10 +73,11 @@ export function ProjectAgentsPage() {
           />
         </div>
 
-        {/* Right: agent detail panel */}
+        {/* Middle: agent detail panel */}
         <div
-          className="flex-1 min-w-0"
           style={{
+            width: '340px',
+            flexShrink: 0,
             borderLeft: '1px solid var(--color-border-subtle)',
             paddingLeft: '32px',
           }}
@@ -82,10 +85,30 @@ export function ProjectAgentsPage() {
           <AgentDetailPanel
             agent={selectedAgent}
             status={statuses[selectedAgent.id] ?? 'idle'}
-            onClose={() => setSelectedAgent(undefined)}
+            onClose={() => { setSelectedAgent(undefined); setSelectedActivity(undefined); }}
             onEdit={() => handleEditAgent(selectedAgent)}
+            selectedActivityId={selectedActivity?.id}
+            onSelectActivity={(a) => setSelectedActivity(a)}
           />
         </div>
+
+        {/* Right: activity detail panel */}
+        {selectedActivity && (
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              borderLeft: '1px solid var(--color-border-subtle)',
+              paddingLeft: '32px',
+            }}
+          >
+            <ActivityDetailPanel
+              activity={selectedActivity}
+              agent={selectedAgent}
+              onClose={() => setSelectedActivity(undefined)}
+            />
+          </div>
+        )}
 
         <Dialog
           open={showBuilder}

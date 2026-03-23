@@ -12,6 +12,7 @@ import { ProjectDetailPage } from './routes/projects/project-detail';
 import { ProjectAgentsPage } from './routes/projects/project-agents';
 
 import { ProjectSettingsPage } from './routes/projects/project-settings';
+import { RunDetailPage } from './routes/projects/run-detail';
 import { TemplatesPage } from './routes/templates-page';
 import { SettingsPage } from './routes/settings-page';
 
@@ -71,6 +72,13 @@ const projectSettingsRoute = createRoute({
   component: ProjectSettingsPage,
 });
 
+// Run detail
+const runDetailRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: '/runs/$runId',
+  component: RunDetailPage,
+});
+
 // Templates
 const templatesRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -91,8 +99,8 @@ const routeTree = rootRoute.addChildren([
   projectRoute.addChildren([
     projectIndexRoute,
     projectAgentsRoute,
-
     projectSettingsRoute,
+    runDetailRoute,
   ]),
   templatesRoute,
   settingsRoute,

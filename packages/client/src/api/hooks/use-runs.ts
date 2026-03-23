@@ -31,7 +31,21 @@ export function useCreateRun() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateRunInput) =>
-      apiPost<Run>('/api/runs', input),
+      apiPost<Run>(`/api/projects/${input.projectId}/runs`, { objective: input.objective }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: runKeys.list(data.projectId) });
+    },
+  });
+}
+
+export function useCreateAndStartRun() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateRunInput) => {
+      const run = await apiPost<Run>(`/api/projects/${input.projectId}/runs`, { objective: input.objective });
+      await apiPost(`/api/runs/${run.id}/start`);
+      return run;
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: runKeys.list(data.projectId) });
     },

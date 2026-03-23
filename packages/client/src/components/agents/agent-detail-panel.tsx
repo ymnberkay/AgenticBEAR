@@ -1,12 +1,12 @@
 import {
   Brain, Server, Monitor, Database, Container, TestTube2,
   FileText, Palette, Bot, X, Pencil, Clock, CheckCircle, AlertCircle, Loader2,
-  MessageSquare,
+  MessageSquare, Trash2, ChevronRight,
 } from 'lucide-react';
 import type { Agent, Task, AgentActivity } from '@subagent/shared';
 import { CLAUDE_MODELS } from '@subagent/shared';
 import { Badge } from '../ui/badge';
-import { useAgentTasks, useAgentActivities } from '../../api/hooks/use-agents';
+import { useAgentTasks, useAgentActivities, useDeleteActivity, useClearActivities } from '../../api/hooks/use-agents';
 import type { AgentStatus } from './agent-card';
 
 const iconMap: Record<string, React.FC<{ className?: string; style?: React.CSSProperties }>> = {
@@ -29,14 +29,24 @@ interface AgentDetailPanelProps {
   status?: AgentStatus;
   onClose: () => void;
   onEdit: () => void;
+  selectedActivityId?: string;
+  onSelectActivity: (activity: AgentActivity) => void;
 }
 
-export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit }: AgentDetailPanelProps) {
+export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit, selectedActivityId, onSelectActivity }: AgentDetailPanelProps) {
   const { data: tasks, isLoading: tasksLoading } = useAgentTasks(agent.id);
   const { data: activities, isLoading: activitiesLoading } = useAgentActivities(agent.id);
+  const deleteActivity = useDeleteActivity();
+  const clearActivities = useClearActivities();
   const isLoading = tasksLoading || activitiesLoading;
   const Icon = iconMap[agent.icon] || Bot;
   const modelLabel = CLAUDE_MODELS[agent.modelConfig.model]?.label ?? agent.modelConfig.model;
+
+  const handleClearAll = () => {
+    if (window.confirm('Tüm activity geçmişi silinsin mi?')) {
+      clearActivities.mutate(agent.id);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -85,8 +95,33 @@ export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit }: Ag
 
       {/* Activity & Task history */}
       <div className="flex-1 overflow-y-auto pt-5">
-        <div className="text-[10px] font-semibold uppercase tracking-widest text-text-disabled mb-3">
-          Activity History
+        {/* Activity History header */}
+        <div className="flex items-center justify-between mb-3">
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              color: 'var(--color-text-disabled)',
+            }}
+          >
+            Activity History
+          </span>
+          {activities && activities.length > 0 && (
+            <button
+              onClick={handleClearAll}
+              disabled={clearActivities.isPending}
+              className="flex items-center gap-1 transition-colors duration-200 disabled:opacity-50"
+              style={{ fontSize: '10px', color: 'var(--color-text-disabled)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
+              title="Tümünü sil"
+            >
+              <Trash2 className="h-3 w-3" />
+              Clear all
+            </button>
+          )}
         </div>
 
         {isLoading && (
@@ -110,7 +145,15 @@ export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit }: Ag
         {activities && activities.length > 0 && (
           <div className="flex flex-col gap-2 mb-4">
             {activities.map((activity) => (
-              <ActivityRow key={activity.id} activity={activity} agentColor={agent.color} />
+              <ActivityRow
+                key={activity.id}
+                activity={activity}
+                agentColor={agent.color}
+                isSelected={activity.id === selectedActivityId}
+                onSelect={() => onSelectActivity(activity)}
+                onDelete={() => deleteActivity.mutate({ id: activity.id, agentId: agent.id })}
+                isDeleting={deleteActivity.isPending}
+              />
             ))}
           </div>
         )}
@@ -118,7 +161,16 @@ export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit }: Ag
         {/* Run Tasks */}
         {tasks && tasks.length > 0 && (
           <>
-            <div className="text-[10px] font-semibold uppercase tracking-widest text-text-disabled mb-3 mt-2">
+            <div
+              className="mb-3 mt-2"
+              style={{
+                fontSize: '10px',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                color: 'var(--color-text-disabled)',
+              }}
+            >
               Run Tasks
             </div>
             <div className="flex flex-col gap-2">
@@ -133,7 +185,143 @@ export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit }: Ag
   );
 }
 
-function ActivityRow({ activity, agentColor }: { activity: AgentActivity; agentColor: string }) {
+// ── Activity Detail View ───────────────────────────────────────────────────────
+
+export function ActivityDetailPanel({
+  activity,
+  agent,
+  onClose,
+}: {
+  activity: AgentActivity;
+  agent: Agent;
+  onClose: () => void;
+}) {
+  const isRunning = activity.status === 'running';
+  const isFailed = activity.status === 'failed';
+  const statusColor = isRunning ? '#d4924e' : isFailed ? '#ef4444' : '#6bbfa0';
+  const statusLabel = isRunning ? 'Running' : isFailed ? 'Failed' : 'Completed';
+
+  const duration =
+    activity.completedAt && activity.startedAt
+      ? Math.round(
+          (new Date(activity.completedAt).getTime() - new Date(activity.startedAt).getTime()) / 1000,
+        )
+      : null;
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between pb-4" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-disabled)' }}>
+          Activity Detail
+        </span>
+        <button
+          onClick={onClose}
+          className="flex items-center justify-center h-7 w-7 text-text-disabled hover:text-text-secondary transition-colors duration-200"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto pt-5 flex flex-col gap-5">
+        {/* Status + meta */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5"
+              style={{
+                color: statusColor,
+                background: `${statusColor}15`,
+                border: `1px solid ${statusColor}30`,
+              }}
+            >
+              {statusLabel}
+            </span>
+            <span
+              className="text-[10px] uppercase tracking-wider px-2 py-0.5"
+              style={{
+                color: 'var(--color-text-disabled)',
+                background: 'var(--color-bg-card)',
+                border: '1px solid var(--color-border-subtle)',
+              }}
+            >
+              {activity.type === 'mcp_call' ? 'MCP Call' : 'Direct'}
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-1" style={{ fontSize: '11px', color: 'var(--color-text-disabled)' }}>
+            <span>Started: {new Date(activity.startedAt).toLocaleString()}</span>
+            {activity.completedAt && (
+              <span>Completed: {new Date(activity.completedAt).toLocaleString()}</span>
+            )}
+            {duration !== null && <span>Duration: {duration}s</span>}
+          </div>
+        </div>
+
+        {/* Query */}
+        <div>
+          <div
+            className="mb-2"
+            style={{
+              fontSize: '10px',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              color: 'var(--color-text-disabled)',
+            }}
+          >
+            Query sent to agent
+          </div>
+          <div
+            className="leading-relaxed whitespace-pre-wrap"
+            style={{
+              fontSize: '12.5px',
+              color: 'var(--color-text-primary)',
+              background: 'var(--color-bg-card)',
+              border: '1px solid var(--color-border-subtle)',
+              padding: '14px 16px',
+            }}
+          >
+            {activity.query}
+          </div>
+        </div>
+
+        {/* Agent context note */}
+        <div
+          style={{
+            fontSize: '11px',
+            color: 'var(--color-text-disabled)',
+            background: 'var(--color-bg-card)',
+            border: '1px solid var(--color-border-subtle)',
+            padding: '10px 14px',
+            lineHeight: '1.6',
+          }}
+        >
+          Routed to <strong style={{ color: 'var(--color-text-tertiary)' }}>{agent.name}</strong> via MCP.
+          Claude Code CLI handled the response using your session.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Activity Row ───────────────────────────────────────────────────────────────
+
+function ActivityRow({
+  activity,
+  agentColor,
+  isSelected,
+  onSelect,
+  onDelete,
+  isDeleting,
+}: {
+  activity: AgentActivity;
+  agentColor: string;
+  isSelected: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+  isDeleting: boolean;
+}) {
   const isRunning = activity.status === 'running';
   const isFailed = activity.status === 'failed';
   const statusColor = isRunning ? '#d4924e' : isFailed ? '#ef4444' : '#6bbfa0';
@@ -142,11 +330,14 @@ function ActivityRow({ activity, agentColor }: { activity: AgentActivity; agentC
 
   return (
     <div
-      className="flex items-start gap-3 px-3 py-3 transition-colors duration-200"
+      className="group flex items-start gap-3 px-3 py-3 transition-colors duration-200 cursor-pointer"
       style={{
-        background: 'var(--color-bg-card)',
-        border: '1px solid var(--color-border-subtle)',
+        background: isSelected ? `${agentColor}08` : 'var(--color-bg-card)',
+        border: `1px solid ${isSelected ? agentColor + '40' : 'var(--color-border-subtle)'}`,
       }}
+      onClick={onSelect}
+      onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
+      onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; }}
     >
       <span className="shrink-0 mt-0.5" style={{ color: agentColor }}>
         <MessageSquare className="h-3.5 w-3.5" />
@@ -170,9 +361,26 @@ function ActivityRow({ activity, agentColor }: { activity: AgentActivity; agentC
           )}
         </div>
       </div>
+      {/* Actions — visible on hover */}
+      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          disabled={isDeleting}
+          className="flex items-center justify-center h-6 w-6 transition-colors duration-200 disabled:opacity-50"
+          style={{ color: 'var(--color-text-disabled)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
+          title="Sil"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+        <ChevronRight className="h-3.5 w-3.5" style={{ color: 'var(--color-text-disabled)' }} />
+      </div>
     </div>
   );
 }
+
+// ── Task Row ───────────────────────────────────────────────────────────────────
 
 function TaskRow({ task, agentColor }: { task: Task; agentColor: string }) {
   const config = taskStatusConfig[task.status] ?? taskStatusConfig.queued;

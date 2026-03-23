@@ -68,6 +68,21 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     return reply.send(activities);
   });
 
+  // Delete a single activity
+  app.delete<{ Params: { id: string } }>('/api/activities/:id', async (request, reply) => {
+    const removed = activityRepo.remove(request.params.id);
+    if (!removed) {
+      return reply.status(404).send({ error: true, message: 'Activity not found' });
+    }
+    return reply.status(204).send();
+  });
+
+  // Clear all activities for an agent
+  app.delete<{ Params: { id: string } }>('/api/agents/:id/activities', async (request, reply) => {
+    const count = activityRepo.removeByAgentId(request.params.id);
+    return reply.send({ deleted: count });
+  });
+
   // Delete agent
   app.delete<{ Params: { id: string } }>('/api/agents/:id', async (request, reply) => {
     const existing = agentRepo.findById(request.params.id);
