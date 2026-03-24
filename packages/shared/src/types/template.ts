@@ -4,9 +4,11 @@ export type TemplateCategory =
   | 'orchestrator'
   | 'backend'
   | 'frontend'
+  | 'mobile'
   | 'database'
   | 'devops'
   | 'qa'
+  | 'security'
   | 'documentation'
   | 'design'
   | 'custom';

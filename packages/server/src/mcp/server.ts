@@ -75,14 +75,23 @@ function agentContextBlock(agent: Agent, query: string, context?: string): strin
     (agent.description ? `Rol açıklaması: ${agent.description}\n` : '') +
     `\nSistem talimatların:\n${agent.systemPrompt}\n` +
     `</agent_instructions>\n\n` +
-    `## Görev\n${userContent}\n\n` +
-    `## Önemli\n` +
-    `Sadece metin olarak cevap verme. Bu görevi gerçekten execute et:\n` +
-    `- Kod yazman gerekiyorsa dosyaları doğrudan oluştur veya düzenle\n` +
-    `- Yeni dosya gerekiyorsa Write tool ile yaz\n` +
-    `- Mevcut dosyayı değiştirmen gerekiyorsa Edit tool ile düzenle\n` +
-    `- Birden fazla dosya gerekiyorsa hepsini yaz\n` +
-    `Çıktın somut dosya değişiklikleri olsun.`
+    `## Task\n${userContent}\n\n` +
+    `## File Structure Standards\n` +
+    `Always follow modern, professional project structure:\n` +
+    `- Organize by **feature/domain**, not by file type (e.g. \`features/auth/\` not separate \`controllers/\` + \`models/\` folders)\n` +
+    `- Co-locate related files: component, styles, types, and tests in the same folder\n` +
+    `- Use \`index.ts\` barrel exports for clean imports\n` +
+    `- Standard separation: \`components/\`, \`hooks/\`, \`services/\`, \`types/\`, \`utils/\`, \`lib/\`\n` +
+    `- Source code under \`src/\`, config and tooling at root\n` +
+    `- Tests next to source (\`*.test.ts\`) or in \`__tests__/\` within the same feature\n` +
+    `- Detect the tech stack and follow its conventions (Next.js App Router, NestJS modules, etc.)\n` +
+    `- Never dump everything in a flat root directory\n\n` +
+    `## Execution Rules\n` +
+    `Do not output code as text. Actually execute the task:\n` +
+    `- Create new files with the Write tool\n` +
+    `- Modify existing files with the Edit tool\n` +
+    `- Write every file the task requires\n` +
+    `Your output must be real file changes, not code blocks in a response.`
   );
 }
 
@@ -164,12 +173,20 @@ export function createMcpServer(projectId: string): McpServer {
         `3. Bağımlı görevleri sırayla yap — bir agent'ın çıktısı diğerinin girdisi olabilir\n` +
         `4. Bağımsız görevleri paralel düşünebilirsin ama her \`ask_agent\` çağrısını kendin yanıtla` +
         docInstruction + `\n\n` +
-        `## Kritik\n` +
-        `Her agent görevi metin çıktısı değil, **gerçek dosya işlemi** üretmeli:\n` +
-        `- ask_agent'tan dönen talimatlar doğrultusunda Write/Edit tool'larını kullan\n` +
-        `- Kod dosyalarını gerçekten oluştur veya düzenle\n` +
-        `- Her adımda hangi dosyaların yazıldığını belirt\n\n` +
-        `Önce execution planını listele, sonra adım adım ilerle.`;
+        `## File Structure Standards\n` +
+        `Enforce professional project structure across all agents:\n` +
+        `- Organize by feature/domain, not by file type\n` +
+        `- Co-locate related files (component + styles + types + tests in one folder)\n` +
+        `- Use index.ts barrel exports\n` +
+        `- Detect and follow the tech stack conventions (Next.js App Router, NestJS, etc.)\n` +
+        `- Source code under src/, config at root\n` +
+        `- Never use a flat file structure\n\n` +
+        `## Execution Rules\n` +
+        `Each agent task must produce real file changes — not text output:\n` +
+        `- Use Write/Edit tools to create or modify files directly\n` +
+        `- Write every file the task requires\n` +
+        `- Note which files were written after each step\n\n` +
+        `Plan first, then execute step by step.`;
 
       return {
         content: [{ type: 'text', text: orchestrationPrompt }],
