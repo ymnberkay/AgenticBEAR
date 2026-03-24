@@ -122,6 +122,109 @@ Claude Code grabs the security agent's context and answers inline — without br
 
 ---
 
+## Setting Up a New Project from Scratch
+
+AgenticBEAR works best when you start a project with zero files and let agents build everything.
+
+### 1. Create an empty folder
+
+```bash
+mkdir my-new-app
+cd my-new-app
+```
+
+### 2. Create a project in AgenticBEAR
+
+Open `http://localhost:5173`, create a new project, then go to **Project Settings** and set the **Workspace Path** to your folder's absolute path:
+
+```
+/Users/you/projects/my-new-app
+```
+
+Agents will read and write files in this directory.
+
+### 3. Add a `.mcp.json` file to the folder
+
+```json
+{
+  "mcpServers": {
+    "agenticbear": {
+      "type": "sse",
+      "url": "http://localhost:3001/mcp/projects/YOUR_PROJECT_ID"
+    }
+  }
+}
+```
+
+This is the only bootstrap file needed. Everything else gets created by the agents.
+
+### 4. Open Claude Code in that folder
+
+```bash
+claude
+```
+
+When prompted about the MCP server, choose **"Use this and all future MCP servers in this project"**.
+
+---
+
+## CLAUDE.md — Making Agents Automatic
+
+By default, you have to explicitly ask Claude to use AgenticBEAR tools each time. To make agents the **default behavior** for all tasks, create a `CLAUDE.md` file in your project root.
+
+Claude Code reads this file automatically at the start of every session and follows the instructions without being asked.
+
+### Recommended CLAUDE.md
+
+```markdown
+# Agent Rules
+
+This project uses AgenticBEAR for all development tasks.
+
+- For any coding, file creation, or development task: call `ask_orchestrator` first — do not respond directly
+- After the orchestrator returns a plan, call `ask_agent` for each step
+- Actually write files using Write/Edit tools — do not just output code as text
+- For simple questions or explanations: respond directly without using agents
+```
+
+Place this file at the root of your project next to `.mcp.json`.
+
+### What this gives you
+
+Without `CLAUDE.md`, every session requires:
+```
+use ask_orchestrator tool, query: "add login page"
+```
+
+With `CLAUDE.md`, you just write:
+```
+add login page
+```
+
+Claude automatically routes through the orchestrator, plans the work, calls each specialist agent, and writes the files — without any extra instructions from you.
+
+---
+
+## Managing Multiple Projects
+
+Each project in AgenticBEAR has its own MCP endpoint. To use different agent teams for different codebases, add a project-specific `.mcp.json` to each folder.
+
+```
+~/ecommerce-app/
+  .mcp.json   →  agenticbear project ID: abc123
+  CLAUDE.md
+  src/
+
+~/blog-backend/
+  .mcp.json   →  agenticbear project ID: def456
+  CLAUDE.md
+  src/
+```
+
+When you open `claude` inside any of these folders, it automatically loads the right agent team for that project. AgenticBEAR keeps each project's agents, activity history, and settings completely separate.
+
+---
+
 ## MCP Tools Reference
 
 | Tool | Parameters | Description |
