@@ -69,4 +69,16 @@ export const activityRepo = {
       .all(projectId, limit) as ActivityRow[];
     return rows.map(rowToActivity);
   },
+
+  remove(id: string): boolean {
+    const db = getDb();
+    const result = db.prepare('DELETE FROM agent_activities WHERE id = ?').run(id);
+    return result.changes > 0;
+  },
+
+  removeByAgentId(agentId: string): number {
+    const db = getDb();
+    const result = db.prepare('DELETE FROM agent_activities WHERE agent_id = ?').run(agentId);
+    return result.changes;
+  },
 };

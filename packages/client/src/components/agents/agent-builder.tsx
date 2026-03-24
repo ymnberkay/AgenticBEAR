@@ -129,18 +129,41 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
       />
 
       {/* Template selector */}
-      {!agent && (
+      {!agent && templates && templates.length > 0 && (
         <Select
           label="Start from Template"
           value={templateId}
           onChange={(e) => setTemplateId(e.target.value)}
         >
-          <option value="">No template</option>
-          {templates?.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name} ({t.category})
-            </option>
-          ))}
+          <option value="">— No template —</option>
+          {(() => {
+            const categoryLabels: Record<string, string> = {
+              orchestrator: 'Orchestrator',
+              backend: 'Backend',
+              frontend: 'Frontend',
+              mobile: 'Mobile',
+              database: 'Database',
+              devops: 'DevOps / Infrastructure',
+              qa: 'QA / Testing',
+              security: 'Security',
+              documentation: 'Documentation',
+              design: 'Design',
+              custom: 'Custom',
+            };
+            const order = ['orchestrator', 'backend', 'frontend', 'mobile', 'database', 'devops', 'qa', 'security', 'documentation', 'design', 'custom'];
+            const grouped = order.reduce<Record<string, typeof templates>>((acc, cat) => {
+              const items = templates.filter((t) => t.category === cat);
+              if (items.length > 0) acc[cat] = items;
+              return acc;
+            }, {});
+            return Object.entries(grouped).map(([cat, items]) => (
+              <optgroup key={cat} label={categoryLabels[cat] ?? cat}>
+                {items.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </optgroup>
+            ));
+          })()}
         </Select>
       )}
 

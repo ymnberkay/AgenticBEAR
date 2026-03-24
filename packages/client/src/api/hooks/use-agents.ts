@@ -65,6 +65,28 @@ export function useUpdateAgent() {
   });
 }
 
+export function useDeleteActivity() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: string; agentId: string }) =>
+      apiDelete(`/api/activities/${id}`),
+    onSuccess: (_, { agentId }) => {
+      queryClient.invalidateQueries({ queryKey: agentKeys.activities(agentId) });
+    },
+  });
+}
+
+export function useClearActivities() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (agentId: string) =>
+      apiDelete(`/api/agents/${agentId}/activities`),
+    onSuccess: (_, agentId) => {
+      queryClient.invalidateQueries({ queryKey: agentKeys.activities(agentId) });
+    },
+  });
+}
+
 export function useDeleteAgent() {
   const queryClient = useQueryClient();
   return useMutation({

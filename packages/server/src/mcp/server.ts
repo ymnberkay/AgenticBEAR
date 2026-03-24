@@ -75,7 +75,23 @@ function agentContextBlock(agent: Agent, query: string, context?: string): strin
     (agent.description ? `Rol açıklaması: ${agent.description}\n` : '') +
     `\nSistem talimatların:\n${agent.systemPrompt}\n` +
     `</agent_instructions>\n\n` +
-    `Yukarıdaki talimatlar çerçevesinde aşağıdaki soruyu yanıtla:\n\n${userContent}`
+    `## Task\n${userContent}\n\n` +
+    `## File Structure Standards\n` +
+    `Always follow modern, professional project structure:\n` +
+    `- Organize by **feature/domain**, not by file type (e.g. \`features/auth/\` not separate \`controllers/\` + \`models/\` folders)\n` +
+    `- Co-locate related files: component, styles, types, and tests in the same folder\n` +
+    `- Use \`index.ts\` barrel exports for clean imports\n` +
+    `- Standard separation: \`components/\`, \`hooks/\`, \`services/\`, \`types/\`, \`utils/\`, \`lib/\`\n` +
+    `- Source code under \`src/\`, config and tooling at root\n` +
+    `- Tests next to source (\`*.test.ts\`) or in \`__tests__/\` within the same feature\n` +
+    `- Detect the tech stack and follow its conventions (Next.js App Router, NestJS modules, etc.)\n` +
+    `- Never dump everything in a flat root directory\n\n` +
+    `## Execution Rules\n` +
+    `Do not output code as text. Actually execute the task:\n` +
+    `- Create new files with the Write tool\n` +
+    `- Modify existing files with the Edit tool\n` +
+    `- Write every file the task requires\n` +
+    `Your output must be real file changes, not code blocks in a response.`
   );
 }
 
@@ -92,14 +108,21 @@ export function createMcpServer(projectId: string): McpServer {
   // ── ask_orchestrator ────────────────────────────────────────────────────────
   server.tool(
     'ask_orchestrator',
-    'Soruyu en uygun agent\'a otomatik yönlendir. Hangi agent\'ı kullanacağını bilmiyorsan bu aracı kullan. Yönlendirilen agent\'ın kimliğini ve talimatlarını döner — sen yanıtlarsın.',
+    'Karmaşık bir görevi tüm agent takımına dağıt ve execute et. Orchestrator rolünü üstlenerek görevi alt görevlere böl, her biri için ask_agent çağır, sonuçları birleştir.',
     {
-      query: z.string().describe('Sormak istediğin soru veya görev'),
-      context: z.string().optional().describe('Ek bağlam, kod parçası veya dosya içeriği (isteğe bağlı)'),
+      query: z.string().describe('Gerçekleştirmek istediğin görev veya hedef'),
+      context: z.string().optional().describe('Ek bağlam, mevcut kod, dosya içerikleri (isteğe bağlı)'),
     },
     async ({ query, context }) => {
       const agents = getCachedAgents(projectId);
+      const orchestrator = agents.find((a) => a.role === 'orchestrator');
       const specialists = agents.filter((a) => a.role === 'specialist');
+
+      if (!orchestrator) {
+        return {
+          content: [{ type: 'text', text: 'Bu projede orchestrator agent tanımlanmamış. Proje ayarlarından bir orchestrator ekle.' }],
+        };
+      }
 
       if (specialists.length === 0) {
         return {
@@ -107,23 +130,66 @@ export function createMcpServer(projectId: string): McpServer {
         };
       }
 
-      const target = routeByKeyword(specialists, query);
-
-      // Log activity
-      const activity = activityRepo.create({ projectId, agentId: target.id, type: 'mcp_call', query });
-      eventBus.emitProjectEvent(projectId, { type: 'agent:started', agentId: target.id, activityId: activity.id, query });
-
-      // Auto-complete after response is sent (MCP is prompt-only, Claude does the work)
+      // Log orchestrator activity
+      const activity = activityRepo.create({ projectId, agentId: orchestrator.id, type: 'mcp_call', query });
+      eventBus.emitProjectEvent(projectId, { type: 'agent:started', agentId: orchestrator.id, activityId: activity.id, query });
       setTimeout(() => {
         activityRepo.complete(activity.id, 'completed');
-        eventBus.emitProjectEvent(projectId, { type: 'agent:completed', agentId: target.id, activityId: activity.id });
-      }, 2000);
+        eventBus.emitProjectEvent(projectId, { type: 'agent:completed', agentId: orchestrator.id, activityId: activity.id });
+      }, 3000);
+
+      // Build agent list for the orchestrator
+      const agentList = specialists
+        .map((a) =>
+          `- **${a.name}** | ID: \`${a.id}\`${a.description ? ` | ${a.description}` : ''}`,
+        )
+        .join('\n');
+
+      // Find documentation agent for final step
+      const docAgent = specialists.find(
+        (a) => a.name.toLowerCase().includes('doc') || a.slug.toLowerCase().includes('doc'),
+      );
+      const docInstruction = docAgent
+        ? `\n5. Tüm görevler tamamlandıktan sonra \`ask_agent\` ile Documentation agent'ı çağır (ID: \`${docAgent.id}\`). Tüm çıktıları özetle ve bir rapor oluştur. Raporu \`run-report.txt\` olarak workspace'e kaydet.`
+        : '';
+
+      const userContent = context ? `${context}\n\n${query}` : query;
+
+      const orchestrationPrompt =
+        `<agent_instructions>\n` +
+        `Sen şu anda "${orchestrator.name}" rolündesin — bu proje için ana orkestratörsün.\n` +
+        (orchestrator.description ? `Rol: ${orchestrator.description}\n` : '') +
+        `\nSistem talimatların:\n${orchestrator.systemPrompt}\n` +
+        `</agent_instructions>\n\n` +
+        `## Görev\n${userContent}\n\n` +
+        `## Mevcut Specialist Agentlar\n${agentList}\n\n` +
+        `## Orchestration Talimatları\n` +
+        `Orkestratör olarak bu görevi execute et:\n\n` +
+        `1. Görevi yukarıdaki agentlara uygun **somut alt görevlere** böl\n` +
+        `2. Her alt görev için \`ask_agent\` tool'unu çağır:\n` +
+        `   - \`agent_id\`: İlgili agent'ın ID'si\n` +
+        `   - \`query\`: O agent'a özgü, net görev tanımı\n` +
+        `   - \`context\`: Önceki agent çıktıları (bağımlılık varsa)\n` +
+        `3. Bağımlı görevleri sırayla yap — bir agent'ın çıktısı diğerinin girdisi olabilir\n` +
+        `4. Bağımsız görevleri paralel düşünebilirsin ama her \`ask_agent\` çağrısını kendin yanıtla` +
+        docInstruction + `\n\n` +
+        `## File Structure Standards\n` +
+        `Enforce professional project structure across all agents:\n` +
+        `- Organize by feature/domain, not by file type\n` +
+        `- Co-locate related files (component + styles + types + tests in one folder)\n` +
+        `- Use index.ts barrel exports\n` +
+        `- Detect and follow the tech stack conventions (Next.js App Router, NestJS, etc.)\n` +
+        `- Source code under src/, config at root\n` +
+        `- Never use a flat file structure\n\n` +
+        `## Execution Rules\n` +
+        `Each agent task must produce real file changes — not text output:\n` +
+        `- Use Write/Edit tools to create or modify files directly\n` +
+        `- Write every file the task requires\n` +
+        `- Note which files were written after each step\n\n` +
+        `Plan first, then execute step by step.`;
 
       return {
-        content: [{
-          type: 'text',
-          text: agentContextBlock(target, query, context),
-        }],
+        content: [{ type: 'text', text: orchestrationPrompt }],
       };
     },
   );

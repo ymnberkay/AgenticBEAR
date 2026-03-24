@@ -9,9 +9,10 @@ import { agentRepo } from '../db/repositories/agent.repo.js';
 import { runRepo } from '../db/repositories/run.repo.js';
 import { taskRepo } from '../db/repositories/task.repo.js';
 import { settingsRepo } from '../db/repositories/settings.repo.js';
+import { workspaceService } from '../services/workspace.service.js';
 import { eventBus } from '../utils/event-bus.js';
 import { createLogger } from '../utils/logger.js';
-import type { Run, Task } from '@subagent/shared';
+import type { Run, Task, Agent } from '@subagent/shared';
 
 const log = createLogger('engine');
 
@@ -195,7 +196,21 @@ export const executionEngine = {
         eventBus.emitAndCreate('tokens:updated', runId, totals);
       }
 
-      // Step 4: Complete the run
+      // Step 4: Documentation step — if a documentation agent exists and all tasks succeeded
+      if (!queue.hasFailures()) {
+        const docAgent = agents.find((a) =>
+          a.role === 'specialist' &&
+          (a.name.toLowerCase().includes('doc') || a.slug.toLowerCase().includes('doc')),
+        );
+
+        if (docAgent) {
+          await this.runDocumentationStep(
+            claudeService, runId, run, project.workspacePath, createdTasks, docAgent,
+          );
+        }
+      }
+
+      // Step 5: Complete the run
       const finalTotals = tokenTracker.getRunTotals(runId);
       const finalStatus = queue.hasFailures() ? 'failed' : 'completed';
 
@@ -334,6 +349,104 @@ export const executionEngine = {
         title: task.title,
         error: error instanceof Error ? error.message : String(error),
       });
+    }
+  },
+
+  async runDocumentationStep(
+    claudeService: ClaudeService,
+    runId: string,
+    run: Run,
+    workspacePath: string,
+    tasks: Task[],
+    docAgent: Agent,
+  ): Promise<void> {
+    log.info(`Running documentation step for run ${runId}`);
+
+    eventBus.emitAndCreate('task:created', runId, {
+      taskId: 'doc-step',
+      title: 'Documentation',
+      assignedAgentId: docAgent.id,
+      agentName: docAgent.name,
+    });
+    eventBus.emitAndCreate('task:started', runId, {
+      taskId: 'doc-step',
+      title: 'Documentation',
+      agentId: docAgent.id,
+      agentName: docAgent.name,
+    });
+
+    try {
+      const completedTasks = tasks.filter((t) => t.status === 'completed' && t.output);
+      const taskSummaries = completedTasks
+        .map((t) => `## ${t.title}\n${t.output}`)
+        .join('\n\n---\n\n');
+
+      const prompt = `You are documenting the results of the following completed tasks.
+
+## Original Objective
+${run.objective}
+
+## Completed Tasks
+${taskSummaries}
+
+Please produce a structured documentation file that summarizes:
+1. What was accomplished
+2. Key decisions and outputs from each task
+3. Any important notes or recommendations
+
+Format it clearly so it can be saved as a .txt file.`;
+
+      const startTime = Date.now();
+      const result = await claudeService.sendMessage({
+        model: docAgent.modelConfig.model,
+        maxTokens: docAgent.modelConfig.maxTokens ?? 4096,
+        systemPrompt: docAgent.systemPrompt,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      const durationMs = Date.now() - startTime;
+
+      // Write to .txt file in workspace
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const fileName = `reports/run-${timestamp}.txt`;
+      const fileContent = `AgenticBEAR Run Report\n${'='.repeat(60)}\nObjective: ${run.objective}\nDate: ${new Date().toISOString()}\nRun ID: ${runId}\n\n${'='.repeat(60)}\n\n${result.text}`;
+
+      try {
+        workspaceService.writeFile(workspacePath, fileName, fileContent);
+        log.info(`Documentation written to ${workspacePath}/${fileName}`);
+      } catch (writeError) {
+        log.warn('Could not write documentation file (no workspace?)', writeError);
+      }
+
+      // Track token usage
+      const stepId = `doc-${runId}`;
+      tokenTracker.recordUsage(runId, stepId, docAgent.modelConfig.model, result.inputTokens, result.outputTokens);
+
+      // Record step
+      taskRepo.createStep({
+        runId,
+        taskId: 'doc-step',
+        agentId: docAgent.id,
+        type: 'api_call',
+        input: prompt,
+        output: result.text,
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+        costUsd: tokenTracker.getRunTotals(runId).totalCostUsd,
+        durationMs,
+      });
+
+      eventBus.emitAndCreate('task:completed', runId, {
+        taskId: 'doc-step',
+        title: 'Documentation',
+        agentId: docAgent.id,
+        agentName: docAgent.name,
+        outputFile: fileName,
+      });
+
+      log.info(`Documentation step completed for run ${runId}`);
+    } catch (err) {
+      log.error('Documentation step failed', err);
+      // Non-fatal — don't fail the whole run
     }
   },
 
