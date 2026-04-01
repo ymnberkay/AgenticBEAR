@@ -1,8 +1,39 @@
 {
-  "name": "subagent-manager",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Claude multi-agent orchestration platform",
+  "name": "agenticbear",
+  "version": "1.0.0",
+  "description": "Build and manage a personal army of AI agents — use them inside Claude Code CLI via MCP",
+  "homepage": "https://github.com/ymnberkay/SubAgentManager",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ymnberkay/SubAgentManager.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ymnberkay/SubAgentManager/issues"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "claude",
+    "claude-code",
+    "ai-agents",
+    "multi-agent",
+    "orchestration",
+    "anthropic",
+    "model-context-protocol",
+    "agent-management",
+    "llm"
+  ],
+  "type": "module",
+  "bin": {
+    "agenticbear": "./bin/agenticbear.js"
+  },
+  "files": [
+    "bin/",
+    "dist/"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "workspaces": [
     "packages/shared",
     "packages/server",
@@ -12,12 +43,19 @@
     "dev": "concurrently -n server,client -c blue,green \"npm run dev -w @subagent/server\" \"wait-on tcp:3001 && npm run dev -w @subagent/client\"",
     "dev:server": "npm run dev -w @subagent/server",
     "dev:client": "npm run dev -w @subagent/client",
-    "build": "npm run build -w @subagent/shared && npm run build -w @subagent/server && npm run build -w @subagent/client",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "npm run build -w @subagent/client",
+    "build:server": "node_modules/.bin/esbuild packages/server/src/index.ts --bundle --platform=node --target=node20 --format=esm --external:better-sqlite3 --external:fsevents --outfile=dist/server.js --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
+    "start": "NODE_ENV=production node dist/server.js",
     "typecheck": "tsc -b packages/shared packages/server packages/client",
-    "clean": "rm -rf packages/*/dist packages/*/node_modules node_modules"
+    "clean": "rm -rf dist packages/*/dist packages/*/node_modules node_modules"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
+    "esbuild": "^0.25.0",
     "typescript": "^5.7.3",
     "wait-on": "^9.0.4"
   }

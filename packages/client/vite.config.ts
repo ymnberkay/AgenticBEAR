@@ -11,6 +11,14 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
       },
+      '/mcp': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
     },
+  },
+  build: {
+    outDir: '../../dist/public',
+    emptyOutDir: true,
   },
 });

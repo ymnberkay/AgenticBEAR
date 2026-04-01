@@ -1,0 +1,23 @@
+# Source files (not needed in published package)
+packages/server/src/
+packages/client/src/
+packages/shared/src/
+
+# Development configs
+packages/*/tsconfig.json
+packages/*/vite.config.ts
+tsconfig.base.json
+
+# Dev artifacts
+packages/*/dist/
+packages/*/.tsbuildinfo
+
+# Tools and docs
+.git/
+.gitignore
+api-client-docs.txt
+settings.json
+
+# Dependencies (npm installs its own)
+node_modules/
+packages/*/node_modules/

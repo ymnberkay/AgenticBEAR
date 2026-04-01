@@ -1,0 +1,92 @@
+{
+  "name": "agenticbear",
+  "displayName": "AgenticBEAR",
+  "description": "Multi-agent orchestration — run specialist agents inside VS Code",
+  "version": "0.1.0",
+  "engines": { "vscode": "^1.87.0" },
+  "categories": ["AI", "Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agenticbear",
+          "title": "AgenticBEAR",
+          "icon": "media/bear.svg"
+        }
+      ]
+    },
+    "views": {
+      "agenticbear": [
+        {
+          "id": "agenticbear.agents",
+          "name": "Agents",
+          "type": "tree"
+        }
+      ]
+    },
+    "commands": [
+      { "command": "agenticbear.openChat", "title": "AgenticBEAR: Open Chat" },
+      { "command": "agenticbear.orchestrate", "title": "AgenticBEAR: Orchestrate Task" },
+      { "command": "agenticbear.askAgent", "title": "AgenticBEAR: Ask Agent" },
+      { "command": "agenticbear.manageAgents", "title": "AgenticBEAR: Manage Agents", "icon": "$(settings-gear)" },
+      { "command": "agenticbear.addAgent", "title": "AgenticBEAR: Add Agent", "icon": "$(add)" },
+      { "command": "agenticbear.setApiKey", "title": "AgenticBEAR: Set API Keys" },
+      { "command": "agenticbear.refreshAgents", "title": "AgenticBEAR: Refresh Agents", "icon": "$(refresh)" },
+      { "command": "agenticbear.connectServer", "title": "AgenticBEAR: Connect to Server", "icon": "$(plug)" },
+      { "command": "agenticbear.disconnect", "title": "AgenticBEAR: Disconnect from Server" }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "submenu": "agenticbear.submenu",
+          "group": "agenticbear"
+        }
+      ],
+      "agenticbear.submenu": [
+        { "command": "agenticbear.askAgent" },
+        { "command": "agenticbear.orchestrate" }
+      ],
+      "view/title": [
+        { "command": "agenticbear.manageAgents", "when": "view == agenticbear.agents", "group": "navigation" },
+        { "command": "agenticbear.connectServer", "when": "view == agenticbear.agents", "group": "navigation" },
+        { "command": "agenticbear.refreshAgents", "when": "view == agenticbear.agents", "group": "navigation" }
+      ]
+    },
+    "submenus": [
+      {
+        "id": "agenticbear.submenu",
+        "label": "AgenticBEAR"
+      }
+    ],
+    "configuration": {
+      "title": "AgenticBEAR",
+      "properties": {
+        "agenticbear.defaultProvider": {
+          "type": "string",
+          "enum": ["vscode-lm", "anthropic", "openai"],
+          "default": "vscode-lm",
+          "description": "Default LLM provider"
+        },
+        "agenticbear.defaultModel": {
+          "type": "string",
+          "default": "claude-sonnet-4-6",
+          "description": "Default model name"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.87.0",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "^5.7.0"
+  }
+}

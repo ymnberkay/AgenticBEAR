@@ -1,4 +1,8 @@
 import Fastify from 'fastify';
+import fastifyStatic from '@fastify/static';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
 import { config } from './config.js';
 import { initDb } from './db/client.js';
 import { registerCors } from './plugins/cors.js';
@@ -15,6 +19,8 @@ import { templateRepo } from './db/repositories/template.repo.js';
 import { BUILT_IN_TEMPLATES } from './seed-templates.js';
 import { logger } from './utils/logger.js';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
 async function main() {
   // Initialize database
   initDb();
@@ -23,6 +29,27 @@ async function main() {
   templateRepo.seedBuiltInTemplates(BUILT_IN_TEMPLATES);
   logger.info('Built-in templates seeded');
 
+  // Resolve client dist path for production static serving
+  // Candidates ordered by likelihood:
+  //   1. esbuild bundle: dist/server.js lives in dist/, so dist/public/ is a sibling
+  //   2. tsc output: packages/server/dist/index.js → project root/dist/public/
+  //   3. tsc fallback: packages/client/dist/
+  let clientDist: string | undefined;
+  if (config.isProduction) {
+    const candidates = [
+      resolve(__dirname, 'public'),
+      resolve(__dirname, '../../../dist/public'),
+      resolve(__dirname, '../../../packages/client/dist'),
+    ];
+    clientDist = candidates.find(p => existsSync(p));
+
+    if (clientDist) {
+      logger.info(`Serving UI from: ${clientDist}`);
+    } else {
+      logger.warn('Client build not found. Run `npm run build` first.');
+    }
+  }
+
   // Create Fastify instance
   const app = Fastify({
     logger: false, // We use our own logger
@@ -30,7 +57,6 @@ async function main() {
 
   // Register plugins
   await registerCors(app);
-  registerErrorHandler(app);
 
   // Register routes
   await app.register(projectRoutes);
@@ -46,6 +72,18 @@ async function main() {
   app.get('/api/health', async () => {
     return { status: 'ok', timestamp: new Date().toISOString() };
   });
+
+  // In production, serve built React client as static files
+  if (clientDist) {
+    await app.register(fastifyStatic, {
+      root: clientDist,
+      prefix: '/',
+      decorateReply: false,
+    });
+  }
+
+  // Error handler + SPA fallback (must be registered after static plugin)
+  registerErrorHandler(app, clientDist);
 
   // Start server
   try {
