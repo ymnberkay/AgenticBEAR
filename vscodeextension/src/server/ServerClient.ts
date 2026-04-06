@@ -1,3 +1,7 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import * as vscode from 'vscode';
 import type { Agent } from '../types';
 
 export interface ServerProject {
@@ -20,8 +24,28 @@ export interface ServerAgent {
   icon: string;
 }
 
+function resolveBaseUrl(): string {
+  // 1. Port file written by server on startup
+  const portFile = path.resolve(os.homedir(), '.subagent-manager', 'port');
+  try {
+    const raw = fs.readFileSync(portFile, 'utf8').trim();
+    const port = parseInt(raw, 10);
+    if (!isNaN(port)) return `http://localhost:${port}`;
+  } catch {}
+
+  // 2. VS Code setting override
+  const cfg = vscode.workspace.getConfiguration('agenticbear');
+  const settingPort = cfg.get<number>('serverPort');
+  if (settingPort) return `http://localhost:${settingPort}`;
+
+  // 3. Default
+  return 'http://localhost:3001';
+}
+
 export class ServerClient {
-  constructor(private baseUrl: string = 'http://localhost:3001') {}
+  get baseUrl(): string {
+    return resolveBaseUrl();
+  }
 
   async isRunning(): Promise<boolean> {
     try {

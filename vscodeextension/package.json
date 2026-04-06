@@ -63,6 +63,11 @@
     "configuration": {
       "title": "AgenticBEAR",
       "properties": {
+        "agenticbear.serverPort": {
+          "type": "number",
+          "default": null,
+          "description": "Override AgenticBEAR server port (auto-detected from ~/.subagent-manager/port if left empty)"
+        },
         "agenticbear.defaultProvider": {
           "type": "string",
           "enum": ["vscode-lm", "anthropic", "openai"],

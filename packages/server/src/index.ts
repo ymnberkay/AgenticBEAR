@@ -2,7 +2,8 @@ import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, writeFileSync, rmSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { config } from './config.js';
 import { initDb } from './db/client.js';
 import { registerCors } from './plugins/cors.js';
@@ -86,11 +87,13 @@ async function main() {
   registerErrorHandler(app, clientDist);
 
   // Start server
+  const portFile = resolve(homedir(), '.subagent-manager', 'port');
   try {
     await app.listen({ port: config.port, host: '0.0.0.0' });
     logger.info(`Server listening on http://localhost:${config.port}`);
     logger.info(`Client URL: ${config.clientUrl}`);
     logger.info(`Database: ${config.dbPath}`);
+    writeFileSync(portFile, String(config.port), 'utf8');
   } catch (err) {
     logger.error('Failed to start server', err);
     process.exit(1);
@@ -99,6 +102,7 @@ async function main() {
   // Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}, shutting down...`);
+    try { rmSync(portFile); } catch {}
     await app.close();
     process.exit(0);
   };

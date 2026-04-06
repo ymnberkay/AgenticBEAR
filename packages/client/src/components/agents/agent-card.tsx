@@ -70,6 +70,17 @@ export function AgentCard({ agent, status = 'idle', selected = false, onClick, o
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-[13px] font-semibold text-text-primary truncate">{agent.name}</span>
+            <span
+              className="shrink-0 text-[10px] font-medium truncate"
+              style={{
+                color: agent.color,
+                background: `${agent.color}15`,
+                padding: '1px 6px',
+                borderRadius: '4px',
+              }}
+            >
+              {modelLabel}
+            </span>
             {status === 'running' && (
               <span className="flex items-center gap-1 shrink-0">
                 <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ backgroundColor: agent.color }} />
@@ -81,7 +92,6 @@ export function AgentCard({ agent, status = 'idle', selected = false, onClick, o
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
             <Badge color={agent.color}>{agent.role}</Badge>
-            <span className="text-[10px] text-text-disabled truncate">{modelLabel}</span>
           </div>
         </div>
 
