@@ -87,7 +87,7 @@ export function AgentCard({ agent, status = 'idle', selected = false, onClick, o
               </span>
             )}
             {status === 'completed' && (
-              <Check className="h-3 w-3 text-[#6bbfa0] shrink-0 animate-fade-in" />
+              <Check className="h-3 w-3 text-[#8ec07c] shrink-0 animate-fade-in" />
             )}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">

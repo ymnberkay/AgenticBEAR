@@ -15,9 +15,9 @@ const iconMap: Record<string, React.FC<{ className?: string; style?: React.CSSPr
 };
 
 const taskStatusConfig: Record<string, { icon: React.FC<{ className?: string }>; color: string; label: string }> = {
-  completed: { icon: CheckCircle, color: '#6bbfa0', label: 'Completed' },
-  in_progress: { icon: Loader2, color: '#d4924e', label: 'In Progress' },
-  failed: { icon: AlertCircle, color: '#ef4444', label: 'Failed' },
+  completed: { icon: CheckCircle, color: '#8ec07c', label: 'Completed' },
+  in_progress: { icon: Loader2, color: '#fabd2f', label: 'In Progress' },
+  failed: { icon: AlertCircle, color: '#fb4934', label: 'Failed' },
   queued: { icon: Clock, color: '#6a5a48', label: 'Queued' },
   delegated: { icon: Clock, color: '#a8947c', label: 'Delegated' },
   awaiting_handoff: { icon: Clock, color: '#a8947c', label: 'Awaiting' },
@@ -66,8 +66,8 @@ export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit, sele
           <div className="flex items-center gap-2 mt-1">
             <span className="text-[11px] text-text-tertiary font-mono">{modelLabel}</span>
             {status === 'running' && (
-              <span className="flex items-center gap-1 text-[10px] text-[#d4924e]">
-                <span className="h-1.5 w-1.5 rounded-full animate-pulse bg-[#d4924e]" />
+              <span className="flex items-center gap-1 text-[10px] text-[#fabd2f]">
+                <span className="h-1.5 w-1.5 rounded-full animate-pulse bg-[#fabd2f]" />
                 Running
               </span>
             )}
@@ -114,7 +114,7 @@ export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit, sele
               disabled={clearActivities.isPending}
               className="flex items-center gap-1 transition-colors duration-200 disabled:opacity-50"
               style={{ fontSize: '10px', color: 'var(--color-text-disabled)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#fb4934'; }}
               onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
               title="Tümünü sil"
             >
@@ -198,7 +198,7 @@ export function ActivityDetailPanel({
 }) {
   const isRunning = activity.status === 'running';
   const isFailed = activity.status === 'failed';
-  const statusColor = isRunning ? '#d4924e' : isFailed ? '#ef4444' : '#6bbfa0';
+  const statusColor = isRunning ? '#fabd2f' : isFailed ? '#fb4934' : '#8ec07c';
   const statusLabel = isRunning ? 'Running' : isFailed ? 'Failed' : 'Completed';
 
   const duration =
@@ -324,7 +324,7 @@ function ActivityRow({
 }) {
   const isRunning = activity.status === 'running';
   const isFailed = activity.status === 'failed';
-  const statusColor = isRunning ? '#d4924e' : isFailed ? '#ef4444' : '#6bbfa0';
+  const statusColor = isRunning ? '#fabd2f' : isFailed ? '#fb4934' : '#8ec07c';
   const StatusIcon = isRunning ? Loader2 : isFailed ? AlertCircle : CheckCircle;
   const statusLabel = isRunning ? 'Running' : isFailed ? 'Failed' : 'Completed';
 
@@ -368,7 +368,7 @@ function ActivityRow({
           disabled={isDeleting}
           className="flex items-center justify-center h-6 w-6 transition-colors duration-200 disabled:opacity-50"
           style={{ color: 'var(--color-text-disabled)' }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#fb4934'; }}
           onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
           title="Sil"
         >

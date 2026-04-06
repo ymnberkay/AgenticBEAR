@@ -49,8 +49,8 @@ export function ModelConfigForm({ config, onChange }: ModelConfigFormProps) {
                 border: '1px solid var(--color-border-default)',
               }}
               onFocus={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(212, 146, 78, 0.5)';
-                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(212, 146, 78, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(250, 189, 47, 0.5)';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(250, 189, 47, 0.1)';
               }}
               onBlur={(e) => {
                 e.currentTarget.style.borderColor = 'var(--color-border-default)';

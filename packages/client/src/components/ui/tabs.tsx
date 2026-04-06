@@ -46,9 +46,9 @@ export function Tabs({ tabs, activeTab, onTabChange, children, className }: Tabs
             style={
               currentTab === tab.id
                 ? {
-                    background: 'linear-gradient(135deg, rgba(212, 146, 78, 0.2), rgba(107, 191, 160, 0.15))',
-                    border: '1px solid rgba(212, 146, 78, 0.25)',
-                    boxShadow: '0 2px 6px rgba(212, 146, 78, 0.1)',
+                    background: 'linear-gradient(135deg, rgba(250, 189, 47, 0.2), rgba(142, 192, 124, 0.15))',
+                    border: '1px solid rgba(250, 189, 47, 0.25)',
+                    boxShadow: '0 2px 6px rgba(250, 189, 47, 0.1)',
                   }
                 : { border: '1px solid transparent' }
             }

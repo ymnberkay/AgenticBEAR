@@ -1,4 +1,4 @@
-import { FolderPlus, Sparkles } from 'lucide-react';
+import { FolderPlus } from 'lucide-react';
 import type { Project } from '@subagent/shared';
 import { ProjectCard } from './project-card';
 import { Skeleton } from '../ui/skeleton';
@@ -12,27 +12,31 @@ interface ProjectListProps {
 export function ProjectList({ projects, isLoading, onCreateProject }: ProjectListProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {Array.from({ length: 8 }).map((_, i) => (
           <div
             key={i}
-            className="p-6 min-h-[180px]"
             style={{
-              background: 'var(--color-bg-card)',
+              background: 'var(--color-bg-surface)',
               border: '1px solid var(--color-border-subtle)',
-              animationDelay: `${i * 60}ms`,
+              borderLeft: '3px solid #3c3836',
+              padding: '16px 18px',
+              minHeight: 130,
+              animationDelay: `${i * 50}ms`,
             }}
           >
-            <div className="flex items-center justify-between mb-4">
-              <Skeleton height={40} width={40} />
-              <Skeleton height={16} width={48} />
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2.5">
+                <Skeleton height={36} width={36} />
+                <Skeleton height={14} width={100} />
+              </div>
+              <Skeleton height={18} width={52} />
             </div>
-            <Skeleton height={16} width="70%" />
-            <Skeleton height={13} width="90%" className="mt-2" />
-            <Skeleton height={13} width="50%" className="mt-1.5" />
-            <div className="flex items-center gap-4 mt-4 pt-3.5" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
-              <Skeleton height={12} width={65} />
-              <Skeleton height={12} width={65} />
+            <Skeleton height={12} width="85%" />
+            <Skeleton height={12} width="60%" className="mt-1.5" />
+            <div className="flex items-center gap-4 mt-4 pt-3" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
+              <Skeleton height={11} width={60} />
+              <Skeleton height={11} width={55} />
             </div>
           </div>
         ))}
@@ -44,33 +48,45 @@ export function ProjectList({ projects, isLoading, onCreateProject }: ProjectLis
     return (
       <div className="flex flex-col items-center justify-center py-32 animate-fade-in">
         <div
-          className="relative flex h-20 w-20 items-center justify-center mb-6"
+          className="flex h-16 w-16 items-center justify-center mb-5"
           style={{
-            background: 'linear-gradient(135deg, rgba(212, 146, 78, 0.1), rgba(107, 191, 160, 0.1))',
-            border: '1px solid rgba(212, 146, 78, 0.2)',
+            background: 'rgba(250, 189, 47, 0.08)',
+            border: '1px solid rgba(250, 189, 47, 0.2)',
           }}
         >
-          <FolderPlus className="h-8 w-8 text-[#d4924e]" />
-          <Sparkles className="absolute -top-1 -right-1 h-4 w-4 text-[#d4924e] animate-float" />
+          <FolderPlus className="h-7 w-7" style={{ color: '#fabd2f' }} />
         </div>
-        <h3 className="text-[18px] font-semibold text-text-primary mb-2">
+        <h3
+          className="text-[16px] font-semibold mb-2"
+          style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-sans)' }}
+        >
           No projects yet
         </h3>
-        <p className="text-[13px] text-text-tertiary mb-7 text-center max-w-[320px] leading-relaxed">
-          Create your first project to start orchestrating AI agents and managing complex workflows.
+        <p
+          className="text-[12px] mb-6 text-center max-w-[300px] leading-relaxed"
+          style={{ color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-sans)' }}
+        >
+          Create your first project to start orchestrating AI agents.
         </p>
         <button
           onClick={onCreateProject}
-          className="h-[42px] bg-white text-[#0a0a0a] text-[14px] font-semibold px-6 transition-all duration-200 hover:bg-white/90"
+          className="text-[13px] font-semibold px-5 transition-all duration-150 hover:opacity-80"
+          style={{
+            height: 38,
+            background: '#fabd2f',
+            color: '#1d2021',
+            fontFamily: 'var(--font-sans)',
+            border: 'none',
+          }}
         >
-          Create Your First Project
+          Create Project
         </button>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
       {projects.map((project, index) => (
         <ProjectCard key={project.id} project={project} index={index} />
       ))}

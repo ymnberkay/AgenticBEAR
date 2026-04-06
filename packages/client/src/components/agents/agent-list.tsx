@@ -2,7 +2,6 @@ import { Plus, Bot } from 'lucide-react';
 import type { Agent } from '@subagent/shared';
 import { AgentCard } from './agent-card';
 import type { AgentStatus } from './agent-card';
-import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 
 interface AgentListProps {
@@ -38,57 +37,72 @@ export function AgentList({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
+      {/* Section header */}
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-text-disabled">
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
             Specialist Agents
           </span>
           {specialists.length > 0 && (
-            <span
-              className="text-[10px] font-mono px-1.5 py-0.5"
-              style={{
-                background: 'var(--color-bg-raised)',
-                border: '1px solid var(--color-border-subtle)',
-                color: 'var(--color-text-tertiary)',
-              }}
-            >
+            <span style={{
+              fontSize: 10, fontFamily: 'var(--font-mono)',
+              background: 'var(--color-bg-raised)',
+              border: '1px solid var(--color-border-subtle)',
+              color: 'var(--color-text-disabled)',
+              padding: '1px 6px',
+            }}>
               {specialists.length}
             </span>
           )}
         </div>
-        <Button size="sm" variant="outline" icon={<Plus className="h-3 w-3" />} onClick={onAddAgent}>
+        <button
+          onClick={onAddAgent}
+          className="flex items-center gap-1.5"
+          style={{
+            height: 28,
+            padding: '0 12px',
+            fontSize: 12,
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--color-text-secondary)',
+            background: 'transparent',
+            border: '1px solid var(--color-border-default)',
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(250,189,47,0.4)'; e.currentTarget.style.color = '#fabd2f'; e.currentTarget.style.background = 'rgba(250,189,47,0.06)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; e.currentTarget.style.color = 'var(--color-text-secondary)'; e.currentTarget.style.background = 'transparent'; }}
+        >
+          <Plus style={{ width: 11, height: 11 }} />
           Add Agent
-        </Button>
+        </button>
       </div>
 
       {specialists.length === 0 ? (
         <button
           onClick={onAddAgent}
-          className="flex flex-col items-center justify-center py-16 px-6 w-full transition-all duration-200 group"
+          className="flex flex-col items-center justify-center group"
           style={{
+            padding: '40px 24px',
+            width: '100%',
             border: '1px dashed var(--color-border-default)',
             background: 'transparent',
+            transition: 'all 0.15s',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'var(--color-accent)';
-            e.currentTarget.style.background = 'var(--color-accent-subtle)';
+            e.currentTarget.style.borderColor = 'rgba(250,189,47,0.35)';
+            e.currentTarget.style.background = 'rgba(250,189,47,0.02)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.borderColor = 'var(--color-border-default)';
             e.currentTarget.style.background = 'transparent';
           }}
         >
-          <div
-            className="h-10 w-10 flex items-center justify-center mb-3"
-            style={{ background: 'var(--color-bg-raised)', border: '1px solid var(--color-border-subtle)' }}
-          >
-            <Bot className="h-5 w-5 text-text-disabled group-hover:text-text-tertiary transition-colors duration-200" />
-          </div>
-          <p className="text-[13px] font-medium text-text-secondary group-hover:text-text-primary transition-colors duration-200">
+          <Bot style={{ width: 18, height: 18, color: 'var(--color-text-disabled)', marginBottom: 10 }} />
+          <p style={{ fontSize: 12, fontFamily: 'var(--font-sans)', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
             No specialist agents yet
           </p>
-          <p className="text-[11px] text-text-disabled mt-1">
-            Click to add your first agent
+          <p style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', marginTop: 4 }}>
+            click to add your first agent
           </p>
         </button>
       ) : (

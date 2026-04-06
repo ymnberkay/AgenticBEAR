@@ -18,7 +18,7 @@ export function PromptEditor({ value, onChange }: PromptEditorProps) {
           onChange={(e) => onChange(e.target.value)}
           placeholder="You are a specialist agent responsible for..."
           rows={12}
-          className="w-full border border-border-default bg-bg-raised px-3 py-2 font-mono text-[12px] leading-relaxed text-text-secondary placeholder:text-text-disabled resize-y min-h-[160px] transition-colors duration-150 hover:border-border-default focus:outline-none focus:border-[#d4924e] focus:ring-1 focus:ring-[#d4924e]/20"
+          className="w-full border border-border-default bg-bg-raised px-3 py-2 font-mono text-[12px] leading-relaxed text-text-secondary placeholder:text-text-disabled resize-y min-h-[160px] transition-colors duration-150 hover:border-border-default focus:outline-none focus:border-[#fabd2f] focus:ring-1 focus:ring-[#fabd2f]/20"
         />
         <div className="absolute bottom-2 right-2.5 flex items-center gap-2.5 text-[10px] text-text-tertiary pointer-events-none">
           <span>{wordCount} words</span>

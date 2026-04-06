@@ -34,11 +34,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             )}
             style={{
               background: 'var(--glass-bg)',
-              border: `1px solid ${error ? 'rgba(239, 68, 68, 0.5)' : 'var(--color-border-default)'}`,
+              border: `1px solid ${error ? 'rgba(251, 73, 52, 0.5)' : 'var(--color-border-default)'}`,
             }}
             onFocus={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(212, 146, 78, 0.5)';
-              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(212, 146, 78, 0.1)';
+              e.currentTarget.style.borderColor = 'rgba(250, 189, 47, 0.5)';
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(250, 189, 47, 0.1)';
               props.onFocus?.(e);
             }}
             onBlur={(e) => {
@@ -52,7 +52,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           </select>
           <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary pointer-events-none" />
         </div>
-        {error && <p className="text-[11.5px] text-[#ef4444] font-medium">{error}</p>}
+        {error && <p className="text-[11.5px] text-[#fb4934] font-medium">{error}</p>}
       </div>
     );
   },

@@ -3,27 +3,29 @@ import { useNavigate } from '@tanstack/react-router';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search,
-  FolderOpen,
-  Plus,
-  Settings,
-  FileCode2,
-  LayoutDashboard,
-  ArrowRight,
+  Search, FolderOpen, Plus, Settings, FileCode2,
+  LayoutDashboard, Bot, Zap,
 } from 'lucide-react';
 import { useUIStore } from '../../stores/ui.store';
 import { useProjects } from '../../api/hooks/use-projects';
 import { useKeyboardShortcut } from '../../hooks/use-keyboard-shortcut';
-import { cn } from '../../lib/cn';
 
 interface CommandItem {
   id: string;
   label: string;
   description?: string;
+  shortcut?: string;
   icon: React.ReactNode;
   action: () => void;
-  category: string;
+  category: 'Navigation' | 'Actions' | 'Projects' | 'Shortcuts';
 }
+
+const categoryColor: Record<string, string> = {
+  Navigation: '#83a598',
+  Actions:    '#8ec07c',
+  Projects:   '#fabd2f',
+  Shortcuts:  '#fe8019',
+};
 
 export function CommandPalette() {
   const open = useUIStore((s) => s.commandPaletteOpen);
@@ -42,39 +44,83 @@ export function CommandPalette() {
     if (open) {
       setQuery('');
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      setTimeout(() => inputRef.current?.focus(), 40);
     }
   }, [open]);
 
   const commands = useMemo<CommandItem[]>(() => {
     const items: CommandItem[] = [
+      // Slash shortcuts
+      {
+        id: 'slash-agents',
+        label: '/agents',
+        description: 'Jump to agents of a project',
+        shortcut: '/agents',
+        icon: <Bot style={{ width: 14, height: 14 }} />,
+        action: () => {
+          if (projects?.[0]) {
+            navigate({ to: '/projects/$projectId/agents', params: { projectId: projects[0].id } });
+            closeModal();
+          }
+        },
+        category: 'Shortcuts',
+      },
+      {
+        id: 'slash-new',
+        label: '/new',
+        description: 'Create a new project',
+        shortcut: '/new',
+        icon: <Plus style={{ width: 14, height: 14 }} />,
+        action: () => { openModal('create-project'); },
+        category: 'Shortcuts',
+      },
+      {
+        id: 'slash-templates',
+        label: '/templates',
+        description: 'Browse agent templates',
+        shortcut: '/templates',
+        icon: <Zap style={{ width: 14, height: 14 }} />,
+        action: () => { navigate({ to: '/templates' }); closeModal(); },
+        category: 'Shortcuts',
+      },
+      {
+        id: 'slash-settings',
+        label: '/settings',
+        description: 'Open global settings',
+        shortcut: '/settings',
+        icon: <Settings style={{ width: 14, height: 14 }} />,
+        action: () => { navigate({ to: '/settings' }); closeModal(); },
+        category: 'Shortcuts',
+      },
+      // Navigation
       {
         id: 'dashboard',
         label: 'Go to Dashboard',
-        icon: <LayoutDashboard className="h-4 w-4" />,
+        icon: <LayoutDashboard style={{ width: 14, height: 14 }} />,
         action: () => { navigate({ to: '/' }); closeModal(); },
         category: 'Navigation',
       },
       {
-        id: 'new-project',
-        label: 'Create New Project',
-        icon: <Plus className="h-4 w-4" />,
-        action: () => { openModal('create-project'); },
-        category: 'Actions',
-      },
-      {
         id: 'templates',
         label: 'Browse Templates',
-        icon: <FileCode2 className="h-4 w-4" />,
+        icon: <FileCode2 style={{ width: 14, height: 14 }} />,
         action: () => { navigate({ to: '/templates' }); closeModal(); },
         category: 'Navigation',
       },
       {
         id: 'settings',
         label: 'Open Settings',
-        icon: <Settings className="h-4 w-4" />,
+        icon: <Settings style={{ width: 14, height: 14 }} />,
         action: () => { navigate({ to: '/settings' }); closeModal(); },
         category: 'Navigation',
+      },
+      // Actions
+      {
+        id: 'new-project',
+        label: 'Create New Project',
+        icon: <Plus style={{ width: 14, height: 14 }} />,
+        action: () => { openModal('create-project'); },
+        category: 'Actions',
       },
     ];
 
@@ -82,8 +128,8 @@ export function CommandPalette() {
       items.push({
         id: `project-${p.id}`,
         label: p.name,
-        description: p.description || p.workspacePath,
-        icon: <FolderOpen className="h-4 w-4" />,
+        description: p.workspacePath || p.description,
+        icon: <FolderOpen style={{ width: 14, height: 14 }} />,
         action: () => {
           navigate({ to: '/projects/$projectId', params: { projectId: p.id } });
           closeModal();
@@ -98,6 +144,14 @@ export function CommandPalette() {
   const filtered = useMemo(() => {
     if (!query) return commands;
     const lower = query.toLowerCase();
+
+    // slash prefix: only show shortcut items
+    if (lower.startsWith('/')) {
+      return commands.filter(
+        (c) => c.category === 'Shortcuts' && c.shortcut?.startsWith(lower),
+      );
+    }
+
     return commands.filter(
       (c) =>
         c.label.toLowerCase().includes(lower) ||
@@ -106,9 +160,7 @@ export function CommandPalette() {
     );
   }, [commands, query]);
 
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
+  useEffect(() => { setSelectedIndex(0); }, [query]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
@@ -125,163 +177,272 @@ export function CommandPalette() {
     }
   };
 
-  const categoryColors: Record<string, string> = {
-    Navigation: 'rgba(138, 173, 204, 0.15)',
-    Actions: 'rgba(107, 191, 160, 0.15)',
-    Projects: 'rgba(212, 146, 78, 0.15)',
-  };
+  // Group results
+  const grouped = useMemo(() => {
+    const map = new Map<string, CommandItem[]>();
+    for (const item of filtered) {
+      const list = map.get(item.category) ?? [];
+      list.push(item);
+      map.set(item.category, list);
+    }
+    return map;
+  }, [filtered]);
+
+  // Flat list for keyboard index alignment
+  const flat = filtered;
 
   return createPortal(
     <AnimatePresence>
       {open && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop blur */}
           <motion.div
             className="fixed inset-0 z-[70]"
-            style={{ background: 'rgba(5, 4, 3, 0.82)', backdropFilter: 'blur(10px)' }}
+            style={{ background: 'rgba(13,11,9,0.75)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.12 }}
+            transition={{ duration: 0.15 }}
             onClick={closeModal}
           />
-          {/* Container — click outside modal card closes palette */}
+
+          {/* Spotlight container */}
           <div
-            className="fixed inset-0 z-[71] flex items-start justify-center pt-[14vh] px-4"
+            className="fixed inset-0 z-[71] flex items-start justify-center"
+            style={{ paddingTop: '22vh' }}
             onClick={closeModal}
           >
             <motion.div
-              className="w-full max-w-[540px] overflow-hidden"
+              layoutId="spotlight-bar"
               style={{
-                background: 'var(--color-bg-raised)',
-                border: '1px solid var(--color-border-default)',
-                boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(212,146,78,0.08), 0 0 40px rgba(212,146,78,0.06)',
+                width: '100%',
+                maxWidth: 600,
+                background: '#282828',
+                border: '1px solid #3c3836',
+                borderTop: '1px solid rgba(250,189,47,0.35)',
+                boxShadow: '0 32px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(250,189,47,0.06)',
+                overflow: 'hidden',
               }}
-              initial={{ opacity: 0, scale: 0.96, y: -12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: -12 }}
-              transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{
+                layout: { duration: 0.28, ease: [0.16, 1, 0.3, 1] },
+                opacity: { duration: 0.15 },
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Search input */}
-              <div
-                className="flex items-center gap-3 px-4 py-3.5"
-                style={{ borderBottom: '1px solid var(--color-border-subtle)' }}
-              >
-                <Search className="h-4 w-4 shrink-0" style={{ color: 'var(--color-accent)' }} />
+              <div className="flex items-center gap-3 px-4" style={{ height: 52, borderBottom: '1px solid #3c3836' }}>
+                <Search style={{ width: 15, height: 15, flexShrink: 0, color: '#fabd2f' }} />
                 <input
                   ref={inputRef}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Search commands, projects..."
-                  className="w-full bg-transparent text-[14px] text-text-primary placeholder:text-text-disabled outline-none tracking-tight"
+                  placeholder="Search or type / for commands..."
+                  style={{
+                    flex: 1,
+                    background: 'transparent',
+                    border: 'none',
+                    outline: 'none',
+                    fontSize: 15,
+                    color: '#ebdbb2',
+                    fontFamily: 'var(--font-sans)',
+                    letterSpacing: '-0.01em',
+                  }}
                 />
-                {query && (
+                {query ? (
                   <button
                     onClick={() => setQuery('')}
-                    className="text-[10px] text-text-disabled hover:text-text-tertiary transition-colors px-1.5 py-0.5 shrink-0"
-                    style={{ border: '1px solid var(--color-border-subtle)' }}
+                    style={{
+                      fontSize: 10,
+                      fontFamily: 'var(--font-mono)',
+                      color: '#928374',
+                      background: '#32302f',
+                      border: '1px solid #3c3836',
+                      padding: '2px 6px',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                    }}
                   >
                     clear
                   </button>
+                ) : (
+                  <kbd style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 10,
+                    color: '#504945',
+                    background: '#32302f',
+                    border: '1px solid #3c3836',
+                    padding: '2px 6px',
+                    flexShrink: 0,
+                  }}>
+                    esc
+                  </kbd>
                 )}
               </div>
 
+              {/* Slash hint bar (shown when empty) */}
+              {!query && (
+                <div
+                  className="flex items-center gap-3 px-4 py-2 overflow-x-auto"
+                  style={{ borderBottom: '1px solid #2a2827', background: '#232120' }}
+                >
+                  <span style={{ fontSize: 10, color: '#504945', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+                    shortcuts:
+                  </span>
+                  {['/agents', '/new', '/templates', '/settings'].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setQuery(s)}
+                      style={{
+                        fontSize: 11,
+                        fontFamily: 'var(--font-mono)',
+                        color: '#fe8019',
+                        background: 'rgba(254,128,25,0.08)',
+                        border: '1px solid rgba(254,128,25,0.2)',
+                        padding: '2px 8px',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                        transition: 'all 0.12s',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(254,128,25,0.16)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(254,128,25,0.08)'; }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Results */}
-              <div className="max-h-[340px] overflow-y-auto py-2">
-                {filtered.length === 0 && (
-                  <div className="px-4 py-12 text-center">
-                    <Search className="h-6 w-6 text-text-disabled mx-auto mb-2.5" />
-                    <p className="text-[13px] text-text-disabled">No results for "{query}"</p>
+              <div style={{ maxHeight: 360, overflowY: 'auto', padding: '6px 0' }}>
+                {flat.length === 0 && (
+                  <div style={{ padding: '48px 16px', textAlign: 'center' }}>
+                    <p style={{ fontSize: 13, color: '#504945', fontFamily: 'var(--font-mono)' }}>
+                      no results for "{query}"
+                    </p>
                   </div>
                 )}
-                {filtered.map((item, i) => (
-                  <button
-                    key={item.id}
-                    onClick={item.action}
-                    onMouseEnter={() => setSelectedIndex(i)}
-                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-all duration-120 mx-2"
-                    style={{
-                      width: 'calc(100% - 16px)',
-                      background: i === selectedIndex
-                        ? 'var(--color-bg-overlay)'
-                        : 'transparent',
-                      border: `1px solid ${i === selectedIndex ? 'var(--color-border-subtle)' : 'transparent'}`,
-                      color: i === selectedIndex
-                        ? 'var(--color-text-primary)'
-                        : 'var(--color-text-secondary)',
-                    }}
-                  >
-                    <span
-                      className="shrink-0 transition-colors duration-150"
-                      style={{ color: i === selectedIndex ? 'var(--color-accent)' : 'var(--color-text-tertiary)' }}
-                    >
-                      {item.icon}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[13px] font-medium truncate leading-snug">{item.label}</div>
-                      {item.description && (
-                        <div className="text-[11px] text-text-disabled truncate mt-0.5 font-mono">
-                          {item.description}
-                        </div>
-                      )}
+
+                {Array.from(grouped.entries()).map(([category, items]) => (
+                  <div key={category}>
+                    {/* Category header */}
+                    <div style={{
+                      padding: '8px 16px 4px',
+                      fontSize: 9,
+                      fontWeight: 600,
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                      fontFamily: 'var(--font-mono)',
+                      color: '#504945',
+                    }}>
+                      {category}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span
-                        className="text-[10px] font-medium px-2 py-0.5"
-                        style={{
-                          background: categoryColors[item.category] ?? 'var(--color-bg-hover)',
-                          color: 'var(--color-text-tertiary)',
-                          border: '1px solid var(--color-border-subtle)',
-                        }}
-                      >
-                        {item.category}
-                      </span>
-                      {i === selectedIndex && (
-                        <ArrowRight className="h-3 w-3 text-text-tertiary" />
-                      )}
-                    </div>
-                  </button>
+
+                    {items.map((item) => {
+                      const flatIdx = flat.indexOf(item);
+                      const isSelected = flatIdx === selectedIndex;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={item.action}
+                          onMouseEnter={() => setSelectedIndex(flatIdx)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                            width: 'calc(100% - 12px)',
+                            margin: '0 6px',
+                            padding: '8px 10px',
+                            background: isSelected ? '#32302f' : 'transparent',
+                            borderLeft: isSelected ? '2px solid #fabd2f' : '2px solid transparent',
+                              color: isSelected ? '#ebdbb2' : '#928374',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'all 0.1s',
+                          }}
+                        >
+                          <span style={{ color: isSelected ? categoryColor[category] : '#504945', flexShrink: 0 }}>
+                            {item.icon}
+                          </span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontSize: 13,
+                              fontWeight: item.shortcut ? 500 : 400,
+                              fontFamily: item.shortcut ? 'var(--font-mono)' : 'var(--font-sans)',
+                              color: isSelected ? (item.shortcut ? '#fe8019' : '#ebdbb2') : (item.shortcut ? '#fe8019' : '#928374'),
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              lineHeight: 1.3,
+                            }}>
+                              {item.label}
+                            </div>
+                            {item.description && (
+                              <div style={{
+                                fontSize: 11,
+                                color: '#504945',
+                                fontFamily: 'var(--font-mono)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                marginTop: 2,
+                              }}>
+                                {item.description}
+                              </div>
+                            )}
+                          </div>
+                          <span style={{
+                            fontSize: 10,
+                            fontFamily: 'var(--font-mono)',
+                            color: isSelected ? categoryColor[category] : '#3c3836',
+                            background: isSelected ? `${categoryColor[category]}18` : 'transparent',
+                            border: `1px solid ${isSelected ? `${categoryColor[category]}30` : 'transparent'}`,
+                            padding: '1px 6px',
+                            flexShrink: 0,
+                            letterSpacing: '0.04em',
+                            textTransform: 'uppercase',
+                          }}>
+                            {category}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 ))}
               </div>
 
               {/* Footer */}
               <div
-                className="flex items-center justify-between px-4 py-2.5"
-                style={{ borderTop: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-surface)' }}
+                className="flex items-center justify-between px-4 py-2"
+                style={{ borderTop: '1px solid #2a2827', background: '#232120' }}
               >
-                <div className="flex items-center gap-4 text-[10px] text-text-disabled">
-                  <span className="flex items-center gap-1.5">
-                    <kbd
-                      className="font-mono px-1.5 py-0.5 text-[9px]"
-                      style={{ background: 'var(--color-bg-raised)', border: '1px solid var(--color-border-subtle)' }}
-                    >
-                      ↑↓
-                    </kbd>
-                    navigate
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <kbd
-                      className="font-mono px-1.5 py-0.5 text-[9px]"
-                      style={{ background: 'var(--color-bg-raised)', border: '1px solid var(--color-border-subtle)' }}
-                    >
-                      ↵
-                    </kbd>
-                    select
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <kbd
-                      className="font-mono px-1.5 py-0.5 text-[9px]"
-                      style={{ background: 'var(--color-bg-raised)', border: '1px solid var(--color-border-subtle)' }}
-                    >
-                      esc
-                    </kbd>
-                    close
-                  </span>
+                <div className="flex items-center gap-4" style={{ fontSize: 10, color: '#504945', fontFamily: 'var(--font-mono)' }}>
+                  {[
+                    { key: '↑↓', label: 'navigate' },
+                    { key: '↵', label: 'select' },
+                    { key: 'esc', label: 'close' },
+                    { key: '/', label: 'commands' },
+                  ].map(({ key, label }) => (
+                    <span key={key} className="flex items-center gap-1.5">
+                      <kbd style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 9,
+                        background: '#32302f',
+                        border: '1px solid #3c3836',
+                        padding: '1px 5px',
+                        color: '#665c54',
+                      }}>
+                        {key}
+                      </kbd>
+                      {label}
+                    </span>
+                  ))}
                 </div>
-                <span className="text-[10px] text-text-disabled">
-                  {filtered.length} result{filtered.length !== 1 ? 's' : ''}
+                <span style={{ fontSize: 10, color: '#504945', fontFamily: 'var(--font-mono)' }}>
+                  {flat.length} result{flat.length !== 1 ? 's' : ''}
                 </span>
               </div>
             </motion.div>

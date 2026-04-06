@@ -4,10 +4,36 @@ import { Link } from '@tanstack/react-router';
 import type { ClaudeModel } from '@subagent/shared';
 import { CLAUDE_MODELS } from '@subagent/shared';
 import { useSettings, useUpdateSettings } from '../api/hooks/use-settings';
-import { Input } from '../components/ui/input';
-import { Select } from '../components/ui/select';
-import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
+
+function SettingsField({ label, helper, children }: { label: string; helper?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
+        {label}
+      </label>
+      {children}
+      {helper && (
+        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
+          {helper}
+        </span>
+      )}
+    </div>
+  );
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  height: 36,
+  padding: '0 12px',
+  background: 'var(--color-bg-base)',
+  border: '1px solid var(--color-border-default)',
+  color: 'var(--color-text-primary)',
+  fontFamily: 'var(--font-mono)',
+  fontSize: 13,
+  outline: 'none',
+  transition: 'border-color 0.15s',
+};
 
 export function SettingsPage() {
   const { data: settings, isLoading } = useSettings();
@@ -29,22 +55,16 @@ export function SettingsPage() {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    updateSettings.mutate({
-      defaultModel,
-      defaultMaxTokens,
-      defaultWorkspacePath,
-      maxConcurrentAgents,
-    });
+    updateSettings.mutate({ defaultModel, defaultMaxTokens, defaultWorkspacePath, maxConcurrentAgents });
   };
 
   if (isLoading) {
     return (
       <div className="h-full" style={{ background: 'var(--color-bg-base)' }}>
-        <div style={{ maxWidth: '672px', margin: '0 auto', padding: '40px 48px' }}>
-          <Skeleton height={28} width={200} className="mb-3" />
-          <Skeleton height={16} width={300} className="mb-10" />
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} height={60} className="mb-6" />
+        <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 32px' }}>
+          <Skeleton height={14} width={140} className="mb-8" />
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} height={120} className="mb-4" />
           ))}
         </div>
       </div>
@@ -53,137 +73,140 @@ export function SettingsPage() {
 
   return (
     <div className="h-full overflow-y-auto" style={{ background: 'var(--color-bg-base)' }}>
-      <div style={{ maxWidth: '672px', margin: '0 auto', padding: '40px 48px' }}>
-        {/* Header */}
+      <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 32px' }}>
+
+        {/* Breadcrumb */}
         <Link
           to="/"
-          className="flex items-center gap-2 text-[12px] text-text-tertiary hover:text-text-primary transition-colors duration-200 w-fit mb-6"
+          className="flex items-center gap-2 w-fit"
+          style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', textDecoration: 'none', marginBottom: 28, transition: 'color 0.15s' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#fabd2f'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
         >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to Projects
+          <ArrowLeft style={{ width: 12, height: 12 }} />
+          agenticbear / settings
         </Link>
 
-        <div className="mb-8">
-          <h1 className="text-[22px] font-bold text-text-primary tracking-tight">Global Settings</h1>
-          <p className="text-[13px] text-text-tertiary mt-1">
-            Configure your AgenticBEAR environment
+        {/* Title */}
+        <div style={{ marginBottom: 32 }}>
+          <h1 style={{ fontSize: 18, fontWeight: 600, color: 'var(--color-text-primary)', fontFamily: 'var(--font-sans)', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+            Global Settings
+          </h1>
+          <p style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', marginTop: 6 }}>
+            configure your agenticbear environment
           </p>
         </div>
 
-        <form onSubmit={handleSave} className="flex flex-col gap-8">
-          {/* Model Section */}
-          <div
-            className="p-6"
-            style={{
-              background: 'var(--color-bg-card)',
-              border: '1px solid var(--color-border-default)',
-            }}
-          >
-            <div className="flex items-center gap-2.5 mb-4">
-              <div
-                className="h-8 w-8 flex items-center justify-center"
-                style={{ background: 'rgba(212, 146, 78, 0.1)', border: '1px solid rgba(212, 146, 78, 0.2)' }}
-              >
-                <Cpu className="h-4 w-4 text-[#d4924e]" />
-              </div>
-              <h2 className="text-[14px] font-semibold text-text-primary">Model Defaults</h2>
+        <form onSubmit={handleSave} className="flex flex-col gap-3">
+
+          {/* Model Defaults */}
+          <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: '3px solid #fabd2f' }}>
+            <div className="flex items-center gap-2.5" style={{ padding: '14px 16px', borderBottom: '1px solid var(--color-border-subtle)' }}>
+              <Cpu style={{ width: 13, height: 13, color: '#fabd2f', flexShrink: 0 }} />
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+                Model Defaults
+              </span>
             </div>
+            <div className="flex flex-col gap-5" style={{ padding: '16px' }}>
+              <SettingsField label="Default Model">
+                <select
+                  value={defaultModel}
+                  onChange={(e) => setDefaultModel(e.target.value as ClaudeModel)}
+                  style={{ ...inputStyle, cursor: 'pointer', appearance: 'none', paddingRight: 32 }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(250,189,47,0.5)'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
+                >
+                  {(Object.entries(CLAUDE_MODELS) as [ClaudeModel, (typeof CLAUDE_MODELS)[ClaudeModel]][]).map(
+                    ([key, info]) => (
+                      <option key={key} value={key} style={{ background: '#282828' }}>
+                        {info.label}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </SettingsField>
 
-            <div className="flex flex-col gap-4">
-              <Select
-                label="Default Model"
-                value={defaultModel}
-                onChange={(e) => setDefaultModel(e.target.value as ClaudeModel)}
-              >
-                {(Object.entries(CLAUDE_MODELS) as [ClaudeModel, (typeof CLAUDE_MODELS)[ClaudeModel]][]).map(
-                  ([key, info]) => (
-                    <option key={key} value={key}>
-                      {info.label}
-                    </option>
-                  ),
-                )}
-              </Select>
-
-              <Input
-                label="Default Max Tokens"
-                type="number"
-                value={defaultMaxTokens}
-                onChange={(e) => setDefaultMaxTokens(parseInt(e.target.value) || 0)}
-                min={1}
-                max={200000}
-              />
+              <SettingsField label="Default Max Tokens">
+                <input
+                  type="number"
+                  value={defaultMaxTokens}
+                  onChange={(e) => setDefaultMaxTokens(parseInt(e.target.value) || 0)}
+                  min={1}
+                  max={200000}
+                  style={inputStyle}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(250,189,47,0.5)'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
+                />
+              </SettingsField>
             </div>
-          </div>
+          </section>
 
-          {/* Workspace Section */}
-          <div
-            className="p-6"
-            style={{
-              background: 'var(--color-bg-card)',
-              border: '1px solid var(--color-border-default)',
-            }}
-          >
-            <div className="flex items-center gap-2.5 mb-4">
-              <div
-                className="h-8 w-8 flex items-center justify-center"
-                style={{ background: 'rgba(0, 208, 132, 0.1)', border: '1px solid rgba(0, 208, 132, 0.2)' }}
-              >
-                <FolderOpen className="h-4 w-4 text-[#00d084]" />
-              </div>
-              <h2 className="text-[14px] font-semibold text-text-primary">Workspace</h2>
+          {/* Workspace */}
+          <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: '3px solid #8ec07c' }}>
+            <div className="flex items-center gap-2.5" style={{ padding: '14px 16px', borderBottom: '1px solid var(--color-border-subtle)' }}>
+              <FolderOpen style={{ width: 13, height: 13, color: '#8ec07c', flexShrink: 0 }} />
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+                Workspace
+              </span>
             </div>
-
-            <Input
-              label="Default Workspace Path"
-              value={defaultWorkspacePath}
-              onChange={(e) => setDefaultWorkspacePath(e.target.value)}
-              placeholder="/home/user/projects"
-              className="font-mono text-[12px]"
-              helperText="Base path for new project workspaces"
-            />
-          </div>
-
-          {/* Performance Section */}
-          <div
-            className="p-6"
-            style={{
-              background: 'var(--color-bg-card)',
-              border: '1px solid var(--color-border-default)',
-            }}
-          >
-            <div className="flex items-center gap-2.5 mb-4">
-              <div
-                className="h-8 w-8 flex items-center justify-center"
-                style={{ background: 'rgba(255, 159, 28, 0.1)', border: '1px solid rgba(255, 159, 28, 0.2)' }}
-              >
-                <Zap className="h-4 w-4 text-[#ff9f1c]" />
-              </div>
-              <h2 className="text-[14px] font-semibold text-text-primary">Performance</h2>
+            <div style={{ padding: '16px' }}>
+              <SettingsField label="Default Workspace Path" helper="Base path for new project workspaces">
+                <input
+                  type="text"
+                  value={defaultWorkspacePath}
+                  onChange={(e) => setDefaultWorkspacePath(e.target.value)}
+                  placeholder="/home/user/projects"
+                  style={inputStyle}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(250,189,47,0.5)'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
+                />
+              </SettingsField>
             </div>
+          </section>
 
-            <Input
-              label="Max Concurrent Agents"
-              type="number"
-              value={maxConcurrentAgents}
-              onChange={(e) => setMaxConcurrentAgents(parseInt(e.target.value) || 1)}
-              min={1}
-              max={10}
-              helperText="Maximum number of agents that can run simultaneously"
-            />
-          </div>
+          {/* Performance */}
+          <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: '3px solid #fe8019' }}>
+            <div className="flex items-center gap-2.5" style={{ padding: '14px 16px', borderBottom: '1px solid var(--color-border-subtle)' }}>
+              <Zap style={{ width: 13, height: 13, color: '#fe8019', flexShrink: 0 }} />
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+                Performance
+              </span>
+            </div>
+            <div style={{ padding: '16px' }}>
+              <SettingsField label="Max Concurrent Agents" helper="Maximum number of agents that can run simultaneously">
+                <input
+                  type="number"
+                  value={maxConcurrentAgents}
+                  onChange={(e) => setMaxConcurrentAgents(parseInt(e.target.value) || 1)}
+                  min={1}
+                  max={10}
+                  style={inputStyle}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(250,189,47,0.5)'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
+                />
+              </SettingsField>
+            </div>
+          </section>
 
           {/* Save */}
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end" style={{ paddingTop: 8 }}>
             <button
               type="submit"
               disabled={updateSettings.isPending}
-              className="flex items-center gap-2 text-[13.5px] font-semibold whitespace-nowrap transition-all duration-200 hover:bg-white/90 disabled:opacity-60"
               style={{
-                background: 'white',
-                color: '#0a0a0a',
-                height: '40px',
-                padding: '0 24px',
+                height: 34,
+                padding: '0 20px',
+                background: updateSettings.isPending ? '#3c3836' : '#fabd2f',
+                color: '#1d2021',
+                fontSize: 13,
+                fontWeight: 600,
+                fontFamily: 'var(--font-sans)',
+                border: 'none',
+                cursor: updateSettings.isPending ? 'not-allowed' : 'pointer',
+                transition: 'background 0.15s',
               }}
+              onMouseEnter={(e) => { if (!updateSettings.isPending) e.currentTarget.style.background = '#ffd561'; }}
+              onMouseLeave={(e) => { if (!updateSettings.isPending) e.currentTarget.style.background = '#fabd2f'; }}
             >
               {updateSettings.isPending ? 'Saving…' : 'Save Settings'}
             </button>

@@ -202,7 +202,7 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
                 onChange={(e) =>
                   setPermissions((p) => ({ ...p, [key]: e.target.checked }))
                 }
-                className="rounded accent-[#d4924e] h-3.5 w-3.5 shrink-0"
+                className="rounded accent-[#fabd2f] h-3.5 w-3.5 shrink-0"
               />
               <span className="truncate">{label}</span>
             </label>

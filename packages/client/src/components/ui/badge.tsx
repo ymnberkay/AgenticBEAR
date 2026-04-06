@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { cn } from '../../lib/cn';
 
 type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'info';
 
@@ -10,31 +9,35 @@ interface BadgeProps {
   className?: string;
 }
 
-const variantStyles: Record<BadgeVariant, string> = {
-  default: 'bg-white/[0.06] text-text-secondary border-white/[0.06]',
-  success: 'bg-success-subtle text-success border-success/20',
-  warning: 'bg-warning-subtle text-warning border-warning/20',
-  error: 'bg-error-subtle text-error border-error/20',
-  info: 'bg-info-subtle text-info border-info/20',
+const variantStyles: Record<BadgeVariant, React.CSSProperties> = {
+  default: { background: 'rgba(146,131,116,0.12)', color: '#928374', border: '1px solid rgba(146,131,116,0.2)' },
+  success: { background: 'rgba(184,187,38,0.10)', color: '#b8bb26', border: '1px solid rgba(184,187,38,0.22)' },
+  warning: { background: 'rgba(254,128,25,0.10)', color: '#fe8019', border: '1px solid rgba(254,128,25,0.22)' },
+  error:   { background: 'rgba(251,73,52,0.10)',  color: '#fb4934', border: '1px solid rgba(251,73,52,0.22)' },
+  info:    { background: 'rgba(131,165,152,0.10)', color: '#83a598', border: '1px solid rgba(131,165,152,0.22)' },
 };
 
 export function Badge({ variant = 'default', color, children, className }: BadgeProps) {
+  const style: React.CSSProperties = color
+    ? { background: `${color}15`, color, border: `1px solid ${color}30` }
+    : variantStyles[variant];
+
   return (
     <span
-      className={cn(
-        'inline-flex items-center gap-1 px-2 py-[3px] text-[10.5px] font-semibold leading-none whitespace-nowrap border',
-        !color && variantStyles[variant],
-        className,
-      )}
-      style={
-        color
-          ? {
-              backgroundColor: `${color}15`,
-              color,
-              borderColor: `${color}25`,
-            }
-          : undefined
-      }
+      className={className}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '2px 6px',
+        fontSize: '10px',
+        fontWeight: 600,
+        lineHeight: 1,
+        whiteSpace: 'nowrap',
+        letterSpacing: '0.04em',
+        textTransform: 'uppercase',
+        fontFamily: 'var(--font-mono)',
+        ...style,
+      }}
     >
       {children}
     </span>
