@@ -1,5 +1,6 @@
 import { workspaceService } from '../services/workspace.service.js';
 import { taskRepo } from '../db/repositories/task.repo.js';
+import { memoryRepo } from '../db/repositories/memory.repo.js';
 import type { Agent, Task } from '@subagent/shared';
 import type { AgentContext } from '../services/agent-runner.service.js';
 import { createLogger } from '../utils/logger.js';
@@ -85,6 +86,35 @@ export function buildProjectContext(workspacePath: string): string {
   }
 
   return parts.join('\n');
+}
+
+/**
+ * Builds a memory context block for injection into a system prompt.
+ * Returns empty string when the agent has no memories.
+ */
+export function buildMemoryBlock(agentId: string, limit = 20): string {
+  const memories = memoryRepo.findByAgentId(agentId, limit);
+  if (memories.length === 0) return '';
+
+  const lines: string[] = [
+    '<agent_memory>',
+    `Geçmiş çalışmalarından ${memories.length} hafıza girişi (en yeni sonda):`,
+    '',
+  ];
+
+  for (const m of memories) {
+    if (m.type === 'summary') {
+      lines.push(`[Run Özeti] ${m.query}`);
+      lines.push(m.response);
+    } else {
+      lines.push(`[Görev] ${m.query}`);
+      lines.push(`[Çıktı] ${m.response.slice(0, 500)}${m.response.length > 500 ? '...' : ''}`);
+    }
+    lines.push('');
+  }
+
+  lines.push('</agent_memory>');
+  return lines.join('\n');
 }
 
 interface TreeNode {

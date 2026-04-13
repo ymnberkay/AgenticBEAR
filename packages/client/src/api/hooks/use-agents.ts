@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Agent, CreateAgentInput, UpdateAgentInput, Task, AgentActivity } from '@subagent/shared';
+import type { Agent, CreateAgentInput, UpdateAgentInput, Task, AgentActivity, AgentMemory } from '@subagent/shared';
 import { apiGet, apiPost, apiPatch, apiDelete } from '../client';
 
 const agentKeys = {
@@ -8,6 +8,7 @@ const agentKeys = {
   detail: (id: string) => [...agentKeys.all, 'detail', id] as const,
   tasks: (id: string) => [...agentKeys.all, 'tasks', id] as const,
   activities: (id: string) => [...agentKeys.all, 'activities', id] as const,
+  memories: (id: string) => [...agentKeys.all, 'memories', id] as const,
 };
 
 export function useAgents(projectId: string) {
@@ -83,6 +84,36 @@ export function useClearActivities() {
       apiDelete(`/api/agents/${agentId}/activities`),
     onSuccess: (_, agentId) => {
       queryClient.invalidateQueries({ queryKey: agentKeys.activities(agentId) });
+    },
+  });
+}
+
+export function useAgentMemories(agentId: string) {
+  return useQuery({
+    queryKey: agentKeys.memories(agentId),
+    queryFn: () => apiGet<AgentMemory[]>(`/api/agents/${agentId}/memories`),
+    enabled: !!agentId,
+  });
+}
+
+export function useDeleteMemory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: string; agentId: string }) =>
+      apiDelete(`/api/memories/${id}`),
+    onSuccess: (_, { agentId }) => {
+      queryClient.invalidateQueries({ queryKey: agentKeys.memories(agentId) });
+    },
+  });
+}
+
+export function useClearMemories() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (agentId: string) =>
+      apiDelete(`/api/agents/${agentId}/memories`),
+    onSuccess: (_, agentId) => {
+      queryClient.invalidateQueries({ queryKey: agentKeys.memories(agentId) });
     },
   });
 }

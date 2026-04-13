@@ -21,10 +21,10 @@ interface CommandItem {
 }
 
 const categoryColor: Record<string, string> = {
-  Navigation: '#83a598',
-  Actions:    '#8ec07c',
-  Projects:   '#fabd2f',
-  Shortcuts:  '#fe8019',
+  Navigation: '#6EACDA',
+  Actions:    '#6db58a',
+  Projects:   '#6EACDA',
+  Shortcuts:  '#e2b04a',
 };
 
 export function CommandPalette() {
@@ -217,10 +217,10 @@ export function CommandPalette() {
               style={{
                 width: '100%',
                 maxWidth: 600,
-                background: '#282828',
-                border: '1px solid #3c3836',
-                borderTop: '1px solid rgba(250,189,47,0.35)',
-                boxShadow: '0 32px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(250,189,47,0.06)',
+                background: '#031d38',
+                border: '1px solid #03346E',
+                borderTop: '1px solid rgba(110,172,218,0.35)',
+                boxShadow: '0 32px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(110,172,218,0.06)',
                 overflow: 'hidden',
               }}
               initial={{ opacity: 0 }}
@@ -233,8 +233,8 @@ export function CommandPalette() {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Search input */}
-              <div className="flex items-center gap-3 px-4" style={{ height: 52, borderBottom: '1px solid #3c3836' }}>
-                <Search style={{ width: 15, height: 15, flexShrink: 0, color: '#fabd2f' }} />
+              <div className="flex items-center gap-3 px-4" style={{ height: 52, borderBottom: '1px solid #03346E' }}>
+                <Search style={{ width: 15, height: 15, flexShrink: 0, color: '#6EACDA' }} />
                 <input
                   ref={inputRef}
                   value={query}
@@ -247,7 +247,7 @@ export function CommandPalette() {
                     border: 'none',
                     outline: 'none',
                     fontSize: 15,
-                    color: '#ebdbb2',
+                    color: '#E2E2B6',
                     fontFamily: 'var(--font-sans)',
                     letterSpacing: '-0.01em',
                   }}
@@ -258,9 +258,9 @@ export function CommandPalette() {
                     style={{
                       fontSize: 10,
                       fontFamily: 'var(--font-mono)',
-                      color: '#928374',
-                      background: '#32302f',
-                      border: '1px solid #3c3836',
+                      color: '#9ca8a2',
+                      background: '#042a52',
+                      border: '1px solid #03346E',
                       padding: '2px 6px',
                       cursor: 'pointer',
                       flexShrink: 0,
@@ -272,9 +272,9 @@ export function CommandPalette() {
                   <kbd style={{
                     fontFamily: 'var(--font-mono)',
                     fontSize: 10,
-                    color: '#504945',
-                    background: '#32302f',
-                    border: '1px solid #3c3836',
+                    color: '#3d4a50',
+                    background: '#042a52',
+                    border: '1px solid #03346E',
                     padding: '2px 6px',
                     flexShrink: 0,
                   }}>
@@ -289,7 +289,7 @@ export function CommandPalette() {
                   className="flex items-center gap-3 px-4 py-2 overflow-x-auto"
                   style={{ borderBottom: '1px solid #2a2827', background: '#232120' }}
                 >
-                  <span style={{ fontSize: 10, color: '#504945', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+                  <span style={{ fontSize: 10, color: '#3d4a50', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                     shortcuts:
                   </span>
                   {['/agents', '/new', '/templates', '/settings'].map((s) => (
@@ -299,7 +299,7 @@ export function CommandPalette() {
                       style={{
                         fontSize: 11,
                         fontFamily: 'var(--font-mono)',
-                        color: '#fe8019',
+                        color: '#e2b04a',
                         background: 'rgba(254,128,25,0.08)',
                         border: '1px solid rgba(254,128,25,0.2)',
                         padding: '2px 8px',
@@ -320,7 +320,7 @@ export function CommandPalette() {
               <div style={{ maxHeight: 360, overflowY: 'auto', padding: '6px 0' }}>
                 {flat.length === 0 && (
                   <div style={{ padding: '48px 16px', textAlign: 'center' }}>
-                    <p style={{ fontSize: 13, color: '#504945', fontFamily: 'var(--font-mono)' }}>
+                    <p style={{ fontSize: 13, color: '#3d4a50', fontFamily: 'var(--font-mono)' }}>
                       no results for "{query}"
                     </p>
                   </div>
@@ -336,7 +336,7 @@ export function CommandPalette() {
                       letterSpacing: '0.1em',
                       textTransform: 'uppercase',
                       fontFamily: 'var(--font-mono)',
-                      color: '#504945',
+                      color: '#3d4a50',
                     }}>
                       {category}
                     </div>
@@ -356,15 +356,15 @@ export function CommandPalette() {
                             width: 'calc(100% - 12px)',
                             margin: '0 6px',
                             padding: '8px 10px',
-                            background: isSelected ? '#32302f' : 'transparent',
-                            borderLeft: isSelected ? '2px solid #fabd2f' : '2px solid transparent',
-                              color: isSelected ? '#ebdbb2' : '#928374',
+                            background: isSelected ? '#042a52' : 'transparent',
+                            borderLeft: isSelected ? '2px solid #6EACDA' : '2px solid transparent',
+                              color: isSelected ? '#E2E2B6' : '#9ca8a2',
                             cursor: 'pointer',
                             textAlign: 'left',
                             transition: 'all 0.1s',
                           }}
                         >
-                          <span style={{ color: isSelected ? categoryColor[category] : '#504945', flexShrink: 0 }}>
+                          <span style={{ color: isSelected ? categoryColor[category] : '#3d4a50', flexShrink: 0 }}>
                             {item.icon}
                           </span>
                           <div style={{ flex: 1, minWidth: 0 }}>
@@ -372,7 +372,7 @@ export function CommandPalette() {
                               fontSize: 13,
                               fontWeight: item.shortcut ? 500 : 400,
                               fontFamily: item.shortcut ? 'var(--font-mono)' : 'var(--font-sans)',
-                              color: isSelected ? (item.shortcut ? '#fe8019' : '#ebdbb2') : (item.shortcut ? '#fe8019' : '#928374'),
+                              color: isSelected ? (item.shortcut ? '#e2b04a' : '#E2E2B6') : (item.shortcut ? '#e2b04a' : '#9ca8a2'),
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap',
@@ -383,7 +383,7 @@ export function CommandPalette() {
                             {item.description && (
                               <div style={{
                                 fontSize: 11,
-                                color: '#504945',
+                                color: '#3d4a50',
                                 fontFamily: 'var(--font-mono)',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
@@ -397,7 +397,7 @@ export function CommandPalette() {
                           <span style={{
                             fontSize: 10,
                             fontFamily: 'var(--font-mono)',
-                            color: isSelected ? categoryColor[category] : '#3c3836',
+                            color: isSelected ? categoryColor[category] : '#03346E',
                             background: isSelected ? `${categoryColor[category]}18` : 'transparent',
                             border: `1px solid ${isSelected ? `${categoryColor[category]}30` : 'transparent'}`,
                             padding: '1px 6px',
@@ -419,7 +419,7 @@ export function CommandPalette() {
                 className="flex items-center justify-between px-4 py-2"
                 style={{ borderTop: '1px solid #2a2827', background: '#232120' }}
               >
-                <div className="flex items-center gap-4" style={{ fontSize: 10, color: '#504945', fontFamily: 'var(--font-mono)' }}>
+                <div className="flex items-center gap-4" style={{ fontSize: 10, color: '#3d4a50', fontFamily: 'var(--font-mono)' }}>
                   {[
                     { key: '↑↓', label: 'navigate' },
                     { key: '↵', label: 'select' },
@@ -430,10 +430,10 @@ export function CommandPalette() {
                       <kbd style={{
                         fontFamily: 'var(--font-mono)',
                         fontSize: 9,
-                        background: '#32302f',
-                        border: '1px solid #3c3836',
+                        background: '#042a52',
+                        border: '1px solid #03346E',
                         padding: '1px 5px',
-                        color: '#665c54',
+                        color: '#637070',
                       }}>
                         {key}
                       </kbd>
@@ -441,7 +441,7 @@ export function CommandPalette() {
                     </span>
                   ))}
                 </div>
-                <span style={{ fontSize: 10, color: '#504945', fontFamily: 'var(--font-mono)' }}>
+                <span style={{ fontSize: 10, color: '#3d4a50', fontFamily: 'var(--font-mono)' }}>
                   {flat.length} result{flat.length !== 1 ? 's' : ''}
                 </span>
               </div>

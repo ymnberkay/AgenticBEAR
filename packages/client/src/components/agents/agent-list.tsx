@@ -69,7 +69,7 @@ export function AgentList({
             cursor: 'pointer',
             transition: 'all 0.15s',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(250,189,47,0.4)'; e.currentTarget.style.color = '#fabd2f'; e.currentTarget.style.background = 'rgba(250,189,47,0.06)'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(110,172,218,0.4)'; e.currentTarget.style.color = '#6EACDA'; e.currentTarget.style.background = 'rgba(110,172,218,0.06)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; e.currentTarget.style.color = 'var(--color-text-secondary)'; e.currentTarget.style.background = 'transparent'; }}
         >
           <Plus style={{ width: 11, height: 11 }} />
@@ -89,8 +89,8 @@ export function AgentList({
             transition: 'all 0.15s',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(250,189,47,0.35)';
-            e.currentTarget.style.background = 'rgba(250,189,47,0.02)';
+            e.currentTarget.style.borderColor = 'rgba(110,172,218,0.35)';
+            e.currentTarget.style.background = 'rgba(110,172,218,0.02)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.borderColor = 'var(--color-border-default)';

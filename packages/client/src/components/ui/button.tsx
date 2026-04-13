@@ -19,11 +19,11 @@ const sizeStyles: Record<ButtonSize, string> = {
 };
 
 const variantBase: Record<ButtonVariant, React.CSSProperties> = {
-  primary: { background: '#fabd2f', color: '#1d2021', border: 'none', fontWeight: 600 },
+  primary: { background: '#6EACDA', color: '#021526', border: 'none', fontWeight: 600 },
   default: { background: 'var(--color-bg-raised)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-default)' },
   ghost:   { background: 'transparent', color: 'var(--color-text-secondary)', border: '1px solid transparent' },
   outline: { background: 'transparent', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-default)' },
-  danger:  { background: 'rgba(251, 73, 52, 0.10)', color: '#fb4934', border: '1px solid rgba(251, 73, 52, 0.25)' },
+  danger:  { background: 'rgba(224, 96, 96, 0.10)', color: '#e06060', border: '1px solid rgba(224, 96, 96, 0.25)' },
 };
 
 const variantHover: Record<ButtonVariant, Partial<React.CSSProperties>> = {
@@ -31,7 +31,7 @@ const variantHover: Record<ButtonVariant, Partial<React.CSSProperties>> = {
   default: { background: 'var(--color-bg-overlay)', borderColor: 'var(--color-border-default)' },
   ghost:   { background: 'var(--color-bg-hover)', color: 'var(--color-text-primary)' },
   outline: { background: 'var(--color-bg-raised)' },
-  danger:  { background: 'rgba(251, 73, 52, 0.18)' },
+  danger:  { background: 'rgba(224, 96, 96, 0.18)' },
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -42,7 +42,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled || loading}
         className={cn(
           'inline-flex items-center justify-center font-medium transition-all duration-150 whitespace-nowrap leading-none select-none',
-          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fabd2f]',
+          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#6EACDA]',
           'disabled:opacity-40 disabled:pointer-events-none',
           sizeStyles[size],
           className,

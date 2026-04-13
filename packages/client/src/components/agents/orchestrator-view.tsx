@@ -31,8 +31,8 @@ export function OrchestratorView({ orchestrator, status = 'idle', onConfigure }:
             transition: 'all 0.15s',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(250,189,47,0.4)';
-            e.currentTarget.style.background = 'rgba(250,189,47,0.03)';
+            e.currentTarget.style.borderColor = 'rgba(110,172,218,0.4)';
+            e.currentTarget.style.background = 'rgba(110,172,218,0.03)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.borderColor = 'var(--color-border-default)';
@@ -125,8 +125,8 @@ export function OrchestratorView({ orchestrator, status = 'idle', onConfigure }:
                 )}
                 {status === 'completed' && (
                   <div className="flex items-center gap-1 animate-fade-in">
-                    <Check style={{ width: 11, height: 11, color: '#8ec07c' }} />
-                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: '#8ec07c' }}>completed</span>
+                    <Check style={{ width: 11, height: 11, color: '#6db58a' }} />
+                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: '#6db58a' }}>completed</span>
                   </div>
                 )}
               </div>
@@ -145,7 +145,7 @@ export function OrchestratorView({ orchestrator, status = 'idle', onConfigure }:
               background: 'transparent',
               transition: 'all 0.15s',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = '#fabd2f'; e.currentTarget.style.borderColor = 'rgba(250,189,47,0.3)'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#6EACDA'; e.currentTarget.style.borderColor = 'rgba(110,172,218,0.3)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; }}
           >
             <Pencil style={{ width: 10, height: 10 }} />

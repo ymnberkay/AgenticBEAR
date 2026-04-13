@@ -18,9 +18,9 @@ export function Card({ header, footer, hoverable = false, children, className, .
         borderLeft: '3px solid var(--color-border-subtle)',
       }}
       onMouseEnter={hoverable ? (e) => {
-        e.currentTarget.style.borderLeftColor = '#fabd2f';
+        e.currentTarget.style.borderLeftColor = '#6EACDA';
         e.currentTarget.style.borderColor = 'var(--color-border-default)';
-        e.currentTarget.style.borderLeftColor = '#fabd2f';
+        e.currentTarget.style.borderLeftColor = '#6EACDA';
         e.currentTarget.style.background = 'var(--color-bg-raised)';
       } : undefined}
       onMouseLeave={hoverable ? (e) => {

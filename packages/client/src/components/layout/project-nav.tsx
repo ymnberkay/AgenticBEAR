@@ -57,9 +57,9 @@ export function ProjectNav({ project }: ProjectNavProps) {
                   style={{
                     width: 32, height: 32,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: isActive ? '#fabd2f' : 'var(--color-text-disabled)',
-                    background: isActive ? 'rgba(250,189,47,0.10)' : 'transparent',
-                    borderLeft: isActive ? '2px solid #fabd2f' : '2px solid transparent',
+                    color: isActive ? '#6EACDA' : 'var(--color-text-disabled)',
+                    background: isActive ? 'rgba(110,172,218,0.10)' : 'transparent',
+                    borderLeft: isActive ? '2px solid #6EACDA' : '2px solid transparent',
                     transition: 'all 0.15s ease', flexShrink: 0,
                   }}
                   onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.color = 'var(--color-text-secondary)'; e.currentTarget.style.background = 'var(--color-bg-hover)'; } }}
@@ -78,7 +78,7 @@ export function ProjectNav({ project }: ProjectNavProps) {
                 color: 'var(--color-text-disabled)', background: 'transparent',
                 border: '1px solid var(--color-border-subtle)', transition: 'all 0.15s ease', flexShrink: 0,
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#fabd2f'; e.currentTarget.style.color = '#fabd2f'; e.currentTarget.style.background = 'rgba(250,189,47,0.08)'; }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#6EACDA'; e.currentTarget.style.color = '#6EACDA'; e.currentTarget.style.background = 'rgba(110,172,218,0.08)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; e.currentTarget.style.color = 'var(--color-text-disabled)'; e.currentTarget.style.background = 'transparent'; }}
             >
               <ChevronRight style={{ width: 12, height: 12 }} />
@@ -123,20 +123,20 @@ export function ProjectNav({ project }: ProjectNavProps) {
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10,
                       fontSize: 13, fontWeight: isActive ? 500 : 400,
-                      color: isActive ? '#fabd2f' : 'var(--color-text-secondary)',
+                      color: isActive ? '#6EACDA' : 'var(--color-text-secondary)',
                       padding: '9px 14px',
-                      background: isActive ? 'rgba(250,189,47,0.07)' : 'transparent',
-                      borderLeft: isActive ? '2px solid #fabd2f' : '2px solid transparent',
+                      background: isActive ? 'rgba(110,172,218,0.07)' : 'transparent',
+                      borderLeft: isActive ? '2px solid #6EACDA' : '2px solid transparent',
                       transition: 'all 0.15s ease',
                       fontFamily: 'var(--font-sans)', textDecoration: 'none', whiteSpace: 'nowrap',
                     }}
-                    onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = 'rgba(250,189,47,0.04)'; e.currentTarget.style.color = 'var(--color-text-primary)'; } }}
+                    onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = 'rgba(110,172,218,0.04)'; e.currentTarget.style.color = 'var(--color-text-primary)'; } }}
                     onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-secondary)'; } }}
                   >
                     <item.icon style={{ width: 14, height: 14, flexShrink: 0 }} />
                     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                       <span style={{ lineHeight: 1.2 }}>{item.label}</span>
-                      <span style={{ fontSize: 10, color: isActive ? 'rgba(250,189,47,0.5)' : 'var(--color-text-disabled)', lineHeight: 1.2, marginTop: 2, fontFamily: 'var(--font-mono)' }}>
+                      <span style={{ fontSize: 10, color: isActive ? 'rgba(110,172,218,0.5)' : 'var(--color-text-disabled)', lineHeight: 1.2, marginTop: 2, fontFamily: 'var(--font-mono)' }}>
                         {item.description}
                       </span>
                     </div>

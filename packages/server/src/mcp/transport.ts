@@ -18,6 +18,18 @@ const log = createLogger('mcp:transport');
 // Aktif SSE transport'ları sessionId ile indekslenir
 const activeTransports = new Map<string, SSEServerTransport>();
 
+// Proje başına aktif session sayısı
+const projectSessions = new Map<string, Set<string>>();
+
+function addSession(projectId: string, sessionId: string): void {
+  if (!projectSessions.has(projectId)) projectSessions.set(projectId, new Set());
+  projectSessions.get(projectId)!.add(sessionId);
+}
+
+function removeSession(projectId: string, sessionId: string): void {
+  projectSessions.get(projectId)?.delete(sessionId);
+}
+
 export async function mcpRoutes(app: FastifyInstance): Promise<void> {
   // ── SSE bağlantısı ────────────────────────────────────────────────────────
   app.get<{ Params: { projectId: string } }>(
@@ -46,10 +58,12 @@ export async function mcpRoutes(app: FastifyInstance): Promise<void> {
       }
 
       activeTransports.set(transport.sessionId, transport);
+      addSession(projectId, transport.sessionId);
       log.info(`MCP session başladı — proje: ${project.name}, session: ${transport.sessionId}`);
 
       request.raw.on('close', () => {
         activeTransports.delete(transport.sessionId);
+        removeSession(projectId, transport.sessionId);
         log.info(`MCP session kapandı — session: ${transport.sessionId}`);
       });
 
@@ -92,6 +106,15 @@ export async function mcpRoutes(app: FastifyInstance): Promise<void> {
         invalidateMcpCache(projectId);
       }
       return reply.send({ ok: true, invalidated: projectId ?? 'all' });
+    },
+  );
+
+  // ── Per-project connection count ──────────────────────────────────────────
+  app.get<{ Params: { projectId: string } }>(
+    '/api/mcp/projects/:projectId/connections',
+    async (request, reply) => {
+      const count = projectSessions.get(request.params.projectId)?.size ?? 0;
+      return reply.send({ count });
     },
   );
 

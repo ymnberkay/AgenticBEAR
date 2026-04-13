@@ -14,6 +14,7 @@ import { activityRepo } from '../db/repositories/activity.repo.js';
 import { eventBus } from '../utils/event-bus.js';
 import { createLogger } from '../utils/logger.js';
 import { buildAgentContextBlock, buildOrchestratorPrompt } from '../utils/prompt-adapter.js';
+import { buildMemoryBlock } from '../engine/context-builder.js';
 import type { Agent } from '@subagent/shared';
 
 const log = createLogger('mcp:server');
@@ -180,7 +181,7 @@ export function createMcpServer(projectId: string): McpServer {
       return {
         content: [{
           type: 'text',
-          text: buildAgentContextBlock(agent, query, context),
+          text: buildAgentContextBlock(agent, query, context, buildMemoryBlock(agent.id)),
         }],
       };
     },

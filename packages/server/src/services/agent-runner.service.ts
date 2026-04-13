@@ -1,6 +1,8 @@
 import { ClaudeService, type ClaudeCallResult, type ClaudeMessage } from './claude.service.js';
 import { createLogger } from '../utils/logger.js';
 import { buildTaskContextMessage } from '../utils/prompt-adapter.js';
+import { buildMemoryBlock } from '../engine/context-builder.js';
+import { memoryRepo } from '../db/repositories/memory.repo.js';
 import type { Agent, Task } from '@subagent/shared';
 
 const log = createLogger('agent-runner');
@@ -22,6 +24,7 @@ export async function executeTask(
   agent: Agent,
   task: Task,
   context: AgentContext,
+  projectId: string,
 ): Promise<AgentExecutionResult> {
   log.info(`Executing task "${task.title}" with agent "${agent.name}"`);
 
@@ -38,16 +41,30 @@ export async function executeTask(
 
   messages.push({ role: 'user', content: contextMessage });
 
+  const memoryBlock = buildMemoryBlock(agent.id);
+  const systemPromptWithMemory = memoryBlock
+    ? `${agent.systemPrompt}\n\n${memoryBlock}`
+    : agent.systemPrompt;
+
   const apiResult = await claudeService.sendMessage({
     model: agent.modelConfig.model,
     maxTokens: agent.modelConfig.maxTokens,
     temperature: agent.modelConfig.temperature,
-    systemPrompt: agent.systemPrompt,
+    systemPrompt: systemPromptWithMemory,
     messages,
     stopSequences: agent.modelConfig.stopSequences,
   });
 
   log.info(`Task "${task.title}" completed. Tokens: ${apiResult.inputTokens} in / ${apiResult.outputTokens} out`);
+
+  memoryRepo.create({
+    agentId: agent.id,
+    projectId,
+    type: 'interaction',
+    query: task.title,
+    response: apiResult.text,
+    runId: task.runId,
+  });
 
   return {
     output: apiResult.text,

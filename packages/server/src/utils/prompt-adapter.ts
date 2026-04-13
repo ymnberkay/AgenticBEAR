@@ -52,7 +52,7 @@ const EXECUTION_RULES_BRIEF =
  * - opus: Full + extended context hint.
  * - standard (sonnet/gpt-4o): Full instructions.
  */
-export function buildAgentContextBlock(agent: Agent, query: string, context?: string): string {
+export function buildAgentContextBlock(agent: Agent, query: string, context?: string, memoryBlock?: string): string {
   const family = getModelFamily(agent.modelConfig.model);
   const userContent = context ? `${context}\n\n${query}` : query;
 
@@ -62,6 +62,7 @@ export function buildAgentContextBlock(agent: Agent, query: string, context?: st
     (agent.description ? `Rol açıklaması: ${agent.description}\n` : '') +
     `\nSistem talimatların:\n${agent.systemPrompt}\n` +
     `</agent_instructions>\n\n` +
+    (memoryBlock ? `${memoryBlock}\n\n` : '') +
     `## Task\n${userContent}\n\n`;
 
   if (family === 'reasoning') {

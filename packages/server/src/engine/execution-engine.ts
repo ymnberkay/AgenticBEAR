@@ -8,6 +8,7 @@ import { projectRepo } from '../db/repositories/project.repo.js';
 import { agentRepo } from '../db/repositories/agent.repo.js';
 import { runRepo } from '../db/repositories/run.repo.js';
 import { taskRepo } from '../db/repositories/task.repo.js';
+import { memoryRepo } from '../db/repositories/memory.repo.js';
 import { settingsRepo } from '../db/repositories/settings.repo.js';
 import { workspaceService } from '../services/workspace.service.js';
 import { eventBus } from '../utils/event-bus.js';
@@ -181,7 +182,7 @@ export const executionEngine = {
 
         // Execute ready tasks (up to maxConcurrent)
         const batch = readyTasks.slice(0, maxConcurrent);
-        const promises = batch.map((task) => this.executeOneTask(claudeService, runId, task, project.workspacePath, queue));
+        const promises = batch.map((task) => this.executeOneTask(claudeService, runId, project.id, task, project.workspacePath, queue));
 
         await Promise.allSettled(promises);
 
@@ -210,7 +211,27 @@ export const executionEngine = {
         }
       }
 
-      // Step 5: Complete the run
+      // Step 5: Save summary memories per agent
+      const completedForMemory = createdTasks.filter((t) => t.status === 'completed' && t.output);
+      const byAgent = new Map<string, Task[]>();
+      for (const t of completedForMemory) {
+        byAgent.set(t.assignedAgentId, [...(byAgent.get(t.assignedAgentId) ?? []), t]);
+      }
+      for (const [agentId, agentTasks] of byAgent) {
+        const summaryText = agentTasks
+          .map((t) => `- ${t.title}: ${(t.output ?? '').slice(0, 200)}`)
+          .join('\n');
+        memoryRepo.create({
+          agentId,
+          projectId: project.id,
+          type: 'summary',
+          query: run.objective,
+          response: `Run ${runId}:\n${summaryText}`,
+          runId,
+        });
+      }
+
+      // Step 6: Complete the run
       const finalTotals = tokenTracker.getRunTotals(runId);
       const finalStatus = queue.hasFailures() ? 'failed' : 'completed';
 
@@ -253,6 +274,7 @@ export const executionEngine = {
   async executeOneTask(
     claudeService: ClaudeService,
     runId: string,
+    projectId: string,
     task: Task,
     workspacePath: string,
     queue: TaskQueue,
@@ -281,7 +303,7 @@ export const executionEngine = {
     try {
       const startTime = Date.now();
       const context = buildAgentContext(agent, task, workspacePath);
-      const result = await executeTask(claudeService, agent, task, context);
+      const result = await executeTask(claudeService, agent, task, context, projectId);
       const durationMs = Date.now() - startTime;
 
       // Record token usage

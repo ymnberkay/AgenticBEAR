@@ -68,8 +68,8 @@ export function QuickCreateDialog({ open, onClose }: QuickCreateDialogProps) {
               border: '1px solid var(--color-border-default)',
             }}
             onFocus={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(250, 189, 47, 0.5)';
-              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(250, 189, 47, 0.1)';
+              e.currentTarget.style.borderColor = 'rgba(110, 172, 218, 0.5)';
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(110, 172, 218, 0.1)';
             }}
             onBlur={(e) => {
               e.currentTarget.style.borderColor = 'var(--color-border-default)';
@@ -80,10 +80,10 @@ export function QuickCreateDialog({ open, onClose }: QuickCreateDialogProps) {
 
         {error && (
           <div
-            className="px-3.5 py-2.5 text-[12.5px] text-[#fb4934]"
+            className="px-3.5 py-2.5 text-[12.5px] text-[#e06060]"
             style={{
-              background: 'rgba(251, 73, 52, 0.08)',
-              border: '1px solid rgba(251, 73, 52, 0.2)',
+              background: 'rgba(224, 96, 96, 0.08)',
+              border: '1px solid rgba(224, 96, 96, 0.2)',
             }}
           >
             {error}

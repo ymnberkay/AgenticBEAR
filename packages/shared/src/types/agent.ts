@@ -11,10 +11,13 @@ export type ClaudeModel =
   | 'claude-sonnet-4-20250514'
   | 'claude-3-haiku-20240307'
   | 'gpt-4o'
+  | 'gpt-4.1'
   | 'gpt-4o-mini'
+  | 'gpt-5-mini'
   | 'o3'
   | 'o3-mini'
-  | 'o1';
+  | 'o1'
+  | 'codex-1';
 
 export interface ModelConfig {
   model: ClaudeModel;

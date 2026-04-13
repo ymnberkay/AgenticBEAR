@@ -56,7 +56,7 @@ function NetworkCanvas() {
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < 160) {
             const alpha = (1 - dist / 160) * 0.12;
-            ctx.strokeStyle = `rgba(250,189,47,${alpha})`;
+            ctx.strokeStyle = `rgba(110,172,218,${alpha})`;
             ctx.lineWidth = 0.6;
             ctx.beginPath();
             ctx.moveTo(a.x / 100 * W, a.y / 100 * H);
@@ -74,7 +74,7 @@ function NetworkCanvas() {
         const radius = n.r * (1 + 0.3 * Math.sin(n.pulse));
         ctx.beginPath();
         ctx.arc(px, py, radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(250,189,47,${glow})`;
+        ctx.fillStyle = `rgba(110,172,218,${glow})`;
         ctx.fill();
       });
 
@@ -97,9 +97,9 @@ function NetworkCanvas() {
 }
 
 const statusConfig: Record<string, { color: string; label: string }> = {
-  active:   { color: '#b8bb26', label: 'active' },
-  archived: { color: '#928374', label: 'archived' },
-  draft:    { color: '#83a598', label: 'draft' },
+  active:   { color: '#6db58a', label: 'active' },
+  archived: { color: '#9ca8a2', label: 'archived' },
+  draft:    { color: '#6EACDA', label: 'draft' },
 };
 
 export function ProjectDetailPage() {
@@ -137,7 +137,7 @@ export function ProjectDetailPage() {
       <div
         className="shrink-0"
         style={{
-          background: 'rgba(29,32,33,0.75)',
+          background: 'rgba(2,21,38,0.75)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
           borderBottom: '1px solid var(--color-border-subtle)',
@@ -149,7 +149,7 @@ export function ProjectDetailPage() {
             <Link
               to="/"
               style={{ color: 'var(--color-text-disabled)', textDecoration: 'none', flexShrink: 0, transition: 'color 0.15s' }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#fabd2f'; }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#6EACDA'; }}
               onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
             >
               agenticbear
@@ -191,7 +191,7 @@ export function ProjectDetailPage() {
                   cursor: 'pointer',
                   borderRadius: 0,
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(250,189,47,0.35)'; e.currentTarget.style.background = 'var(--color-bg-overlay)'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(110,172,218,0.35)'; e.currentTarget.style.background = 'var(--color-bg-overlay)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; e.currentTarget.style.background = 'var(--color-bg-raised)'; }}
               >
                 <Search style={{ width: 12, height: 12, flexShrink: 0 }} />
@@ -217,7 +217,7 @@ export function ProjectDetailPage() {
                 textDecoration: 'none',
                 transition: 'all 0.15s ease',
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#fabd2f'; e.currentTarget.style.borderColor = 'rgba(250,189,47,0.3)'; e.currentTarget.style.background = 'rgba(250,189,47,0.06)'; }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#6EACDA'; e.currentTarget.style.borderColor = 'rgba(110,172,218,0.3)'; e.currentTarget.style.background = 'rgba(110,172,218,0.06)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; e.currentTarget.style.background = 'transparent'; }}
             >
               <Settings style={{ width: 12, height: 12 }} />

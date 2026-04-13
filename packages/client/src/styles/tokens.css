@@ -1,64 +1,64 @@
 :root {
-  /* ─── Surfaces (Gruvbox Dark) ─── */
-  --color-bg-base:        #1d2021;
-  --color-bg-surface:     #282828;
-  --color-bg-raised:      #32302f;
-  --color-bg-overlay:     #3c3836;
-  --color-bg-muted:       #232120;
-  --color-bg-inset:       #191716;
-  --color-bg-nav:         #1d2021;
-  --color-bg-hover:       rgba(250, 189, 47, 0.06);
-  --color-bg-card:        #282828;
-  --color-bg-card-hover:  #32302f;
+  /* ─── Surfaces (Navy Blue) ─── */
+  --color-bg-base:        #021526;
+  --color-bg-surface:     #031d38;
+  --color-bg-raised:      #042a52;
+  --color-bg-overlay:     #03346E;
+  --color-bg-muted:       #010f1c;
+  --color-bg-inset:       #010a14;
+  --color-bg-nav:         #021526;
+  --color-bg-hover:       rgba(110, 172, 218, 0.07);
+  --color-bg-card:        #031d38;
+  --color-bg-card-hover:  #042a52;
 
-  /* ─── Glass (flat in Gruvbox — no blur) ─── */
-  --glass-bg:             #282828;
-  --glass-bg-hover:       #32302f;
-  --glass-border:         #3c3836;
-  --glass-border-hover:   rgba(250, 189, 47, 0.30);
+  /* ─── Glass ─── */
+  --glass-bg:             #031d38;
+  --glass-bg-hover:       #042a52;
+  --glass-border:         #0d4080;
+  --glass-border-hover:   rgba(110, 172, 218, 0.35);
   --glass-blur:           none;
 
   /* ─── Borders ─── */
-  --color-border-default: #3c3836;
-  --color-border-subtle:  #2a2827;
-  --color-border-focus:   #fabd2f;
-  --color-border-active:  #b8bb26;
+  --color-border-default: #0d4080;
+  --color-border-subtle:  #052038;
+  --color-border-focus:   #6EACDA;
+  --color-border-active:  #9ec9e8;
 
   /* ─── Text ─── */
-  --color-text-primary:   #ebdbb2;
-  --color-text-secondary: #928374;
-  --color-text-tertiary:  #665c54;
-  --color-text-disabled:  #504945;
+  --color-text-primary:   #E2E2B6;
+  --color-text-secondary: #9ca8a2;
+  --color-text-tertiary:  #637070;
+  --color-text-disabled:  #3d4a50;
 
-  /* ─── Accent (Amber) ─── */
-  --color-accent:         #fabd2f;
-  --color-accent-hover:   #ffd561;
-  --color-accent-muted:   #8ec07c;
-  --color-accent-subtle:  rgba(250, 189, 47, 0.12);
-  --color-accent-glow:    rgba(250, 189, 47, 0.25);
-  --gradient-accent:      linear-gradient(125deg, #fabd2f 0%, #fe8019 100%);
-  --gradient-accent-hover: linear-gradient(125deg, #ffd561 0%, #fe9a3c 100%);
-  --gradient-accent-subtle: linear-gradient(125deg, rgba(250,189,47,0.14), rgba(254,128,25,0.10));
+  /* ─── Accent (Steel Blue) ─── */
+  --color-accent:         #6EACDA;
+  --color-accent-hover:   #94c5e8;
+  --color-accent-muted:   #4a8ab8;
+  --color-accent-subtle:  rgba(110, 172, 218, 0.12);
+  --color-accent-glow:    rgba(110, 172, 218, 0.28);
+  --gradient-accent:      linear-gradient(125deg, #6EACDA 0%, #03346E 100%);
+  --gradient-accent-hover: linear-gradient(125deg, #94c5e8 0%, #0a4a9a 100%);
+  --gradient-accent-subtle: linear-gradient(125deg, rgba(110,172,218,0.16), rgba(3,52,110,0.12));
 
   /* ─── Semantic ─── */
-  --color-success:        #b8bb26;
-  --color-success-subtle: rgba(184, 187, 38, 0.12);
-  --color-warning:        #fe8019;
-  --color-warning-subtle: rgba(254, 128, 25, 0.12);
-  --color-error:          #fb4934;
-  --color-error-subtle:   rgba(251, 73, 52, 0.12);
-  --color-info:           #83a598;
-  --color-info-subtle:    rgba(131, 165, 152, 0.12);
+  --color-success:        #6db58a;
+  --color-success-subtle: rgba(109, 181, 138, 0.12);
+  --color-warning:        #e2b04a;
+  --color-warning-subtle: rgba(226, 176, 74, 0.12);
+  --color-error:          #e06060;
+  --color-error-subtle:   rgba(224, 96, 96, 0.12);
+  --color-info:           #6EACDA;
+  --color-info-subtle:    rgba(110, 172, 218, 0.12);
 
-  /* ─── Agent Colors (Gruvbox palette) ─── */
-  --color-agent-orchestrator: #fabd2f;
-  --color-agent-backend:      #8ec07c;
-  --color-agent-frontend:     #83a598;
-  --color-agent-database:     #fe8019;
-  --color-agent-devops:       #b8bb26;
-  --color-agent-qa:           #fb4934;
-  --color-agent-documentation: #d3869b;
-  --color-agent-design:       #d65d0e;
+  /* ─── Agent Colors ─── */
+  --color-agent-orchestrator: #6EACDA;
+  --color-agent-backend:      #6db58a;
+  --color-agent-frontend:     #a8d4e8;
+  --color-agent-database:     #e2b04a;
+  --color-agent-devops:       #8ec07c;
+  --color-agent-qa:           #e07878;
+  --color-agent-documentation: #c0a0d8;
+  --color-agent-design:       #e2c86e;
 
   /* ─── Typography ─── */
   --font-sans: 'Fira Sans', system-ui, -apple-system, sans-serif;
@@ -72,11 +72,11 @@
   --radius-2xl: 14px;
 
   /* ─── Shadows ─── */
-  --shadow-sm:   0 1px 3px rgba(0, 0, 0, 0.6);
-  --shadow-md:   0 4px 12px rgba(0, 0, 0, 0.65), 0 1px 3px rgba(0, 0, 0, 0.5);
-  --shadow-lg:   0 8px 32px rgba(0, 0, 0, 0.75), 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.55), 0 0 0 1px #3c3836;
-  --shadow-glow: 0 0 20px rgba(250, 189, 47, 0.20), 0 0 48px rgba(250, 189, 47, 0.08);
+  --shadow-sm:   0 1px 3px rgba(0, 0, 0, 0.7);
+  --shadow-md:   0 4px 12px rgba(0, 0, 0, 0.7), 0 1px 3px rgba(0, 0, 0, 0.55);
+  --shadow-lg:   0 8px 32px rgba(0, 0, 0, 0.80), 0 4px 12px rgba(0, 0, 0, 0.55);
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.65), 0 0 0 1px #0d4080;
+  --shadow-glow: 0 0 20px rgba(110, 172, 218, 0.22), 0 0 48px rgba(110, 172, 218, 0.09);
 
   /* ─── Transitions ─── */
   --ease-out:         cubic-bezier(0.16, 1, 0.3, 1);

@@ -8,7 +8,7 @@ import { Separator } from '../ui/separator';
 import { PromptEditor } from './prompt-editor';
 import { ModelConfigForm } from './model-config';
 import { useTemplates } from '../../api/hooks/use-templates';
-import { useCreateAgent, useUpdateAgent } from '../../api/hooks/use-agents';
+import { useCreateAgent, useUpdateAgent, useDeleteAgent } from '../../api/hooks/use-agents';
 
 interface AgentBuilderProps {
   projectId: string;
@@ -20,6 +20,7 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
   const { data: templates } = useTemplates();
   const createAgent = useCreateAgent();
   const updateAgent = useUpdateAgent();
+  const deleteAgent = useDeleteAgent();
 
   const [name, setName] = useState(agent?.name ?? '');
   const [role, setRole] = useState<AgentRole>(agent?.role ?? 'specialist');
@@ -202,7 +203,7 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
                 onChange={(e) =>
                   setPermissions((p) => ({ ...p, [key]: e.target.checked }))
                 }
-                className="rounded accent-[#fabd2f] h-3.5 w-3.5 shrink-0"
+                className="rounded accent-[#6EACDA] h-3.5 w-3.5 shrink-0"
               />
               <span className="truncate">{label}</span>
             </label>
@@ -267,7 +268,28 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-end gap-3 pt-2">
+      <div className="flex items-center gap-3 pt-2">
+        {agent && (
+          <button
+            type="button"
+            disabled={deleteAgent.isPending}
+            onClick={() => {
+              if (window.confirm(`Delete "${agent.name}"? This cannot be undone.`)) {
+                deleteAgent.mutate({ id: agent.id, projectId }, { onSuccess: onClose });
+              }
+            }}
+            className="flex items-center gap-1.5 text-[12px] transition-colors duration-200"
+            style={{ color: 'rgba(251,73,52,0.55)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', fontFamily: 'var(--font-mono)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#e06060'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(251,73,52,0.55)'; }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+            {deleteAgent.isPending ? 'Deleting…' : 'Delete agent'}
+          </button>
+        )}
+        <div className="flex-1" />
         <Button type="button" variant="ghost" onClick={onClose}>
           Cancel
         </Button>

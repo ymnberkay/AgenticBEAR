@@ -48,3 +48,8 @@ export type {
   AgentActivity,
   ActivityStatus,
 } from './activity.js';
+
+export type {
+  AgentMemory,
+  MemoryType,
+} from './memory.js';

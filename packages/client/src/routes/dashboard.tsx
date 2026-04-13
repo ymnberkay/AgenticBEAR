@@ -136,7 +136,7 @@ function NeuralCanvas() {
           const dy = (a.y - b.y) / 100 * H;
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < THRESH) {
-            ctx.strokeStyle = `rgba(250,189,47,${(1 - dist / THRESH) * 0.07})`;
+            ctx.strokeStyle = `rgba(110,172,218,${(1 - dist / THRESH) * 0.07})`;
             ctx.lineWidth = 0.6;
             ctx.beginPath();
             ctx.moveTo(a.x / 100 * W, a.y / 100 * H);
@@ -149,23 +149,23 @@ function NeuralCanvas() {
       // Mouse cursor field
       if (mouse.current.active) {
         const cg = ctx.createRadialGradient(mpx, mpy, 0, mpx, mpy, ATTRACT_PX);
-        cg.addColorStop(0, 'rgba(250,189,47,0.05)');
-        cg.addColorStop(0.5, 'rgba(250,189,47,0.02)');
-        cg.addColorStop(1, 'rgba(250,189,47,0)');
+        cg.addColorStop(0, 'rgba(110,172,218,0.05)');
+        cg.addColorStop(0.5, 'rgba(110,172,218,0.02)');
+        cg.addColorStop(1, 'rgba(110,172,218,0)');
         ctx.fillStyle = cg;
         ctx.beginPath();
         ctx.arc(mpx, mpy, ATTRACT_PX, 0, Math.PI * 2);
         ctx.fill();
         ctx.beginPath();
         ctx.arc(mpx, mpy, ATTRACT_PX, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(250,189,47,0.07)';
+        ctx.strokeStyle = 'rgba(110,172,218,0.07)';
         ctx.lineWidth = 0.8;
         ctx.setLineDash([3, 7]);
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.beginPath();
         ctx.arc(mpx, mpy, 3, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(250,189,47,0.45)';
+        ctx.fillStyle = 'rgba(110,172,218,0.45)';
         ctx.fill();
       }
 
@@ -188,8 +188,8 @@ function NeuralCanvas() {
         const tx0 = fn.x / 100 * W + (tn.x / 100 * W - fn.x / 100 * W) * t0;
         const ty0 = fn.y / 100 * H + (tn.y / 100 * H - fn.y / 100 * H) * t0;
         const trailGrad = ctx.createLinearGradient(tx0, ty0, px, py);
-        trailGrad.addColorStop(0, 'rgba(250,189,47,0)');
-        trailGrad.addColorStop(1, 'rgba(250,189,47,0.35)');
+        trailGrad.addColorStop(0, 'rgba(110,172,218,0)');
+        trailGrad.addColorStop(1, 'rgba(110,172,218,0.35)');
         ctx.strokeStyle = trailGrad;
         ctx.lineWidth = 1.2;
         ctx.beginPath();
@@ -199,9 +199,9 @@ function NeuralCanvas() {
 
         // Glow dot
         const g = ctx.createRadialGradient(px, py, 0, px, py, 8);
-        g.addColorStop(0, 'rgba(250,189,47,0.95)');
-        g.addColorStop(0.4, 'rgba(250,189,47,0.35)');
-        g.addColorStop(1, 'rgba(250,189,47,0)');
+        g.addColorStop(0, 'rgba(110,172,218,0.95)');
+        g.addColorStop(0.4, 'rgba(110,172,218,0.35)');
+        g.addColorStop(1, 'rgba(110,172,218,0)');
         ctx.fillStyle = g;
         ctx.beginPath();
         ctx.arc(px, py, 8, 0, Math.PI * 2);
@@ -220,15 +220,15 @@ function NeuralCanvas() {
         if (n.ripple > 0) {
           ctx.beginPath();
           ctx.arc(px, py, n.r + (1 - n.ripple) * 24, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(250,189,47,${n.ripple * 0.32})`;
+          ctx.strokeStyle = `rgba(110,172,218,${n.ripple * 0.32})`;
           ctx.lineWidth = 1;
           ctx.stroke();
         }
 
         // Halo
         const halo = ctx.createRadialGradient(px, py, 0, px, py, r * 5);
-        halo.addColorStop(0, `rgba(250,189,47,${glow * 0.3})`);
-        halo.addColorStop(1, 'rgba(250,189,47,0)');
+        halo.addColorStop(0, `rgba(110,172,218,${glow * 0.3})`);
+        halo.addColorStop(1, 'rgba(110,172,218,0)');
         ctx.fillStyle = halo;
         ctx.beginPath();
         ctx.arc(px, py, r * 5, 0, Math.PI * 2);
@@ -237,7 +237,7 @@ function NeuralCanvas() {
         // Core dot
         ctx.beginPath();
         ctx.arc(px, py, r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(250,189,47,${Math.min(1, glow + 0.18)})`;
+        ctx.fillStyle = `rgba(110,172,218,${Math.min(1, glow + 0.18)})`;
         ctx.fill();
       });
 
@@ -281,7 +281,7 @@ export function DashboardPage() {
           animationDelay: '30ms',
           padding: '0 32px',
           height: 56,
-          background: 'rgba(29,32,33,0.75)',
+          background: 'rgba(2,21,38,0.75)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
           position: 'sticky',
@@ -327,7 +327,7 @@ export function DashboardPage() {
                 borderRadius: 0,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(250,189,47,0.35)';
+                e.currentTarget.style.borderColor = 'rgba(110,172,218,0.35)';
                 e.currentTarget.style.background = 'var(--color-bg-overlay)';
               }}
               onMouseLeave={(e) => {
@@ -355,12 +355,12 @@ export function DashboardPage() {
             className="flex items-center gap-2 transition-all duration-150"
             style={{
               height: 34, padding: '0 16px',
-              background: '#fabd2f', color: '#1d2021',
+              background: '#6EACDA', color: '#021526',
               fontSize: 13, fontWeight: 600,
               fontFamily: 'var(--font-sans)', border: 'none', whiteSpace: 'nowrap',
             }}
             onMouseEnter={(e) => { e.currentTarget.style.background = '#ffd561'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = '#fabd2f'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#6EACDA'; }}
           >
             <Plus style={{ width: 14, height: 14 }} />
             New Project

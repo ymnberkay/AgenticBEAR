@@ -2,42 +2,42 @@
 @import "./tokens.css";
 
 @theme {
-  --color-bg-base:        #1d2021;
-  --color-bg-surface:     #282828;
-  --color-bg-raised:      #32302f;
-  --color-bg-overlay:     #3c3836;
-  --color-bg-muted:       #232120;
-  --color-bg-inset:       #191716;
+  --color-bg-base:        #021526;
+  --color-bg-surface:     #031d38;
+  --color-bg-raised:      #042a52;
+  --color-bg-overlay:     #03346E;
+  --color-bg-muted:       #010f1c;
+  --color-bg-inset:       #010a14;
 
-  --color-border-default: #3c3836;
-  --color-border-subtle:  #2a2827;
-  --color-border-focus:   #fabd2f;
+  --color-border-default: #0d4080;
+  --color-border-subtle:  #052038;
+  --color-border-focus:   #6EACDA;
 
-  --color-text-primary:   #ebdbb2;
-  --color-text-secondary: #928374;
-  --color-text-tertiary:  #665c54;
-  --color-text-disabled:  #504945;
+  --color-text-primary:   #E2E2B6;
+  --color-text-secondary: #9ca8a2;
+  --color-text-tertiary:  #637070;
+  --color-text-disabled:  #3d4a50;
 
-  --color-accent:         #fabd2f;
-  --color-accent-hover:   #ffd561;
-  --color-accent-muted:   #8ec07c;
-  --color-accent-subtle:  rgba(250, 189, 47, 0.12);
+  --color-accent:         #6EACDA;
+  --color-accent-hover:   #94c5e8;
+  --color-accent-muted:   #4a8ab8;
+  --color-accent-subtle:  rgba(110, 172, 218, 0.12);
 
-  --color-success:        #b8bb26;
-  --color-success-subtle: rgba(184, 187, 38, 0.12);
-  --color-warning:        #fe8019;
-  --color-warning-subtle: rgba(254, 128, 25, 0.12);
-  --color-error:          #fb4934;
-  --color-error-subtle:   rgba(251, 73, 52, 0.12);
-  --color-info:           #83a598;
-  --color-info-subtle:    rgba(131, 165, 152, 0.12);
+  --color-success:        #6db58a;
+  --color-success-subtle: rgba(109, 181, 138, 0.12);
+  --color-warning:        #e2b04a;
+  --color-warning-subtle: rgba(226, 176, 74, 0.12);
+  --color-error:          #e06060;
+  --color-error-subtle:   rgba(224, 96, 96, 0.12);
+  --color-info:           #6EACDA;
+  --color-info-subtle:    rgba(110, 172, 218, 0.12);
 
-  --color-agent-orchestrator: #fabd2f;
-  --color-agent-backend:      #8ec07c;
-  --color-agent-frontend:     #83a598;
-  --color-agent-database:     #fe8019;
-  --color-agent-devops:       #b8bb26;
-  --color-agent-qa:           #fb4934;
+  --color-agent-orchestrator: #6EACDA;
+  --color-agent-backend:      #6db58a;
+  --color-agent-frontend:     #a8d4e8;
+  --color-agent-database:     #e2b04a;
+  --color-agent-devops:       #8ec07c;
+  --color-agent-qa:           #e07878;
 
   --font-sans: 'Fira Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'Fira Code', 'SF Mono', 'Menlo', monospace;
@@ -59,10 +59,10 @@ html {
 html, body {
   height: 100%;
   background-color: var(--color-bg-base);
-  /* Gruvbox grid — subtle amber lines at 48px */
+  /* Navy grid — subtle blue lines at 48px */
   background-image:
-    linear-gradient(rgba(250, 189, 47, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(250, 189, 47, 0.025) 1px, transparent 1px);
+    linear-gradient(rgba(110, 172, 218, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(110, 172, 218, 0.025) 1px, transparent 1px);
   background-size: 48px 48px;
   background-attachment: fixed;
   color: var(--color-text-primary);
@@ -89,8 +89,8 @@ html, body {
 
 /* ─── Selection & Focus ─── */
 ::selection {
-  background-color: rgba(250, 189, 47, 0.28);
-  color: #ebdbb2;
+  background-color: rgba(110, 172, 218, 0.28);
+  color: #E2E2B6;
 }
 
 :focus-visible {
@@ -149,8 +149,8 @@ a {
 }
 
 @keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 12px rgba(250, 189, 47, 0.25); }
-  50%       { box-shadow: 0 0 24px rgba(250, 189, 47, 0.25), 0 0 48px rgba(250, 189, 47, 0.10); }
+  0%, 100% { box-shadow: 0 0 12px rgba(110, 172, 218, 0.25); }
+  50%       { box-shadow: 0 0 24px rgba(110, 172, 218, 0.25), 0 0 48px rgba(110, 172, 218, 0.10); }
 }
 
 @keyframes staggerReveal {
@@ -206,15 +206,15 @@ a {
 
 /* ─── Agent status pulse ─── */
 @keyframes agentPulse {
-  0%, 100% { box-shadow: 0 0 0 0 var(--agent-color, rgba(250, 189, 47, 0.3)); }
-  50%       { box-shadow: 0 0 10px 3px var(--agent-color, rgba(250, 189, 47, 0.3)); }
+  0%, 100% { box-shadow: 0 0 0 0 var(--agent-color, rgba(110, 172, 218, 0.3)); }
+  50%       { box-shadow: 0 0 10px 3px var(--agent-color, rgba(110, 172, 218, 0.3)); }
 }
 
 .agent-running {
   animation: agentPulse 2s ease-in-out infinite;
 }
 
-/* ─── Glass utilities (flat in Gruvbox) ─── */
+/* ─── Glass utilities ─── */
 .glass {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
@@ -233,18 +233,19 @@ a {
   background-clip: text;
 }
 
-/* ─── Amber glow utilities ─── */
-.glow-amber {
-  box-shadow: 0 0 16px rgba(250, 189, 47, 0.22), 0 0 40px rgba(250, 189, 47, 0.08);
+/* ─── Glow utilities ─── */
+.glow-blue {
+  box-shadow: 0 0 16px rgba(110, 172, 218, 0.22), 0 0 40px rgba(110, 172, 218, 0.08);
 }
 
 .glow-green {
-  box-shadow: 0 0 16px rgba(184, 187, 38, 0.18), 0 0 40px rgba(184, 187, 38, 0.08);
+  box-shadow: 0 0 16px rgba(109, 181, 138, 0.18), 0 0 40px rgba(109, 181, 138, 0.08);
 }
 
-/* ─── Legacy aliases (keep for backwards compat) ─── */
-.glow-copper   { box-shadow: 0 0 16px rgba(250, 189, 47, 0.22), 0 0 40px rgba(250, 189, 47, 0.08); }
-.glow-verdigris { box-shadow: 0 0 16px rgba(142, 192, 124, 0.18), 0 0 40px rgba(142, 192, 124, 0.08); }
+/* ─── Legacy aliases ─── */
+.glow-amber    { box-shadow: 0 0 16px rgba(110, 172, 218, 0.22), 0 0 40px rgba(110, 172, 218, 0.08); }
+.glow-copper   { box-shadow: 0 0 16px rgba(110, 172, 218, 0.22), 0 0 40px rgba(110, 172, 218, 0.08); }
+.glow-verdigris { box-shadow: 0 0 16px rgba(109, 181, 138, 0.18), 0 0 40px rgba(109, 181, 138, 0.08); }
 .border-copper { border-color: var(--color-accent); }
 
 /* ─── Noise texture overlay ─── */

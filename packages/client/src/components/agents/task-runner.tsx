@@ -84,7 +84,7 @@ export function TaskRunner({ projectId: _projectId }: TaskRunnerProps) {
               display: 'flex', alignItems: 'center', gap: '5px',
               height: '30px', padding: '0 12px',
               background: copied ? 'rgba(107,191,160,0.15)' : 'var(--color-bg-raised)',
-              color: copied ? '#8ec07c' : 'var(--color-text-secondary)',
+              color: copied ? '#6db58a' : 'var(--color-text-secondary)',
               fontSize: '11px', fontWeight: 500,
               border: `1px solid ${copied ? 'rgba(107,191,160,0.3)' : 'var(--color-border-subtle)'}`,
               cursor: 'pointer', transition: 'all 0.15s',
