@@ -198,11 +198,13 @@ export const executionEngine = {
       }
 
       // Step 4: Documentation step — if a documentation agent exists and all tasks succeeded
+      const DOC_KEYWORDS = ['doc', 'report', 'write', 'yazar', 'dokü', 'rapor', 'readme', 'changelog', 'note'];
       if (!queue.hasFailures()) {
-        const docAgent = agents.find((a) =>
-          a.role === 'specialist' &&
-          (a.name.toLowerCase().includes('doc') || a.slug.toLowerCase().includes('doc')),
-        );
+        const docAgent = agents.find((a) => {
+          if (a.role !== 'specialist') return false;
+          const haystack = `${a.name} ${a.slug} ${a.description ?? ''}`.toLowerCase();
+          return DOC_KEYWORDS.some((kw) => haystack.includes(kw));
+        });
 
         if (docAgent) {
           await this.runDocumentationStep(

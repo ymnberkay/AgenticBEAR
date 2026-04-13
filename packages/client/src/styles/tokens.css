@@ -1,64 +1,64 @@
 :root {
-  /* ─── Surfaces (Navy Blue) ─── */
-  --color-bg-base:        #021526;
-  --color-bg-surface:     #031d38;
-  --color-bg-raised:      #042a52;
-  --color-bg-overlay:     #03346E;
-  --color-bg-muted:       #010f1c;
-  --color-bg-inset:       #010a14;
-  --color-bg-nav:         #021526;
-  --color-bg-hover:       rgba(110, 172, 218, 0.07);
-  --color-bg-card:        #031d38;
-  --color-bg-card-hover:  #042a52;
+  /* ─── Surfaces (Charcoal Slate) ─── */
+  --color-bg-base:        #0d1117;
+  --color-bg-surface:     #161c2d;
+  --color-bg-raised:      #1c2438;
+  --color-bg-overlay:     #222b42;
+  --color-bg-muted:       #090d15;
+  --color-bg-inset:       #07090f;
+  --color-bg-nav:         #0d1117;
+  --color-bg-hover:       rgba(139, 148, 158, 0.07);
+  --color-bg-card:        #161c2d;
+  --color-bg-card-hover:  #1c2438;
 
   /* ─── Glass ─── */
-  --glass-bg:             #031d38;
-  --glass-bg-hover:       #042a52;
-  --glass-border:         #0d4080;
-  --glass-border-hover:   rgba(110, 172, 218, 0.35);
+  --glass-bg:             #161c2d;
+  --glass-bg-hover:       #1c2438;
+  --glass-border:         #252d42;
+  --glass-border-hover:   rgba(124, 140, 248, 0.22);
   --glass-blur:           none;
 
   /* ─── Borders ─── */
-  --color-border-default: #0d4080;
-  --color-border-subtle:  #052038;
-  --color-border-focus:   #6EACDA;
-  --color-border-active:  #9ec9e8;
+  --color-border-default: #252d42;
+  --color-border-subtle:  #181e2e;
+  --color-border-focus:   #7c8cf8;
+  --color-border-active:  #9ba8fb;
 
   /* ─── Text ─── */
-  --color-text-primary:   #E2E2B6;
-  --color-text-secondary: #9ca8a2;
-  --color-text-tertiary:  #637070;
-  --color-text-disabled:  #3d4a50;
+  --color-text-primary:   #e8eaf0;
+  --color-text-secondary: #8b95a7;
+  --color-text-tertiary:  #5a6375;
+  --color-text-disabled:  #363d4f;
 
-  /* ─── Accent (Steel Blue) ─── */
-  --color-accent:         #6EACDA;
-  --color-accent-hover:   #94c5e8;
-  --color-accent-muted:   #4a8ab8;
-  --color-accent-subtle:  rgba(110, 172, 218, 0.12);
-  --color-accent-glow:    rgba(110, 172, 218, 0.28);
-  --gradient-accent:      linear-gradient(125deg, #6EACDA 0%, #03346E 100%);
-  --gradient-accent-hover: linear-gradient(125deg, #94c5e8 0%, #0a4a9a 100%);
-  --gradient-accent-subtle: linear-gradient(125deg, rgba(110,172,218,0.16), rgba(3,52,110,0.12));
+  /* ─── Accent (Muted Indigo) ─── */
+  --color-accent:         #7c8cf8;
+  --color-accent-hover:   #9ba8fb;
+  --color-accent-muted:   #5c6af5;
+  --color-accent-subtle:  rgba(124, 140, 248, 0.10);
+  --color-accent-glow:    rgba(124, 140, 248, 0.15);
+  --gradient-accent:      linear-gradient(125deg, #7c8cf8 0%, #1c2438 100%);
+  --gradient-accent-hover: linear-gradient(125deg, #9ba8fb 0%, #252d42 100%);
+  --gradient-accent-subtle: linear-gradient(125deg, rgba(124,140,248,0.12), rgba(28,36,56,0.08));
 
   /* ─── Semantic ─── */
-  --color-success:        #6db58a;
-  --color-success-subtle: rgba(109, 181, 138, 0.12);
-  --color-warning:        #e2b04a;
-  --color-warning-subtle: rgba(226, 176, 74, 0.12);
-  --color-error:          #e06060;
-  --color-error-subtle:   rgba(224, 96, 96, 0.12);
-  --color-info:           #6EACDA;
-  --color-info-subtle:    rgba(110, 172, 218, 0.12);
+  --color-success:        #5a9e78;
+  --color-success-subtle: rgba(90, 158, 120, 0.10);
+  --color-warning:        #c9974a;
+  --color-warning-subtle: rgba(201, 151, 74, 0.10);
+  --color-error:          #c96060;
+  --color-error-subtle:   rgba(201, 96, 96, 0.10);
+  --color-info:           #7c8cf8;
+  --color-info-subtle:    rgba(124, 140, 248, 0.10);
 
   /* ─── Agent Colors ─── */
-  --color-agent-orchestrator: #6EACDA;
-  --color-agent-backend:      #6db58a;
-  --color-agent-frontend:     #a8d4e8;
-  --color-agent-database:     #e2b04a;
-  --color-agent-devops:       #8ec07c;
-  --color-agent-qa:           #e07878;
-  --color-agent-documentation: #c0a0d8;
-  --color-agent-design:       #e2c86e;
+  --color-agent-orchestrator: #7c8cf8;
+  --color-agent-backend:      #5a9e78;
+  --color-agent-frontend:     #8fafd4;
+  --color-agent-database:     #c9974a;
+  --color-agent-devops:       #7ab07a;
+  --color-agent-qa:           #c07070;
+  --color-agent-documentation: #9e88c8;
+  --color-agent-design:       #c0a84e;
 
   /* ─── Typography ─── */
   --font-sans: 'Fira Sans', system-ui, -apple-system, sans-serif;
@@ -72,11 +72,11 @@
   --radius-2xl: 14px;
 
   /* ─── Shadows ─── */
-  --shadow-sm:   0 1px 3px rgba(0, 0, 0, 0.7);
-  --shadow-md:   0 4px 12px rgba(0, 0, 0, 0.7), 0 1px 3px rgba(0, 0, 0, 0.55);
-  --shadow-lg:   0 8px 32px rgba(0, 0, 0, 0.80), 0 4px 12px rgba(0, 0, 0, 0.55);
-  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.65), 0 0 0 1px #0d4080;
-  --shadow-glow: 0 0 20px rgba(110, 172, 218, 0.22), 0 0 48px rgba(110, 172, 218, 0.09);
+  --shadow-sm:   0 1px 3px rgba(0, 0, 0, 0.60);
+  --shadow-md:   0 4px 12px rgba(0, 0, 0, 0.60), 0 1px 3px rgba(0, 0, 0, 0.45);
+  --shadow-lg:   0 8px 32px rgba(0, 0, 0, 0.70), 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.55), 0 0 0 1px #252d42;
+  --shadow-glow: 0 0 16px rgba(124, 140, 248, 0.12), 0 0 40px rgba(124, 140, 248, 0.05);
 
   /* ─── Transitions ─── */
   --ease-out:         cubic-bezier(0.16, 1, 0.3, 1);
