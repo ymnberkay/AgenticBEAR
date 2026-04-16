@@ -110,35 +110,43 @@ export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit, sele
 
       {/* Tab Navigation */}
       <div className="flex items-center shrink-0" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-        <div className="flex">
+        <div className="flex gap-1 px-1">
           {(['activity', 'memory'] as const).map((tab) => {
             const count = tab === 'activity'
               ? (activities?.length ?? 0)
               : (memories?.length ?? 0);
+            const isActive = activeTab === tab;
             return (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className="px-4 py-2.5 transition-colors duration-150"
+                className="flex items-center gap-2 px-3 py-2.5 transition-colors duration-150"
                 style={{
                   fontSize: '10px',
                   fontWeight: 600,
                   textTransform: 'uppercase',
-                  letterSpacing: '0.1em',
-                  color: activeTab === tab ? 'var(--color-text-primary)' : 'var(--color-text-disabled)',
-                  borderBottom: activeTab === tab ? `2px solid ${agent.color}` : '2px solid transparent',
+                  letterSpacing: '0.08em',
+                  color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-disabled)',
+                  borderBottom: isActive ? `2px solid ${agent.color}` : '2px solid transparent',
                   marginBottom: '-1px',
                 }}
               >
                 {tab === 'activity' ? 'Activity' : 'Memory'}
                 {count > 0 && (
                   <span
-                    className="ml-1.5 px-1 py-0.5"
                     style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: '16px',
+                      height: '16px',
+                      padding: '0 4px',
                       fontSize: '9px',
-                      background: activeTab === tab ? `${agent.color}20` : 'var(--color-bg-raised)',
-                      color: activeTab === tab ? agent.color : 'var(--color-text-disabled)',
-                      borderRadius: '3px',
+                      fontWeight: 700,
+                      lineHeight: 1,
+                      background: isActive ? `${agent.color}22` : 'var(--color-bg-raised)',
+                      color: isActive ? agent.color : 'var(--color-text-disabled)',
+                      borderRadius: '4px',
                     }}
                   >
                     {count}

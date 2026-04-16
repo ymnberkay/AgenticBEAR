@@ -197,13 +197,16 @@ export const executionEngine = {
         eventBus.emitAndCreate('tokens:updated', runId, totals);
       }
 
-      // Step 4: Documentation step — if a documentation agent exists and all tasks succeeded
-      const DOC_KEYWORDS = ['doc', 'report', 'write', 'yazar', 'dokü', 'rapor', 'readme', 'changelog', 'note'];
+      // Step 4: Documentation step — detect by system prompt content, not name
+      const DOC_PROMPT_KEYWORDS = [
+        'document', 'documentation', 'report', 'readme', 'changelog', 'summarize', 'summary',
+        'dokümant', 'dokuman', 'rapor', 'özet', 'yaz', 'belgele',
+      ];
       if (!queue.hasFailures()) {
         const docAgent = agents.find((a) => {
           if (a.role !== 'specialist') return false;
-          const haystack = `${a.name} ${a.slug} ${a.description ?? ''}`.toLowerCase();
-          return DOC_KEYWORDS.some((kw) => haystack.includes(kw));
+          const prompt = a.systemPrompt.toLowerCase();
+          return DOC_PROMPT_KEYWORDS.some((kw) => prompt.includes(kw));
         });
 
         if (docAgent) {

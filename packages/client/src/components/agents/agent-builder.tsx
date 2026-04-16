@@ -42,8 +42,10 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
     (agent?.permissions.deniedPaths ?? DEFAULT_PERMISSIONS.deniedPaths).join(', '),
   );
 
-  // Apply template when selected
+  // Apply template when user selects one — skip entirely when editing an existing agent
+  // (agent already has its own values; template defaults must not overwrite them)
   useEffect(() => {
+    if (agent) return;
     if (!templateId || !templates) return;
     const tmpl = templates.find((t) => t.id === templateId);
     if (!tmpl) return;
@@ -54,7 +56,7 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
     setIcon(tmpl.suggestedIcon);
     setAllowedPaths(tmpl.defaultPermissions.allowedPaths.join(', '));
     setDeniedPaths(tmpl.defaultPermissions.deniedPaths.join(', '));
-  }, [templateId, templates]);
+  }, [templateId, templates, agent]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

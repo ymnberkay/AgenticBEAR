@@ -40,6 +40,7 @@ export function useAgentActivities(agentId: string) {
     queryKey: agentKeys.activities(agentId),
     queryFn: () => apiGet<AgentActivity[]>(`/api/agents/${agentId}/activities`),
     enabled: !!agentId,
+    refetchInterval: 4000,
   });
 }
 
@@ -93,6 +94,7 @@ export function useAgentMemories(agentId: string) {
     queryKey: agentKeys.memories(agentId),
     queryFn: () => apiGet<AgentMemory[]>(`/api/agents/${agentId}/memories`),
     enabled: !!agentId,
+    refetchInterval: 4000,
   });
 }
 

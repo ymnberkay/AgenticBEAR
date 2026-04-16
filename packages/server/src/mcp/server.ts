@@ -11,10 +11,12 @@ import { z } from 'zod';
 import { agentRepo } from '../db/repositories/agent.repo.js';
 import { projectRepo } from '../db/repositories/project.repo.js';
 import { activityRepo } from '../db/repositories/activity.repo.js';
+import { memoryRepo } from '../db/repositories/memory.repo.js';
 import { eventBus } from '../utils/event-bus.js';
 import { createLogger } from '../utils/logger.js';
 import { buildAgentContextBlock, buildOrchestratorPrompt } from '../utils/prompt-adapter.js';
 import { buildMemoryBlock } from '../engine/context-builder.js';
+import { callLLM } from './llm-service.js';
 import type { Agent } from '@subagent/shared';
 
 const log = createLogger('mcp:server');
@@ -172,18 +174,55 @@ export function createMcpServer(projectId: string): McpServer {
       const activity = activityRepo.create({ projectId, agentId: agent.id, type: 'mcp_call', query });
       eventBus.emitProjectEvent(projectId, { type: 'agent:started', agentId: agent.id, activityId: activity.id, query });
 
-      // Auto-complete after response is sent
-      setTimeout(() => {
+      const memoryBlock = buildMemoryBlock(agent.id);
+      const userMessage = context ? `${context}\n\n${query}` : query;
+      const systemPromptWithMemory = memoryBlock
+        ? `${agent.systemPrompt}\n\n${memoryBlock}`
+        : agent.systemPrompt;
+
+      try {
+        // Call LLM server-side so we can save the response to memory
+        const response = await callLLM({
+          modelConfig: agent.modelConfig,
+          systemPrompt: systemPromptWithMemory,
+          userMessage,
+        });
+
+        memoryRepo.create({
+          agentId: agent.id,
+          projectId,
+          type: 'interaction',
+          query,
+          response,
+          runId: null,
+        });
+
         activityRepo.complete(activity.id, 'completed');
         eventBus.emitProjectEvent(projectId, { type: 'agent:completed', agentId: agent.id, activityId: activity.id });
-      }, 2000);
 
-      return {
-        content: [{
-          type: 'text',
-          text: buildAgentContextBlock(agent, query, context, buildMemoryBlock(agent.id)),
-        }],
-      };
+        return { content: [{ type: 'text', text: response }] };
+
+      } catch {
+        // No API key or call failed — fall back to returning the context block (Claude Code CLI handles it)
+        memoryRepo.create({
+          agentId: agent.id,
+          projectId,
+          type: 'interaction',
+          query,
+          response: '(Claude Code CLI tarafından işlendi — server-side yanıt alınamadı)',
+          runId: null,
+        });
+
+        activityRepo.complete(activity.id, 'completed');
+        eventBus.emitProjectEvent(projectId, { type: 'agent:completed', agentId: agent.id, activityId: activity.id });
+
+        return {
+          content: [{
+            type: 'text',
+            text: buildAgentContextBlock(agent, query, context, memoryBlock),
+          }],
+        };
+      }
     },
   );
 
