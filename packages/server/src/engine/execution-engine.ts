@@ -429,6 +429,12 @@ Format it clearly so it can be saved as a .txt file.`;
         maxTokens: docAgent.modelConfig.maxTokens ?? 4096,
         systemPrompt: docAgent.systemPrompt,
         messages: [{ role: 'user', content: prompt }],
+        meta: {
+          role: 'documentation',
+          agentSlug: docAgent.slug,
+          callKind: 'documentation',
+          cacheable: true,
+        },
       });
       const durationMs = Date.now() - startTime;
 

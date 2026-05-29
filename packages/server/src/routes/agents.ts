@@ -4,6 +4,7 @@ import { taskRepo } from '../db/repositories/task.repo.js';
 import { activityRepo } from '../db/repositories/activity.repo.js';
 import { memoryRepo } from '../db/repositories/memory.repo.js';
 import { invalidateMcpCache } from '../mcp/server.js';
+import { invalidateNamespace, namespaceFor } from '../cost/layers/semantic-cache.js';
 import type { CreateAgentInput, UpdateAgentInput } from '@subagent/shared';
 
 export async function agentRoutes(app: FastifyInstance): Promise<void> {
@@ -54,6 +55,10 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(404).send({ error: true, message: 'Agent not found' });
     }
     invalidateMcpCache(agent.projectId);
+    // Sistem promptu / model değiştiyse bu agent'ın L1 cache namespace'ini temizle.
+    if (request.body.systemPrompt !== undefined || request.body.modelConfig !== undefined) {
+      void invalidateNamespace(namespaceFor(agent.role, agent.slug));
+    }
     return reply.send(agent);
   });
 
@@ -120,7 +125,10 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     if (!removed) {
       return reply.status(404).send({ error: true, message: 'Agent not found' });
     }
-    if (existing) invalidateMcpCache(existing.projectId);
+    if (existing) {
+      invalidateMcpCache(existing.projectId);
+      void invalidateNamespace(namespaceFor(existing.role, existing.slug));
+    }
     return reply.status(204).send();
   });
 }

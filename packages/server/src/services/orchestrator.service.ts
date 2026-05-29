@@ -84,6 +84,12 @@ Please decompose this objective into tasks and assign them to the appropriate ag
     temperature: orchestratorAgent.modelConfig.temperature,
     systemPrompt,
     messages: [{ role: 'user', content: userMessage }],
+    meta: {
+      role: 'orchestrator',
+      agentSlug: orchestratorAgent.slug,
+      callKind: 'orchestration',
+      cacheable: true,
+    },
   });
 
   try {
