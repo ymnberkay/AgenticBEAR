@@ -123,7 +123,7 @@ function activate(context) {
     context.subscriptions.push(vscode.commands.registerCommand('agenticbear.connectServer', async () => {
         const running = await ServerClient_1.serverClient.isRunning();
         if (!running) {
-            const pick = await vscode.window.showWarningMessage('AgenticBEAR server not running at localhost:3001. Start with: npx agenticbear', 'Dismiss');
+            await vscode.window.showWarningMessage(`AgenticBEAR server not running (checked ${ServerClient_1.serverClient.baseUrl}). Start with: npx agenticbear`, 'Dismiss');
             return;
         }
         let projects;
@@ -135,7 +135,7 @@ function activate(context) {
             return;
         }
         if (projects.length === 0) {
-            vscode.window.showInformationMessage('No projects found. Create one at http://localhost:3001');
+            vscode.window.showInformationMessage(`No projects found. Create one at ${ServerClient_1.serverClient.baseUrl.replace('/api', '')}`);
             return;
         }
         const picked = await vscode.window.showQuickPick(projects.map(p => ({ label: p.name, description: p.workspacePath, project: p })), { placeHolder: 'Select project to sync agents from' });

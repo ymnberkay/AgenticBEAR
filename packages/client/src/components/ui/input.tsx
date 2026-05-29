@@ -34,24 +34,24 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
           style={{
             background: 'var(--glass-bg)',
-            border: `1px solid ${error ? 'rgba(239, 68, 68, 0.5)' : 'var(--color-border-default)'}`,
+            border: `1px solid ${error ? 'rgba(224, 96, 96, 0.5)' : 'var(--color-border-default)'}`,
           }}
           onFocus={(e) => {
-            e.currentTarget.style.borderColor = error ? 'rgba(239, 68, 68, 0.7)' : 'rgba(212, 146, 78, 0.5)';
+            e.currentTarget.style.borderColor = error ? 'rgba(224, 96, 96, 0.7)' : 'rgba(110, 172, 218, 0.5)';
             e.currentTarget.style.boxShadow = error
-              ? '0 0 0 3px rgba(239, 68, 68, 0.1)'
-              : '0 0 0 3px rgba(212, 146, 78, 0.1)';
+              ? '0 0 0 3px rgba(224, 96, 96, 0.1)'
+              : '0 0 0 3px rgba(110, 172, 218, 0.1)';
             props.onFocus?.(e);
           }}
           onBlur={(e) => {
-            e.currentTarget.style.borderColor = error ? 'rgba(239, 68, 68, 0.5)' : 'var(--color-border-default)';
+            e.currentTarget.style.borderColor = error ? 'rgba(224, 96, 96, 0.5)' : 'var(--color-border-default)';
             e.currentTarget.style.boxShadow = 'none';
             props.onBlur?.(e);
           }}
           {...props}
         />
         {error && (
-          <p className="text-[11.5px] text-[#ef4444] font-medium">{error}</p>
+          <p className="text-[11.5px] text-[#e06060] font-medium">{error}</p>
         )}
         {helperText && !error && (
           <p className="text-[11.5px] text-text-tertiary">{helperText}</p>

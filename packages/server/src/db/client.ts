@@ -167,6 +167,25 @@ CREATE TABLE IF NOT EXISTS agent_activities (
 
 CREATE INDEX IF NOT EXISTS idx_agent_activities_agent ON agent_activities(agent_id);
 CREATE INDEX IF NOT EXISTS idx_agent_activities_project ON agent_activities(project_id);`,
+
+  '004_settings_provider_keys.sql': `-- Add OpenAI and Gemini API key columns to settings
+ALTER TABLE settings ADD COLUMN openai_api_key TEXT NOT NULL DEFAULT '';
+ALTER TABLE settings ADD COLUMN gemini_api_key TEXT NOT NULL DEFAULT '';`,
+
+  '003_agent_memory.sql': `-- Per-agent persistent memory across runs
+CREATE TABLE IF NOT EXISTS agent_memories (
+  id TEXT PRIMARY KEY,
+  agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  type TEXT NOT NULL DEFAULT 'interaction',
+  query TEXT NOT NULL DEFAULT '',
+  response TEXT NOT NULL DEFAULT '',
+  run_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_memories_agent_id ON agent_memories(agent_id);
+CREATE INDEX IF NOT EXISTS idx_agent_memories_project_id ON agent_memories(project_id);`,
 };
 
 let db: Database.Database;
@@ -207,7 +226,7 @@ function runMigrations(): void {
     )
   `);
 
-  const migrationFiles = ['001_initial.sql', '002_agent_activity.sql'];
+  const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql'];
 
   const appliedStmt = db.prepare('SELECT name FROM _migrations WHERE name = ?');
   const insertStmt = db.prepare('INSERT INTO _migrations (name) VALUES (?)');

@@ -114,8 +114,8 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('agenticbear.connectServer', async () => {
       const running = await serverClient.isRunning();
       if (!running) {
-        const pick = await vscode.window.showWarningMessage(
-          'AgenticBEAR server not running at localhost:3001. Start with: npx agenticbear',
+        await vscode.window.showWarningMessage(
+          `AgenticBEAR server not running (checked ${serverClient.baseUrl}). Start with: npx agenticbear`,
           'Dismiss',
         );
         return;
@@ -130,7 +130,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       if (projects.length === 0) {
-        vscode.window.showInformationMessage('No projects found. Create one at http://localhost:3001');
+        vscode.window.showInformationMessage(`No projects found. Create one at ${serverClient.baseUrl.replace('/api', '')}`);
         return;
       }
 

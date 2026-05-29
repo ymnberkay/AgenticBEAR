@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { agentRepo } from '../db/repositories/agent.repo.js';
 import { taskRepo } from '../db/repositories/task.repo.js';
 import { activityRepo } from '../db/repositories/activity.repo.js';
+import { memoryRepo } from '../db/repositories/memory.repo.js';
 import { invalidateMcpCache } from '../mcp/server.js';
 import type { CreateAgentInput, UpdateAgentInput } from '@subagent/shared';
 
@@ -80,6 +81,35 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
   // Clear all activities for an agent
   app.delete<{ Params: { id: string } }>('/api/agents/:id/activities', async (request, reply) => {
     const count = activityRepo.removeByAgentId(request.params.id);
+    return reply.send({ deleted: count });
+  });
+
+  // ── Memory routes ───────────────────────────────────────────────────────────
+
+  // Get all memories for an agent
+  app.get<{ Params: { id: string } }>('/api/agents/:id/memories', async (request, reply) => {
+    const memories = memoryRepo.findAllByAgentId(request.params.id);
+    return reply.send(memories);
+  });
+
+  // Delete a single memory
+  app.delete<{ Params: { id: string } }>('/api/memories/:id', async (request, reply) => {
+    const removed = memoryRepo.remove(request.params.id);
+    if (!removed) {
+      return reply.status(404).send({ error: true, message: 'Memory not found' });
+    }
+    return reply.status(204).send();
+  });
+
+  // Clear all memories for an agent
+  app.delete<{ Params: { id: string } }>('/api/agents/:id/memories', async (request, reply) => {
+    const count = memoryRepo.removeByAgentId(request.params.id);
+    return reply.send({ deleted: count });
+  });
+
+  // Clear all memories for a project
+  app.delete<{ Params: { projectId: string } }>('/api/projects/:projectId/memories', async (request, reply) => {
+    const count = memoryRepo.removeByProjectId(request.params.projectId);
     return reply.send({ deleted: count });
   });
 

@@ -10,6 +10,7 @@ import { AppShell } from './components/layout/app-shell';
 import { DashboardPage } from './routes/dashboard';
 import { ProjectDetailPage } from './routes/projects/project-detail';
 import { ProjectAgentsPage } from './routes/projects/project-agents';
+import { ProjectAnalyticsPage } from './routes/projects/project-analytics';
 
 import { ProjectSettingsPage } from './routes/projects/project-settings';
 import { RunDetailPage } from './routes/projects/run-detail';
@@ -65,6 +66,13 @@ const projectAgentsRoute = createRoute({
 });
 
 
+// Project analytics
+const projectAnalyticsRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: '/analytics',
+  component: ProjectAnalyticsPage,
+});
+
 // Project settings
 const projectSettingsRoute = createRoute({
   getParentRoute: () => projectRoute,
@@ -99,6 +107,7 @@ const routeTree = rootRoute.addChildren([
   projectRoute.addChildren([
     projectIndexRoute,
     projectAgentsRoute,
+    projectAnalyticsRoute,
     projectSettingsRoute,
     runDetailRoute,
   ]),

@@ -1,91 +1,91 @@
 :root {
-  /* ─── Surfaces (Warm Obsidian) ─── */
-  --color-bg-base: #0b0907;
-  --color-bg-surface: #131009;
-  --color-bg-raised: #1c1812;
-  --color-bg-overlay: #25201a;
-  --color-bg-muted: #171310;
-  --color-bg-inset: #080604;
-  --color-bg-nav: #0f0c08;
-  --color-bg-hover: rgba(212, 146, 78, 0.06);
-  --color-bg-card: rgba(20, 17, 11, 0.78);
-  --color-bg-card-hover: rgba(32, 27, 18, 0.84);
+  /* ─── Surfaces (Charcoal Slate) ─── */
+  --color-bg-base:        #0d1117;
+  --color-bg-surface:     #161c2d;
+  --color-bg-raised:      #1c2438;
+  --color-bg-overlay:     #222b42;
+  --color-bg-muted:       #090d15;
+  --color-bg-inset:       #07090f;
+  --color-bg-nav:         #0d1117;
+  --color-bg-hover:       rgba(139, 148, 158, 0.07);
+  --color-bg-card:        #161c2d;
+  --color-bg-card-hover:  #1c2438;
 
   /* ─── Glass ─── */
-  --glass-bg: rgba(24, 19, 13, 0.68);
-  --glass-bg-hover: rgba(36, 29, 20, 0.76);
-  --glass-border: rgba(196, 142, 88, 0.2);
-  --glass-border-hover: rgba(220, 168, 105, 0.36);
-  --glass-blur: blur(18px);
+  --glass-bg:             #161c2d;
+  --glass-bg-hover:       #1c2438;
+  --glass-border:         #252d42;
+  --glass-border-hover:   rgba(124, 140, 248, 0.22);
+  --glass-blur:           none;
 
   /* ─── Borders ─── */
-  --color-border-default: rgba(196, 142, 88, 0.22);
-  --color-border-subtle: rgba(196, 142, 88, 0.12);
-  --color-border-focus: #d4924e;
-  --color-border-active: #6bbfa0;
+  --color-border-default: #252d42;
+  --color-border-subtle:  #181e2e;
+  --color-border-focus:   #7c8cf8;
+  --color-border-active:  #9ba8fb;
 
   /* ─── Text ─── */
-  --color-text-primary: #f0e8d8;
-  --color-text-secondary: #a8947c;
-  --color-text-tertiary: #6a5a48;
-  --color-text-disabled: #42332a;
+  --color-text-primary:   #e8eaf0;
+  --color-text-secondary: #8b95a7;
+  --color-text-tertiary:  #5a6375;
+  --color-text-disabled:  #363d4f;
 
-  /* ─── Accent (Copper → Verdigris patina) ─── */
-  --color-accent: #d4924e;
-  --color-accent-hover: #e4a864;
-  --color-accent-muted: #6bbfa0;
-  --color-accent-subtle: rgba(212, 146, 78, 0.15);
-  --color-accent-glow: rgba(212, 146, 78, 0.28);
-  --gradient-accent: linear-gradient(125deg, #d4924e 0%, #c9a84c 42%, #6bbfa0 100%);
-  --gradient-accent-hover: linear-gradient(125deg, #e4a864 0%, #d9bc62 42%, #82cfb2 100%);
-  --gradient-accent-subtle: linear-gradient(125deg, rgba(212, 146, 78, 0.16), rgba(107, 191, 160, 0.14));
+  /* ─── Accent (Muted Indigo) ─── */
+  --color-accent:         #7c8cf8;
+  --color-accent-hover:   #9ba8fb;
+  --color-accent-muted:   #5c6af5;
+  --color-accent-subtle:  rgba(124, 140, 248, 0.10);
+  --color-accent-glow:    rgba(124, 140, 248, 0.15);
+  --gradient-accent:      linear-gradient(125deg, #7c8cf8 0%, #1c2438 100%);
+  --gradient-accent-hover: linear-gradient(125deg, #9ba8fb 0%, #252d42 100%);
+  --gradient-accent-subtle: linear-gradient(125deg, rgba(124,140,248,0.12), rgba(28,36,56,0.08));
 
   /* ─── Semantic ─── */
-  --color-success: #6bbfa0;
-  --color-success-subtle: rgba(107, 191, 160, 0.12);
-  --color-warning: #d4924e;
-  --color-warning-subtle: rgba(212, 146, 78, 0.12);
-  --color-error: #c96054;
-  --color-error-subtle: rgba(201, 96, 84, 0.12);
-  --color-info: #8aadcc;
-  --color-info-subtle: rgba(138, 173, 204, 0.12);
+  --color-success:        #5a9e78;
+  --color-success-subtle: rgba(90, 158, 120, 0.10);
+  --color-warning:        #c9974a;
+  --color-warning-subtle: rgba(201, 151, 74, 0.10);
+  --color-error:          #c96060;
+  --color-error-subtle:   rgba(201, 96, 96, 0.10);
+  --color-info:           #7c8cf8;
+  --color-info-subtle:    rgba(124, 140, 248, 0.10);
 
-  /* ─── Agent Colors (Warm mineral palette) ─── */
-  --color-agent-orchestrator: #d4924e;
-  --color-agent-backend: #6bbfa0;
-  --color-agent-frontend: #c9a84c;
-  --color-agent-database: #8aadcc;
-  --color-agent-devops: #7db87c;
-  --color-agent-qa: #c87090;
-  --color-agent-documentation: #b8d4e0;
-  --color-agent-design: #d4a870;
+  /* ─── Agent Colors ─── */
+  --color-agent-orchestrator: #7c8cf8;
+  --color-agent-backend:      #5a9e78;
+  --color-agent-frontend:     #8fafd4;
+  --color-agent-database:     #c9974a;
+  --color-agent-devops:       #7ab07a;
+  --color-agent-qa:           #c07070;
+  --color-agent-documentation: #9e88c8;
+  --color-agent-design:       #c0a84e;
 
   /* ─── Typography ─── */
-  --font-sans: 'Bricolage Grotesque', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Fragment Mono', 'SF Mono', 'Menlo', monospace;
+  --font-sans: 'Fira Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Fira Code', 'SF Mono', 'Menlo', monospace;
 
-  /* ─── Radius ─── */
-  --radius-sm: 5px;
-  --radius-md: 9px;
-  --radius-lg: 13px;
-  --radius-xl: 17px;
-  --radius-2xl: 22px;
+  /* ─── Radius (tighter — terminal feel) ─── */
+  --radius-sm:  3px;
+  --radius-md:  5px;
+  --radius-lg:  8px;
+  --radius-xl:  11px;
+  --radius-2xl: 14px;
 
   /* ─── Shadows ─── */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 12px 44px rgba(0, 0, 0, 0.7), 0 4px 14px rgba(0, 0, 0, 0.5);
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 1px rgba(196, 142, 88, 0.08);
-  --shadow-glow: 0 0 28px rgba(212, 146, 78, 0.18), 0 0 64px rgba(107, 191, 160, 0.10);
+  --shadow-sm:   0 1px 3px rgba(0, 0, 0, 0.60);
+  --shadow-md:   0 4px 12px rgba(0, 0, 0, 0.60), 0 1px 3px rgba(0, 0, 0, 0.45);
+  --shadow-lg:   0 8px 32px rgba(0, 0, 0, 0.70), 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.55), 0 0 0 1px #252d42;
+  --shadow-glow: 0 0 16px rgba(124, 140, 248, 0.12), 0 0 40px rgba(124, 140, 248, 0.05);
 
   /* ─── Transitions ─── */
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --transition-fast: 120ms ease;
+  --ease-out:         cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring:      cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-fast:  120ms ease;
   --transition-normal: 200ms ease;
   --transition-smooth: 300ms cubic-bezier(0.16, 1, 0.3, 1);
 
   /* ─── Layout ─── */
-  --nav-width: 260px;
-  --nav-collapsed: 56px;
+  --nav-width:      260px;
+  --nav-collapsed:  56px;
 }

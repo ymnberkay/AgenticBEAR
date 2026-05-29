@@ -12,6 +12,8 @@ export const DEFAULT_PERMISSIONS: AgentPermissions = {
 
 export const DEFAULT_SETTINGS: Settings = {
   apiKey: '',
+  openAiApiKey: '',
+  geminiApiKey: '',
   defaultModel: 'claude-sonnet-4-20250514',
   defaultMaxTokens: 8192,
   theme: 'dark',

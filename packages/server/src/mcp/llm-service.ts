@@ -36,18 +36,22 @@ async function resolveApiKey(provider: Provider): Promise<string> {
   }
 
   if (provider === 'openai') {
-    const key = process.env.OPENAI_API_KEY;
-    if (key) return key;
+    const settings = settingsRepo.getSettings();
+    if (settings.openAiApiKey) return settings.openAiApiKey;
+    const envKey = process.env.OPENAI_API_KEY;
+    if (envKey) return envKey;
     throw new Error(
-      'OpenAI API key bulunamadı. OPENAI_API_KEY environment variable\'ını ayarlayın.',
+      'OpenAI API key bulunamadı. Settings sayfasından API key\'i girin veya OPENAI_API_KEY env var\'ını ayarlayın.',
     );
   }
 
   if (provider === 'gemini') {
-    const key = process.env.GEMINI_API_KEY;
-    if (key) return key;
+    const settings = settingsRepo.getSettings();
+    if (settings.geminiApiKey) return settings.geminiApiKey;
+    const envKey = process.env.GEMINI_API_KEY;
+    if (envKey) return envKey;
     throw new Error(
-      'Gemini API key bulunamadı. GEMINI_API_KEY environment variable\'ını ayarlayın.',
+      'Gemini API key bulunamadı. Settings sayfasından API key\'i girin veya GEMINI_API_KEY env var\'ını ayarlayın.',
     );
   }
 

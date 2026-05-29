@@ -1,8 +1,31 @@
 import type { FastifyInstance } from 'fastify';
 import { projectRepo } from '../db/repositories/project.repo.js';
 import { workspaceService } from '../services/workspace.service.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 
 export async function workspaceRoutes(app: FastifyInstance): Promise<void> {
+  // Browse filesystem directories (for folder picker UI)
+  app.get<{ Querystring: { path?: string } }>('/api/fs/dirs', async (request, reply) => {
+    const rawPath = request.query.path ?? os.homedir();
+    const resolved = path.resolve(rawPath);
+
+    try {
+      const entries = fs.readdirSync(resolved, { withFileTypes: true });
+      const dirs = entries
+        .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+        .map((e) => ({ name: e.name, path: path.join(resolved, e.name) }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      const parent = resolved !== path.parse(resolved).root ? path.dirname(resolved) : null;
+
+      return reply.send({ path: resolved, parent, home: os.homedir(), entries: dirs });
+    } catch {
+      return reply.status(400).send({ error: true, message: `Cannot read directory: ${resolved}` });
+    }
+  });
+
   // Get file tree for project workspace
   app.get<{ Params: { projectId: string } }>('/api/workspace/:projectId/tree', async (request, reply) => {
     const project = projectRepo.findById(request.params.projectId);

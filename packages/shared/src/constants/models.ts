@@ -11,7 +11,11 @@ export const MODEL_GROUPS: { label: string; models: ClaudeModel[] }[] = [
   },
   {
     label: 'OpenAI',
-    models: ['gpt-4o', 'gpt-4o-mini', 'o3', 'o3-mini', 'o1'],
+    models: ['gpt-4o', 'gpt-4.1', 'gpt-4o-mini', 'gpt-5-mini', 'o3', 'o3-mini', 'o1'],
+  },
+  {
+    label: 'OpenAI Codex',
+    models: ['codex-1'],
   },
 ];
 
@@ -76,11 +80,23 @@ export const CLAUDE_MODELS: Record<ClaudeModel, { label: string; contextWindow: 
     costPer1kInput: 0.0025,
     costPer1kOutput: 0.01,
   },
+  'gpt-4.1': {
+    label: 'GPT-4.1',
+    contextWindow: 1047576,
+    costPer1kInput: 0.002,
+    costPer1kOutput: 0.008,
+  },
   'gpt-4o-mini': {
     label: 'GPT-4o mini',
     contextWindow: 128000,
     costPer1kInput: 0.00015,
     costPer1kOutput: 0.0006,
+  },
+  'gpt-5-mini': {
+    label: 'GPT-5 mini',
+    contextWindow: 128000,
+    costPer1kInput: 0.0011,
+    costPer1kOutput: 0.0044,
   },
   'o3': {
     label: 'o3',
@@ -99,6 +115,12 @@ export const CLAUDE_MODELS: Record<ClaudeModel, { label: string; contextWindow: 
     contextWindow: 200000,
     costPer1kInput: 0.015,
     costPer1kOutput: 0.06,
+  },
+  'codex-1': {
+    label: 'Codex 1',
+    contextWindow: 200000,
+    costPer1kInput: 0.003,
+    costPer1kOutput: 0.012,
   },
 };
 

@@ -126,14 +126,12 @@ export function ProjectAgentsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-10 max-w-3xl">
+    <div className="flex flex-col gap-8" style={{ maxWidth: 760 }}>
       <OrchestratorView
         orchestrator={orchestrator}
         status={orchestrator ? (statuses[orchestrator.id] ?? 'idle') : 'idle'}
         onConfigure={handleConfigureOrchestrator}
       />
-
-      <div className="h-px" style={{ background: 'var(--color-border-subtle)' }} />
 
       <AgentList
         agents={agents}

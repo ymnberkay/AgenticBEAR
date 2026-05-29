@@ -5,6 +5,8 @@ import type { Settings, UpdateSettingsInput } from '@subagent/shared';
 interface SettingsRow {
   id: number;
   api_key: string;
+  openai_api_key: string;
+  gemini_api_key: string;
   default_model: string;
   default_max_tokens: number;
   theme: string;
@@ -16,6 +18,8 @@ interface SettingsRow {
 function rowToSettings(row: SettingsRow): Settings {
   return {
     apiKey: row.api_key,
+    openAiApiKey: row.openai_api_key ?? '',
+    geminiApiKey: row.gemini_api_key ?? '',
     defaultModel: row.default_model as Settings['defaultModel'],
     defaultMaxTokens: row.default_max_tokens,
     theme: row.theme as Settings['theme'],
@@ -31,12 +35,13 @@ export const settingsRepo = {
     const row = db.prepare('SELECT * FROM settings WHERE id = 1').get() as SettingsRow | undefined;
 
     if (!row) {
-      // Insert default settings
       db.prepare(`
-        INSERT INTO settings (id, api_key, default_model, default_max_tokens, theme, default_workspace_path, max_concurrent_agents, auto_save_interval)
-        VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO settings (id, api_key, openai_api_key, gemini_api_key, default_model, default_max_tokens, theme, default_workspace_path, max_concurrent_agents, auto_save_interval)
+        VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         DEFAULT_SETTINGS.apiKey,
+        DEFAULT_SETTINGS.openAiApiKey,
+        DEFAULT_SETTINGS.geminiApiKey,
         DEFAULT_SETTINGS.defaultModel,
         DEFAULT_SETTINGS.defaultMaxTokens,
         DEFAULT_SETTINGS.theme,
@@ -56,6 +61,8 @@ export const settingsRepo = {
     const current = this.getSettings();
 
     const apiKey = input.apiKey ?? current.apiKey;
+    const openAiApiKey = input.openAiApiKey ?? current.openAiApiKey;
+    const geminiApiKey = input.geminiApiKey ?? current.geminiApiKey;
     const defaultModel = input.defaultModel ?? current.defaultModel;
     const defaultMaxTokens = input.defaultMaxTokens ?? current.defaultMaxTokens;
     const theme = input.theme ?? current.theme;
@@ -64,9 +71,16 @@ export const settingsRepo = {
     const autoSaveInterval = input.autoSaveInterval ?? current.autoSaveInterval;
 
     db.prepare(`
-      UPDATE settings SET api_key = ?, default_model = ?, default_max_tokens = ?, theme = ?, default_workspace_path = ?, max_concurrent_agents = ?, auto_save_interval = ?
+      UPDATE settings
+      SET api_key = ?, openai_api_key = ?, gemini_api_key = ?,
+          default_model = ?, default_max_tokens = ?, theme = ?,
+          default_workspace_path = ?, max_concurrent_agents = ?, auto_save_interval = ?
       WHERE id = 1
-    `).run(apiKey, defaultModel, defaultMaxTokens, theme, defaultWorkspacePath, maxConcurrentAgents, autoSaveInterval);
+    `).run(
+      apiKey, openAiApiKey, geminiApiKey,
+      defaultModel, defaultMaxTokens, theme,
+      defaultWorkspacePath, maxConcurrentAgents, autoSaveInterval,
+    );
 
     return this.getSettings();
   },

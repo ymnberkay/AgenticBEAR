@@ -55,7 +55,6 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
 export async function apiDelete<T = void>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
   });
   return handleResponse<T>(response);
 }

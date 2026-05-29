@@ -23,11 +23,12 @@ export function TemplatesPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="h-full overflow-y-auto w-full">
+    <div className="px-6 py-8 pr-8">
+      <div className="flex items-end justify-between mb-8" style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '20px' }}>
         <div>
-          <h1 className="text-[15px] font-semibold text-text-primary tracking-tight">Templates</h1>
-          <p className="text-[12px] text-text-tertiary mt-0.5">
+          <h1 className="text-[18px] font-semibold text-text-primary tracking-tight">Templates</h1>
+          <p className="text-[12px] text-text-secondary mt-1">
             Reusable prompt templates for your agents
           </p>
         </div>
@@ -56,6 +57,7 @@ export function TemplatesPage() {
           onClose={() => setShowEditor(false)}
         />
       </Dialog>
+    </div>
     </div>
   );
 }

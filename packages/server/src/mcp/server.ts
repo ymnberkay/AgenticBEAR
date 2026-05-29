@@ -11,8 +11,12 @@ import { z } from 'zod';
 import { agentRepo } from '../db/repositories/agent.repo.js';
 import { projectRepo } from '../db/repositories/project.repo.js';
 import { activityRepo } from '../db/repositories/activity.repo.js';
+import { memoryRepo } from '../db/repositories/memory.repo.js';
 import { eventBus } from '../utils/event-bus.js';
 import { createLogger } from '../utils/logger.js';
+import { buildAgentContextBlock, buildOrchestratorPrompt } from '../utils/prompt-adapter.js';
+import { buildMemoryBlock } from '../engine/context-builder.js';
+import { callLLM } from './llm-service.js';
 import type { Agent } from '@subagent/shared';
 
 const log = createLogger('mcp:server');
@@ -66,34 +70,6 @@ function routeByKeyword(specialists: Agent[], query: string): Agent {
   return best;
 }
 
-/** Agent'ın kimliğini ve sistem promptunu Claude Code'a aktaran blok */
-function agentContextBlock(agent: Agent, query: string, context?: string): string {
-  const userContent = context ? `${context}\n\n${query}` : query;
-  return (
-    `<agent_instructions>\n` +
-    `Sen şu anda "${agent.name}" rolündesin.\n` +
-    (agent.description ? `Rol açıklaması: ${agent.description}\n` : '') +
-    `\nSistem talimatların:\n${agent.systemPrompt}\n` +
-    `</agent_instructions>\n\n` +
-    `## Task\n${userContent}\n\n` +
-    `## File Structure Standards\n` +
-    `Always follow modern, professional project structure:\n` +
-    `- Organize by **feature/domain**, not by file type (e.g. \`features/auth/\` not separate \`controllers/\` + \`models/\` folders)\n` +
-    `- Co-locate related files: component, styles, types, and tests in the same folder\n` +
-    `- Use \`index.ts\` barrel exports for clean imports\n` +
-    `- Standard separation: \`components/\`, \`hooks/\`, \`services/\`, \`types/\`, \`utils/\`, \`lib/\`\n` +
-    `- Source code under \`src/\`, config and tooling at root\n` +
-    `- Tests next to source (\`*.test.ts\`) or in \`__tests__/\` within the same feature\n` +
-    `- Detect the tech stack and follow its conventions (Next.js App Router, NestJS modules, etc.)\n` +
-    `- Never dump everything in a flat root directory\n\n` +
-    `## Execution Rules\n` +
-    `Do not output code as text. Actually execute the task:\n` +
-    `- Create new files with the Write tool\n` +
-    `- Modify existing files with the Edit tool\n` +
-    `- Write every file the task requires\n` +
-    `Your output must be real file changes, not code blocks in a response.`
-  );
-}
 
 /** Belirtilen proje için MCP server oluştur */
 export function createMcpServer(projectId: string): McpServer {
@@ -155,38 +131,12 @@ export function createMcpServer(projectId: string): McpServer {
 
       const userContent = context ? `${context}\n\n${query}` : query;
 
-      const orchestrationPrompt =
-        `<agent_instructions>\n` +
-        `Sen şu anda "${orchestrator.name}" rolündesin — bu proje için ana orkestratörsün.\n` +
-        (orchestrator.description ? `Rol: ${orchestrator.description}\n` : '') +
-        `\nSistem talimatların:\n${orchestrator.systemPrompt}\n` +
-        `</agent_instructions>\n\n` +
-        `## Görev\n${userContent}\n\n` +
-        `## Mevcut Specialist Agentlar\n${agentList}\n\n` +
-        `## Orchestration Talimatları\n` +
-        `Orkestratör olarak bu görevi execute et:\n\n` +
-        `1. Görevi yukarıdaki agentlara uygun **somut alt görevlere** böl\n` +
-        `2. Her alt görev için \`ask_agent\` tool'unu çağır:\n` +
-        `   - \`agent_id\`: İlgili agent'ın ID'si\n` +
-        `   - \`query\`: O agent'a özgü, net görev tanımı\n` +
-        `   - \`context\`: Önceki agent çıktıları (bağımlılık varsa)\n` +
-        `3. Bağımlı görevleri sırayla yap — bir agent'ın çıktısı diğerinin girdisi olabilir\n` +
-        `4. Bağımsız görevleri paralel düşünebilirsin ama her \`ask_agent\` çağrısını kendin yanıtla` +
-        docInstruction + `\n\n` +
-        `## File Structure Standards\n` +
-        `Enforce professional project structure across all agents:\n` +
-        `- Organize by feature/domain, not by file type\n` +
-        `- Co-locate related files (component + styles + types + tests in one folder)\n` +
-        `- Use index.ts barrel exports\n` +
-        `- Detect and follow the tech stack conventions (Next.js App Router, NestJS, etc.)\n` +
-        `- Source code under src/, config at root\n` +
-        `- Never use a flat file structure\n\n` +
-        `## Execution Rules\n` +
-        `Each agent task must produce real file changes — not text output:\n` +
-        `- Use Write/Edit tools to create or modify files directly\n` +
-        `- Write every file the task requires\n` +
-        `- Note which files were written after each step\n\n` +
-        `Plan first, then execute step by step.`;
+      const orchestrationPrompt = buildOrchestratorPrompt(
+        orchestrator,
+        userContent,
+        agentList,
+        docInstruction,
+      );
 
       return {
         content: [{ type: 'text', text: orchestrationPrompt }],
@@ -224,18 +174,55 @@ export function createMcpServer(projectId: string): McpServer {
       const activity = activityRepo.create({ projectId, agentId: agent.id, type: 'mcp_call', query });
       eventBus.emitProjectEvent(projectId, { type: 'agent:started', agentId: agent.id, activityId: activity.id, query });
 
-      // Auto-complete after response is sent
-      setTimeout(() => {
+      const memoryBlock = buildMemoryBlock(agent.id);
+      const userMessage = context ? `${context}\n\n${query}` : query;
+      const systemPromptWithMemory = memoryBlock
+        ? `${agent.systemPrompt}\n\n${memoryBlock}`
+        : agent.systemPrompt;
+
+      try {
+        // Call LLM server-side so we can save the response to memory
+        const response = await callLLM({
+          modelConfig: agent.modelConfig,
+          systemPrompt: systemPromptWithMemory,
+          userMessage,
+        });
+
+        memoryRepo.create({
+          agentId: agent.id,
+          projectId,
+          type: 'interaction',
+          query,
+          response,
+          runId: null,
+        });
+
         activityRepo.complete(activity.id, 'completed');
         eventBus.emitProjectEvent(projectId, { type: 'agent:completed', agentId: agent.id, activityId: activity.id });
-      }, 2000);
 
-      return {
-        content: [{
-          type: 'text',
-          text: agentContextBlock(agent, query, context),
-        }],
-      };
+        return { content: [{ type: 'text', text: response }] };
+
+      } catch {
+        // No API key or call failed — fall back to returning the context block (Claude Code CLI handles it)
+        memoryRepo.create({
+          agentId: agent.id,
+          projectId,
+          type: 'interaction',
+          query,
+          response: '(Claude Code CLI tarafından işlendi — server-side yanıt alınamadı)',
+          runId: null,
+        });
+
+        activityRepo.complete(activity.id, 'completed');
+        eventBus.emitProjectEvent(projectId, { type: 'agent:completed', agentId: agent.id, activityId: activity.id });
+
+        return {
+          content: [{
+            type: 'text',
+            text: buildAgentContextBlock(agent, query, context, memoryBlock),
+          }],
+        };
+      }
     },
   );
 

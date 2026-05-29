@@ -333,4 +333,5 @@ const OPENAI_MODELS: Omit<AvailableModel, 'source' | 'label'>[] = [
   { id: 'gpt-4o-mini',         name: 'GPT-4o mini',  vendor: 'OpenAI', family: 'gpt-4o-mini' },
   { id: 'gpt-5-mini',          name: 'GPT-5 mini',   vendor: 'OpenAI', family: 'gpt-5-mini' },
   { id: 'o3',                  name: 'o3',            vendor: 'OpenAI', family: 'o3' },
+  { id: 'codex-1',             name: 'Codex 1',       vendor: 'OpenAI', family: 'codex-1' },
 ];
