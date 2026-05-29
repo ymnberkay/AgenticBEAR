@@ -57,6 +57,12 @@ export async function executeTask(
     systemPrompt: agent.systemPrompt,
     messages,
     stopSequences: agent.modelConfig.stopSequences,
+    meta: {
+      role: 'specialist',
+      agentSlug: agent.slug,
+      callKind: 'agent',
+      cacheable: true,
+    },
   });
 
   log.info(`Task "${task.title}" completed. Tokens: ${apiResult.inputTokens} in / ${apiResult.outputTokens} out`);

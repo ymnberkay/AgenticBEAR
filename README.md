@@ -325,8 +325,77 @@ When you open `claude` inside any of these folders, it automatically loads the r
 packages/
   client/     React frontend (Vite + TanStack Router)
   server/     Fastify API + MCP server (SQLite)
+    src/cost/  LLM cost-saving middleware (see "Cost Layer" below)
   shared/     TypeScript types and constants
 ```
+
+---
+
+## Cost Layer (LLM Cost Middleware)
+
+A 3-layer middleware sits in front of every Anthropic LLM call to cut cost **without changing agent behavior**. Each layer is independently toggleable; with all three off the system behaves bit-for-bit as before (covered by a regression test).
+
+### Choke-point
+
+All server-side LLM calls funnel through **`ClaudeService.sendMessage` / `streamMessage`** ([`packages/server/src/services/claude.service.ts`](packages/server/src/services/claude.service.ts)), which delegates to **`costMiddleware.complete`** ([`packages/server/src/cost/middleware.ts`](packages/server/src/cost/middleware.ts)). The pipeline:
+
+```
+Request
+  └─[L1] Semantic Cache  ──hit──> return cached answer (no LLM)
+        │ miss
+        └─[L2] Router  ──> pick model (cheap | main)
+              └─[L3] Prompt Caching on the chosen model
+                    └─ write answer to L1, record metrics
+```
+
+> Note: `mcp/llm-service.ts` (multi-provider routing classifier) and the VS Code extension's `LMBridge` are separate paths and are **not** wrapped by this middleware.
+
+### The three layers
+
+- **L1 — Semantic Cache** (`COST_LAYER_SEMANTIC_CACHE`): cheap exact-match (normalized prompt hash) → semantic search in **Qdrant** (via REST). On similarity ≥ threshold (and within TTL) the cached answer is returned with **no LLM call**. Embeddings come from **Voyage AI** (`voyage-3`) or a `local` provider (config). Cache is **namespaced by role/agent** so the orchestrator cache never collides with a specialist's. Caching is **skipped** for high-temperature (> 0.3), tool/side-effecting, or routing/classification calls. If Qdrant or the embedder is unreachable, L1 **degrades silently** to L2 (never throws). Namespaces are invalidated automatically when an agent's system prompt or model changes.
+- **L2 — Router** (`COST_LAYER_ROUTER`): a tiny Haiku classification call (`max_tokens` ~5) labels the task `TRIVIAL` / `SIMPLE` / `COMPLEX`. `TRIVIAL` → cheap model + low max_tokens, `SIMPLE` → cheap model, `COMPLEX` → main (requested) model. Any unexpected output or error **falls back to COMPLEX** (no risky downgrade). The classifier's own token cost is tracked and added to actual cost. Anthropic requests only.
+- **L3 — Prompt Caching** (`COST_LAYER_PROMPT_CACHE`): marks the static prefix (the system prompt) with `cache_control: { type: 'ephemeral' }` so repeated reads within the 5-min TTL are billed at ~10% of input price. Skipped when the prefix is below the model's minimum cacheable length (Sonnet ~2048, Opus/Haiku ~4096 tokens). Order is `system` (static) → `messages` (variable) so the prefix doesn't shift.
+
+### Enabling / disabling
+
+All default **on**. Toggle via env (or `.env`):
+
+```env
+COST_LAYER_SEMANTIC_CACHE=true|false
+COST_LAYER_ROUTER=true|false
+COST_LAYER_PROMPT_CACHE=true|false
+
+# L1
+VOYAGE_API_KEY=...                     # required for L1; without it L1 silently disables
+COST_EMBEDDING_PROVIDER=voyage|local
+COST_QDRANT_URL=http://localhost:6333
+COST_SEMANTIC_THRESHOLD=0.95           # start high in prod, lower while measuring
+COST_SEMANTIC_TTL_SECONDS=86400
+# L2
+COST_ROUTER_CHEAP_MODEL=claude-haiku-4-5-20251001
+# L3
+COST_PROMPT_CACHE_TTL=5m               # 5m | 1h (see caveat)
+```
+
+Running Qdrant locally: `docker run -p 6333:6333 qdrant/qdrant`.
+
+### Reading cost-stats
+
+```bash
+curl http://localhost:3001/api/cost-stats      # session totals + last N calls + active flags
+curl -X DELETE http://localhost:3001/api/cost-stats   # reset (start a fresh measurement window)
+```
+
+The response reports, from **real `usage` data** (not estimates): cache hit/miss counts, router tier distribution, `cache_read` vs `cache_creation` tokens, router overhead, and **baseline vs actual cost** with `savedUsd` / `savedPct`. Baseline = what the call would have cost on the main model with no cache and a full prefix miss. Per-call prices live in `CLAUDE_MODELS` ([`packages/shared/src/constants/models.ts`](packages/shared/src/constants/models.ts)); cache multipliers (read 10% / write 125%) and all thresholds live in [`packages/server/src/cost/config.ts`](packages/server/src/cost/config.ts).
+
+### Caveats
+
+- **Prompt-cache TTL:** the pinned SDK (`@anthropic-ai/sdk@0.52`) only supports the 5-min ephemeral TTL. `COST_PROMPT_CACHE_TTL=1h` is accepted but effectively applies 5m until the SDK is upgraded (1h needs the extended-cache-ttl beta header).
+- **L1 + temperature:** agents default to `temperature: 0.7`, which exceeds the 0.3 cache-eligibility threshold, so L1 only engages for low-temperature agents. Lower an agent's temperature (or raise the threshold in config) to benefit.
+
+### Tests
+
+`npm test -w @subagent/server` covers: (a) cache miss→hit, (b) router 3 tiers + fallback, (c) `cache_read_input_tokens > 0` on the 2nd prompt-cached call, (d) graceful degradation when Qdrant is down, (e) bit-identical behavior with all layers off.
 
 ---
 
