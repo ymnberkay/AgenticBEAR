@@ -48,6 +48,7 @@ export async function executeTask(
 
   const apiResult = await claudeService.sendMessage({
     model: agent.modelConfig.model,
+    providerId: agent.modelConfig.providerId,
     maxTokens: agent.modelConfig.maxTokens,
     temperature: agent.modelConfig.temperature,
     systemPrompt: systemPromptWithMemory,

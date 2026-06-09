@@ -1,5 +1,5 @@
-import type { ModelConfig, ClaudeModel } from '@subagent/shared';
-import { CLAUDE_MODELS, MODEL_GROUPS } from '@subagent/shared';
+import type { ModelConfig } from '@subagent/shared';
+import { useModelOptions, encodeModelValue, decodeModelValue } from '../../hooks/use-model-options';
 
 interface ModelConfigFormProps {
   config: ModelConfig;
@@ -7,7 +7,9 @@ interface ModelConfigFormProps {
 }
 
 export function ModelConfigForm({ config, onChange }: ModelConfigFormProps) {
-  const currentModel = CLAUDE_MODELS[config.model];
+  const groups = useModelOptions();
+  const currentValue = encodeModelValue(config.model, config.providerId);
+  const currentModel = groups.flatMap((g) => g.options).find((o) => o.value === currentValue);
 
   return (
     <div>
@@ -37,8 +39,11 @@ export function ModelConfigForm({ config, onChange }: ModelConfigFormProps) {
           </label>
           <div className="relative">
             <select
-              value={config.model}
-              onChange={(e) => onChange({ ...config, model: e.target.value as ClaudeModel })}
+              value={currentValue}
+              onChange={(e) => {
+                const { model, providerId } = decodeModelValue(e.target.value);
+                onChange({ ...config, model, providerId });
+              }}
               className="w-full appearance-none pr-8 focus:outline-none transition-all duration-200"
               style={{
                 height: '40px',
@@ -57,11 +62,11 @@ export function ModelConfigForm({ config, onChange }: ModelConfigFormProps) {
                 e.currentTarget.style.boxShadow = 'none';
               }}
             >
-              {MODEL_GROUPS.map((group) => (
+              {groups.map((group) => (
                 <optgroup key={group.label} label={group.label}>
-                  {group.models.map((key) => (
-                    <option key={key} value={key}>
-                      {CLAUDE_MODELS[key].label}
+                  {group.options.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
                     </option>
                   ))}
                 </optgroup>
@@ -83,11 +88,15 @@ export function ModelConfigForm({ config, onChange }: ModelConfigFormProps) {
             className="flex items-center gap-3"
             style={{ fontSize: '10px', color: 'var(--color-text-disabled)', paddingLeft: '2px' }}
           >
-            <span>Context: {(currentModel.contextWindow / 1000).toFixed(0)}K tokens</span>
+            {currentModel.contextWindow ? (
+              <>
+                <span>Context: {(currentModel.contextWindow / 1000).toFixed(0)}K tokens</span>
+                <span style={{ color: 'var(--color-border-subtle)' }}>·</span>
+              </>
+            ) : null}
+            <span>Input: ${currentModel.costPer1kInput ?? 0}/1K</span>
             <span style={{ color: 'var(--color-border-subtle)' }}>·</span>
-            <span>Input: ${currentModel.costPer1kInput}/1K</span>
-            <span style={{ color: 'var(--color-border-subtle)' }}>·</span>
-            <span>Output: ${currentModel.costPer1kOutput}/1K</span>
+            <span>Output: ${currentModel.costPer1kOutput ?? 0}/1K</span>
           </div>
         )}
       </div>

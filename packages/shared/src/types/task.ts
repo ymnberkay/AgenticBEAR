@@ -35,6 +35,8 @@ export interface RunStep {
   inputTokens: number;
   outputTokens: number;
   costUsd: number;
+  /** Cost-layer olmasaydı maliyet — savings = baselineCostUsd - costUsd. */
+  baselineCostUsd: number;
   durationMs: number;
   createdAt: string;
 }

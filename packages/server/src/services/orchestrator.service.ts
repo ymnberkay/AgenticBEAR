@@ -80,6 +80,7 @@ Please decompose this objective into tasks and assign them to the appropriate ag
 
   const apiResult = await claudeService.sendMessage({
     model: orchestratorAgent.modelConfig.model,
+    providerId: orchestratorAgent.modelConfig.providerId,
     maxTokens: orchestratorAgent.modelConfig.maxTokens,
     temperature: orchestratorAgent.modelConfig.temperature,
     systemPrompt,

@@ -12,11 +12,13 @@ import { agentRepo } from '../db/repositories/agent.repo.js';
 import { projectRepo } from '../db/repositories/project.repo.js';
 import { activityRepo } from '../db/repositories/activity.repo.js';
 import { memoryRepo } from '../db/repositories/memory.repo.js';
+import { runRepo } from '../db/repositories/run.repo.js';
+import { taskRepo } from '../db/repositories/task.repo.js';
 import { eventBus } from '../utils/event-bus.js';
 import { createLogger } from '../utils/logger.js';
 import { buildAgentContextBlock, buildOrchestratorPrompt } from '../utils/prompt-adapter.js';
 import { buildMemoryBlock } from '../engine/context-builder.js';
-import { callLLM } from './llm-service.js';
+import { ClaudeService } from '../services/claude.service.js';
 import type { Agent } from '@subagent/shared';
 
 const log = createLogger('mcp:server');
@@ -181,12 +183,70 @@ export function createMcpServer(projectId: string): McpServer {
         : agent.systemPrompt;
 
       try {
-        // Call LLM server-side so we can save the response to memory
-        const response = await callLLM({
-          modelConfig: agent.modelConfig,
+        // Server-side LLM çağrısı — cost middleware'den geçer (L1 cache + L2 router + L3 prompt cache).
+        // Sonuç actualCostUsd / baselineCostUsd içerir; bunlar analytics için run_step'e yazılır.
+        const claudeService = new ClaudeService();
+        const startTime = Date.now();
+        const apiResult = await claudeService.sendMessage({
+          model: agent.modelConfig.model,
+          providerId: agent.modelConfig.providerId,
+          maxTokens: agent.modelConfig.maxTokens ?? 8192,
+          temperature: agent.modelConfig.temperature ?? 0.7,
           systemPrompt: systemPromptWithMemory,
-          userMessage,
+          messages: [{ role: 'user', content: userMessage }],
+          meta: {
+            role: agent.role === 'orchestrator' ? 'orchestrator' : 'specialist',
+            agentSlug: agent.slug,
+            callKind: 'agent',
+            cacheable: true,
+          },
         });
+        const durationMs = Date.now() - startTime;
+        const response = apiResult.text;
+
+        // Analytics için sentetik run + task + run_step yaz.
+        // Hata olursa MCP yanıtını kesme — analytics best-effort.
+        try {
+          const objective = `MCP: ${query.length > 80 ? query.slice(0, 77) + '…' : query}`;
+          const synthRun = runRepo.create({ projectId, objective });
+          const startedAt = new Date().toISOString();
+          const synthTask = taskRepo.createTask({
+            runId: synthRun.id,
+            assignedAgentId: agent.id,
+            title: 'MCP ask_agent',
+            description: query,
+          });
+          taskRepo.updateTask(synthTask.id, { status: 'in_progress', startedAt });
+          taskRepo.createStep({
+            runId: synthRun.id,
+            taskId: synthTask.id,
+            agentId: agent.id,
+            type: 'api_call',
+            input: query,
+            output: response,
+            inputTokens: apiResult.inputTokens,
+            outputTokens: apiResult.outputTokens,
+            costUsd: apiResult.actualCostUsd,
+            baselineCostUsd: apiResult.baselineCostUsd,
+            durationMs,
+          });
+          taskRepo.updateTask(synthTask.id, {
+            status: 'completed',
+            output: response,
+            completedAt: new Date().toISOString(),
+          });
+          runRepo.update(synthRun.id, {
+            status: 'completed',
+            startedAt,
+            completedAt: new Date().toISOString(),
+            totalInputTokens: apiResult.inputTokens,
+            totalOutputTokens: apiResult.outputTokens,
+            totalCostUsd: apiResult.actualCostUsd,
+            totalBaselineCostUsd: apiResult.baselineCostUsd,
+          });
+        } catch (analyticsErr) {
+          log.warn('Could not persist MCP ask_agent to analytics (non-fatal)', analyticsErr);
+        }
 
         memoryRepo.create({
           agentId: agent.id,

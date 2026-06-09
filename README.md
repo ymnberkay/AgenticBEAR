@@ -414,7 +414,28 @@ When creating agents, you can assign any of these models:
 **OpenAI**
 - gpt-4o, gpt-4o-mini, o1, o3, o3-mini
 
-> Model selection in the UI is for documentation/labeling purposes. Actual inference runs through Claude Code's own session.
+Plus any model from a **custom provider** you add (see below).
+
+---
+
+## Custom LLM Providers (DeepSeek, local models, …)
+
+Beyond the built-ins, you can register your own providers in **Settings → Custom LLM Providers** by giving a base URL + (optional) API key + model list. Two protocols are supported:
+
+- **OpenAI-compatible** — DeepSeek, Ollama, LM Studio, vLLM, Groq, Together, OpenRouter, and anything speaking `/v1/chat/completions`. Local servers need no API key.
+- **Anthropic-compatible** — a custom base URL spoken by the Anthropic SDK (proxies/gateways).
+
+The dialog offers **presets** (e.g. DeepSeek, Ollama) that prefill base URL, models, and prices. Once added, the provider's models appear in the agent model picker; assign one to any agent and it's used everywhere that agent runs (MCP `ask_agent`/`ask_orchestrator` and UI runs).
+
+**Cost is measured for every provider.** The unified client reads real `usage` tokens from each API and multiplies by the per-model prices you entered (USD per 1M tokens in the UI), so `GET /api/cost-stats` and per-run totals show genuine spend for DeepSeek/etc. — not 0. The Anthropic-only cost layers (L2 router, L3 prompt caching) don't apply to other providers; they still get L1 semantic cache + full metrics.
+
+Architecture: all inference goes through a provider-agnostic unified client ([`packages/server/src/llm/client.ts`](packages/server/src/llm/client.ts)) + registry ([`provider-registry.ts`](packages/server/src/llm/provider-registry.ts)); the Anthropic SDK is one backend among several. Providers are stored in the `llm_providers` table and managed via `GET/POST/PATCH/DELETE /api/providers`.
+
+---
+
+## Supported Models — note
+
+> The built-in Anthropic key (orchestrator/router) is read from Settings or `ANTHROPIC_API_KEY`. Custom providers store their own key. Legacy agents without an explicit provider are resolved by model-id heuristic, so existing setups keep working.
 
 ---
 

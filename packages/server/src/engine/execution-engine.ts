@@ -40,13 +40,11 @@ export const executionEngine = {
 
     const agents = agentRepo.findByProjectId(project.id);
 
-    // Get API key
+    // Provider-agnostic: keys are resolved per-agent by the unified client (built-in
+    // Anthropic/OpenAI/Gemini from Settings/env, or a custom provider's own key).
+    // No hard Anthropic-key requirement — a call only fails if its own provider lacks a key.
     const settings = settingsRepo.getSettings();
-    if (!settings.apiKey) {
-      throw new Error('No API key configured. Please set your Claude API key in Settings.');
-    }
-
-    const claudeService = new ClaudeService(settings.apiKey);
+    const claudeService = new ClaudeService();
 
     // Initialize tracking
     tokenTracker.initRun(runId);
@@ -71,27 +69,39 @@ export const executionEngine = {
 
       // Track orchestrator token usage
       const orchStepId = `orch-${runId}`;
-      tokenTracker.recordUsage(
+      const orchUsage = tokenTracker.recordUsage(
         runId,
         orchStepId,
         orchestrator.modelConfig.model,
         decomposition.apiResult.inputTokens,
         decomposition.apiResult.outputTokens,
+        orchestrator.modelConfig.providerId,
+        {
+          actualCostUsd: decomposition.apiResult.actualCostUsd,
+          baselineCostUsd: decomposition.apiResult.baselineCostUsd,
+        },
       );
 
-      // Record the orchestrator's reasoning as a step
-      taskRepo.createStep({
-        runId,
-        taskId: 'orchestrator',
-        agentId: orchestrator.id,
-        type: 'reasoning',
-        input: run.objective,
-        output: decomposition.reasoning,
-        inputTokens: decomposition.apiResult.inputTokens,
-        outputTokens: decomposition.apiResult.outputTokens,
-        costUsd: tokenTracker.getRunTotals(runId).totalCostUsd,
-        durationMs: 0,
-      });
+      // Record the orchestrator's reasoning as a step.
+      // Uses a synthetic taskId ('orchestrator') with no matching tasks row, so the
+      // run_steps.task_id FK rejects it — guard so this auxiliary record never fails the run.
+      try {
+        taskRepo.createStep({
+          runId,
+          taskId: 'orchestrator',
+          agentId: orchestrator.id,
+          type: 'reasoning',
+          input: run.objective,
+          output: decomposition.reasoning,
+          inputTokens: decomposition.apiResult.inputTokens,
+          outputTokens: decomposition.apiResult.outputTokens,
+          costUsd: orchUsage.costUsd,
+          baselineCostUsd: orchUsage.baselineCostUsd,
+          durationMs: 0,
+        });
+      } catch (stepErr) {
+        log.warn('Could not record orchestrator reasoning step (non-fatal)', stepErr);
+      }
 
       // Step 2: Create tasks in DB
       const agentsBySlug = new Map(agents.map((a) => [a.slug, a]));
@@ -192,6 +202,7 @@ export const executionEngine = {
           totalInputTokens: totals.totalInputTokens,
           totalOutputTokens: totals.totalOutputTokens,
           totalCostUsd: totals.totalCostUsd,
+          totalBaselineCostUsd: totals.totalBaselineCostUsd,
         });
 
         eventBus.emitAndCreate('tokens:updated', runId, totals);
@@ -246,6 +257,7 @@ export const executionEngine = {
         totalInputTokens: finalTotals.totalInputTokens,
         totalOutputTokens: finalTotals.totalOutputTokens,
         totalCostUsd: finalTotals.totalCostUsd,
+        totalBaselineCostUsd: finalTotals.totalBaselineCostUsd,
       });
 
       eventBus.emitAndCreate(finalStatus === 'completed' ? 'run:completed' : 'run:failed', runId, {
@@ -265,6 +277,7 @@ export const executionEngine = {
         totalInputTokens: totals.totalInputTokens,
         totalOutputTokens: totals.totalOutputTokens,
         totalCostUsd: totals.totalCostUsd,
+        totalBaselineCostUsd: totals.totalBaselineCostUsd,
       });
 
       eventBus.emitAndCreate('run:failed', runId, {
@@ -319,6 +332,11 @@ export const executionEngine = {
         agent.modelConfig.model,
         result.apiResult.inputTokens,
         result.apiResult.outputTokens,
+        agent.modelConfig.providerId,
+        {
+          actualCostUsd: result.apiResult.actualCostUsd,
+          baselineCostUsd: result.apiResult.baselineCostUsd,
+        },
       );
 
       // Create run step
@@ -332,6 +350,7 @@ export const executionEngine = {
         inputTokens: result.apiResult.inputTokens,
         outputTokens: result.apiResult.outputTokens,
         costUsd: usage.costUsd,
+        baselineCostUsd: usage.baselineCostUsd,
         durationMs,
       });
 
@@ -426,6 +445,7 @@ Format it clearly so it can be saved as a .txt file.`;
       const startTime = Date.now();
       const result = await claudeService.sendMessage({
         model: docAgent.modelConfig.model,
+        providerId: docAgent.modelConfig.providerId,
         maxTokens: docAgent.modelConfig.maxTokens ?? 4096,
         systemPrompt: docAgent.systemPrompt,
         messages: [{ role: 'user', content: prompt }],
@@ -452,7 +472,18 @@ Format it clearly so it can be saved as a .txt file.`;
 
       // Track token usage
       const stepId = `doc-${runId}`;
-      tokenTracker.recordUsage(runId, stepId, docAgent.modelConfig.model, result.inputTokens, result.outputTokens);
+      const docUsage = tokenTracker.recordUsage(
+        runId,
+        stepId,
+        docAgent.modelConfig.model,
+        result.inputTokens,
+        result.outputTokens,
+        docAgent.modelConfig.providerId,
+        {
+          actualCostUsd: result.actualCostUsd,
+          baselineCostUsd: result.baselineCostUsd,
+        },
+      );
 
       // Record step
       taskRepo.createStep({
@@ -464,7 +495,8 @@ Format it clearly so it can be saved as a .txt file.`;
         output: result.text,
         inputTokens: result.inputTokens,
         outputTokens: result.outputTokens,
-        costUsd: tokenTracker.getRunTotals(runId).totalCostUsd,
+        costUsd: docUsage.costUsd,
+        baselineCostUsd: docUsage.baselineCostUsd,
         durationMs,
       });
 

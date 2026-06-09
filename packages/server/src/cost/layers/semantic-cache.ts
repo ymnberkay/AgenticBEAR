@@ -71,6 +71,9 @@ function toResult(req: LlmRequest, payload: CachePayload): LlmResult {
     routerTier: null,
     baselineInputTokens: payload.inputTokens,
     baselineOutputTokens: payload.outputTokens,
+    // Middleware cache-hit yolunda gerçek değerleri tekrar hesaplar; burada placeholder.
+    actualCostUsd: 0,
+    baselineCostUsd: 0,
   };
 }
 
@@ -89,8 +92,12 @@ export async function lookup(req: LlmRequest): Promise<LlmResult | null> {
       return toResult(req, exact);
     }
   } catch (err) {
-    log.warn('L1 exact-match lookup failed', err);
-    // exact-match patladıysa semantic'i de denemeyelim — büyük olasılıkla Qdrant down.
+    // Collection-not-found = cold-start (henüz hiç yazım yapılmadı); log spam'i olmasın.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!/doesn'?t exist|not found|404/i.test(msg)) {
+      log.warn('L1 exact-match lookup failed', err);
+    }
+    // Exact-match patladıysa semantic'i de denemeyelim — büyük olasılıkla Qdrant down.
     return null;
   }
 

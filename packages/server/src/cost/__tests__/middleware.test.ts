@@ -97,11 +97,47 @@ describe('cost middleware — skeleton (Adım 2)', () => {
     expect(stats.recent[0].requestedModel).toBe('claude-sonnet-4-20250514');
   });
 
-  it('non-anthropic model → cost katmanı maliyeti 0 raporlar (gate)', async () => {
-    const { exec } = fakeExecutor();
-    await costMiddleware.complete(baseReq({ model: 'gpt-4o' }), { executor: exec });
+  it('custom openai-compatible provider → maliyet custom fiyatla ÖLÇÜLÜR, L2/L3 atlanır', async () => {
+    costConfig.layers.semanticCache = false;
+    costConfig.layers.router = true;
+    costConfig.layers.promptCache = true;
+
+    const { exec, calls } = fakeExecutor();
+    // DeepSeek benzeri: providerKind + custom pricing taşınır (kayıt edenin çözdüğü).
+    await costMiddleware.complete(
+      baseReq({
+        model: 'deepseek-chat',
+        providerId: 'deepseek',
+        providerKind: 'openai-compatible',
+        pricing: { costPer1kInput: 0.001, costPer1kOutput: 0.002 },
+      }),
+      { executor: exec, classify: async () => ({ text: 'COMPLEX', inputTokens: 5, outputTokens: 1 }) },
+    );
+
     const stats = costMetrics.getStats();
-    expect(stats.session.cost.actualUsd).toBe(0);
-    expect(stats.session.cost.baselineUsd).toBe(0);
+    // 100 in * 0.001/1K + 20 out * 0.002/1K = 0.0001 + 0.00004 = 0.00014
+    expect(stats.session.cost.actualUsd).toBeCloseTo(0.00014, 8);
+    expect(calls[0].systemBlocks).toBeUndefined(); // L3 yok
+    expect(stats.recent[0].routerTier).toBeNull(); // L2 yok
+  });
+
+  it('non-anthropic model → L2/L3 atlanır ama maliyet ÖLÇÜLÜR (built-in fiyat)', async () => {
+    costConfig.layers.semanticCache = false;
+    costConfig.layers.router = true;
+    costConfig.layers.promptCache = true;
+
+    const { exec, calls } = fakeExecutor();
+    await costMiddleware.complete(baseReq({ model: 'gpt-4o' }), {
+      executor: exec,
+      classify: async () => ({ text: 'TRIVIAL', inputTokens: 10, outputTokens: 1 }),
+    });
+
+    const stats = costMetrics.getStats();
+    // gpt-4o CLAUDE_MODELS'ta tanımlı → gerçek maliyet > 0 (artık 0 değil)
+    expect(stats.session.cost.actualUsd).toBeGreaterThan(0);
+    // L3 uygulanmadı, router downgrade etmedi (gpt-4o anthropic ailesi değil)
+    expect(calls[0].systemBlocks).toBeUndefined();
+    expect(stats.recent[0].routerTier).toBeNull();
+    expect(stats.recent[0].promptCacheApplied).toBe(false);
   });
 });

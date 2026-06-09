@@ -51,7 +51,7 @@ export function ProjectSettingsPage() {
   const claudeCmd = `claude mcp add agenticbear --transport sse ${mcpUrl}`;
   const codexCmd = `codex mcp add agenticbear --transport sse ${mcpUrl}`;
 
-  const copyToClipboard = (text: string, type: 'id' | 'url') => {
+  const copyToClipboard = (text: string, type: 'id' | 'url' | 'claude' | 'codex') => {
     navigator.clipboard.writeText(text);
     setCopied(type);
     setTimeout(() => setCopied(null), 2000);

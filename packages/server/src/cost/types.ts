@@ -3,8 +3,9 @@
  * Bu tipler choke-point'in (ClaudeService → costMiddleware) sözleşmesini tanımlar.
  */
 import type Anthropic from '@anthropic-ai/sdk';
-import type { ClaudeModel } from '@subagent/shared';
+import type { ClaudeModel, ProviderKind } from '@subagent/shared';
 import type { RouterTier } from './config.js';
+import type { Pricing } from './pricing.js';
 
 export interface LlmMessage {
   role: 'user' | 'assistant';
@@ -35,6 +36,12 @@ export interface CallMeta {
 /** Choke-point'e giren istek (çağıranın niyeti). */
 export interface LlmRequest {
   model: ClaudeModel;
+  /** Resolved provider id (built-in or custom). */
+  providerId?: string;
+  /** Provider family — gates L2/L3 (only the Anthropic family supports them). */
+  providerKind?: ProviderKind;
+  /** Requested-model pricing ($/1K). Resolved by the caller (registry); enables cost for any provider. */
+  pricing?: Pricing;
   maxTokens: number;
   temperature?: number;
   systemPrompt?: string;
@@ -50,6 +57,8 @@ export interface LlmRequest {
  */
 export interface FinalRequest {
   model: ClaudeModel;
+  /** Resolved provider id — tells the executor which provider/endpoint to call. */
+  providerId?: string;
   maxTokens: number;
   temperature?: number;
   systemPrompt?: string;
@@ -78,9 +87,11 @@ export type Executor = (
 /**
  * L2 router'ın kısa sınıflandırma çağrısı için fonksiyon.
  * ClaudeService sağlar; doğrudan SDK'ya gider (middleware'e geri özyineleme YOK).
+ * providerId verilmezse model id'sinden built-in heuristic ile çözülür.
  */
 export type Classifier = (params: {
-  model: ClaudeModel;
+  model: string;
+  providerId?: string;
   maxTokens: number;
   systemPrompt: string;
   userMessage: string;
@@ -107,6 +118,13 @@ export interface LlmResult extends ExecutorResult {
    */
   baselineInputTokens?: number;
   baselineOutputTokens?: number;
+  /** Bu çağrının gerçek maliyeti ($USD) — caller'ın run_steps'e yazması için. */
+  actualCostUsd: number;
+  /**
+   * Bu çağrının cost-layer olmasaydı maliyeti ($USD) — istenen modelde, cache hit yok,
+   * router downgrade yok varsayımıyla. Savings = baseline - actual.
+   */
+  baselineCostUsd: number;
 }
 
 /** L1 cache entry payload'ı (Qdrant'a yazılır). */

@@ -9,11 +9,21 @@ export type {
   Agent,
   AgentRole,
   ClaudeModel,
+  KnownClaudeModel,
   ModelConfig,
   AgentPermissions,
   CreateAgentInput,
   UpdateAgentInput,
 } from './agent.js';
+
+export type {
+  ProviderKind,
+  LLMModelDef,
+  LLMProvider,
+  CreateProviderInput,
+  UpdateProviderInput,
+  ProviderPreset,
+} from './provider.js';
 
 export type {
   Run,

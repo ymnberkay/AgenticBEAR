@@ -4,6 +4,7 @@ import { Link } from '@tanstack/react-router';
 import type { ClaudeModel } from '@subagent/shared';
 import { CLAUDE_MODELS } from '@subagent/shared';
 import { useSettings, useUpdateSettings } from '../api/hooks/use-settings';
+import { CustomProvidersSection } from '../components/settings/custom-providers';
 import { Skeleton } from '../components/ui/skeleton';
 import { FolderPickerInput } from '../components/ui/folder-picker';
 import { useToast, Toast } from '../components/ui/toast';
@@ -159,6 +160,9 @@ export function SettingsPage() {
               </SettingsField>
             </div>
           </section>
+
+          {/* Custom LLM Providers */}
+          <CustomProvidersSection />
 
           {/* Model Defaults */}
           <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: '3px solid #6EACDA' }}>

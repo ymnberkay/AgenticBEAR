@@ -12,6 +12,7 @@ interface RunRow {
   total_input_tokens: number;
   total_output_tokens: number;
   total_cost_usd: number;
+  total_baseline_cost_usd: number;
   created_at: string;
 }
 
@@ -26,6 +27,7 @@ function rowToRun(row: RunRow): Run {
     totalInputTokens: row.total_input_tokens,
     totalOutputTokens: row.total_output_tokens,
     totalCostUsd: row.total_cost_usd,
+    totalBaselineCostUsd: row.total_baseline_cost_usd,
     createdAt: row.created_at,
   };
 }
@@ -37,6 +39,7 @@ export interface UpdateRunInput {
   totalInputTokens?: number;
   totalOutputTokens?: number;
   totalCostUsd?: number;
+  totalBaselineCostUsd?: number;
 }
 
 export const runRepo = {
@@ -77,11 +80,12 @@ export const runRepo = {
     const totalInputTokens = input.totalInputTokens ?? existing.totalInputTokens;
     const totalOutputTokens = input.totalOutputTokens ?? existing.totalOutputTokens;
     const totalCostUsd = input.totalCostUsd ?? existing.totalCostUsd;
+    const totalBaselineCostUsd = input.totalBaselineCostUsd ?? existing.totalBaselineCostUsd;
 
     db.prepare(`
-      UPDATE runs SET status = ?, started_at = ?, completed_at = ?, total_input_tokens = ?, total_output_tokens = ?, total_cost_usd = ?
+      UPDATE runs SET status = ?, started_at = ?, completed_at = ?, total_input_tokens = ?, total_output_tokens = ?, total_cost_usd = ?, total_baseline_cost_usd = ?
       WHERE id = ?
-    `).run(status, startedAt, completedAt, totalInputTokens, totalOutputTokens, totalCostUsd, id);
+    `).run(status, startedAt, completedAt, totalInputTokens, totalOutputTokens, totalCostUsd, totalBaselineCostUsd, id);
 
     return this.findById(id)!;
   },

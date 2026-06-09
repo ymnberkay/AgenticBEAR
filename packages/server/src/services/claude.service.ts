@@ -1,8 +1,9 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { createLogger } from '../utils/logger.js';
 import type { ClaudeModel } from '@subagent/shared';
 import { costMiddleware } from '../cost/middleware.js';
-import type { CallMeta, Classifier, Executor, FinalRequest } from '../cost/types.js';
+import type { CallMeta, Classifier, Executor } from '../cost/types.js';
+import { complete as llmComplete } from '../llm/client.js';
+import { modelPricing, resolveProvider } from '../llm/provider-registry.js';
 
 const log = createLogger('claude');
 
@@ -13,6 +14,8 @@ export interface ClaudeMessage {
 
 export interface ClaudeCallParams {
   model: ClaudeModel;
+  /** Provider serving this model (built-in or custom). Absent → resolved by id heuristic. */
+  providerId?: string;
   maxTokens: number;
   temperature?: number;
   systemPrompt?: string;
@@ -27,69 +30,59 @@ export interface ClaudeCallResult {
   inputTokens: number;
   outputTokens: number;
   stopReason: string | null;
-  /** Cost katmanı zenginleştirmeleri (varsayılan değerlerle her zaman dolu). */
   cacheCreationInputTokens: number;
   cacheReadInputTokens: number;
   cacheHit: boolean;
   servedModel: ClaudeModel;
+  /** Gerçek maliyet ($USD) — router/cache sonrası. */
+  actualCostUsd: number;
+  /** Cost-layer olmasaydı maliyet ($USD) — savings hesabı için. */
+  baselineCostUsd: number;
 }
 
+/**
+ * Provider-agnostic LLM service. Despite the historical name, this is no longer tied to
+ * the Anthropic SDK — it routes every call through the cost-layer middleware to the
+ * unified client ([llm/client.ts]), which dispatches to the resolved provider
+ * (Anthropic, OpenAI, Gemini, or any custom OpenAI-/Anthropic-compatible endpoint).
+ */
 export class ClaudeService {
-  private client: Anthropic;
+  // apiKey kept for call-site compatibility; the unified client resolves keys per provider.
+  constructor(_apiKey?: string) {}
 
-  constructor(apiKey: string) {
-    this.client = new Anthropic({ apiKey });
-  }
-
-  /**
-   * Choke-point: tüm normal (non-stream) çağrılar cost-layer middleware'inden geçer.
-   * Katmanlar kapalıyken executor istenen istekle birebir aynı SDK çağrısını yapar.
-   */
   async sendMessage(params: ClaudeCallParams): Promise<ClaudeCallResult> {
-    const result = await costMiddleware.complete(
-      {
-        model: params.model,
-        maxTokens: params.maxTokens,
-        temperature: params.temperature,
-        systemPrompt: params.systemPrompt,
-        messages: params.messages,
-        stopSequences: params.stopSequences,
-        meta: params.meta ?? {},
-      },
-      { executor: this.buildExecutor(false), classify: this.buildClassifier() },
-    );
-
-    return {
-      text: result.text,
-      inputTokens: result.inputTokens,
-      outputTokens: result.outputTokens,
-      stopReason: result.stopReason,
-      cacheCreationInputTokens: result.cacheCreationInputTokens,
-      cacheReadInputTokens: result.cacheReadInputTokens,
-      cacheHit: result.cacheHit,
-      servedModel: result.servedModel,
-    };
+    return this.run(params, false);
   }
 
-  /**
-   * Streaming choke-point. Cache hit varsa tam metin tek chunk olarak yayınlanır;
-   * miss ise gerçek streaming executor üzerinden akar.
-   */
   async streamMessage(
     params: ClaudeCallParams,
     onChunk?: (chunk: string) => void,
   ): Promise<ClaudeCallResult> {
+    return this.run(params, true, onChunk);
+  }
+
+  private async run(
+    params: ClaudeCallParams,
+    stream: boolean,
+    onChunk?: (chunk: string) => void,
+  ): Promise<ClaudeCallResult> {
+    const resolved = resolveProvider(params.providerId, params.model);
+    const pricing = modelPricing(params.providerId, params.model);
+
     const result = await costMiddleware.complete(
       {
         model: params.model,
+        providerId: params.providerId,
+        providerKind: resolved.kind,
+        pricing,
         maxTokens: params.maxTokens,
         temperature: params.temperature,
         systemPrompt: params.systemPrompt,
         messages: params.messages,
         stopSequences: params.stopSequences,
-        meta: { ...(params.meta ?? {}), isStream: true },
+        meta: stream ? { ...(params.meta ?? {}), isStream: true } : (params.meta ?? {}),
       },
-      { executor: this.buildExecutor(true), classify: this.buildClassifier() },
+      { executor: this.buildExecutor(stream), classify: this.buildClassifier() },
       onChunk,
     );
 
@@ -102,84 +95,55 @@ export class ClaudeService {
       cacheReadInputTokens: result.cacheReadInputTokens,
       cacheHit: result.cacheHit,
       servedModel: result.servedModel,
+      actualCostUsd: result.actualCostUsd,
+      baselineCostUsd: result.baselineCostUsd,
+    };
+  }
+
+  /** Executor: performs the real provider call via the unified client. */
+  private buildExecutor(stream: boolean): Executor {
+    return async (req, onChunk) => {
+      log.info(`Dispatching to ${req.model} (maxTokens: ${req.maxTokens})`);
+      const r = await llmComplete(
+        {
+          providerId: req.providerId,
+          model: req.model,
+          maxTokens: req.maxTokens,
+          temperature: req.temperature,
+          systemPrompt: req.systemPrompt,
+          systemBlocks: req.systemBlocks,
+          messages: req.messages,
+          stopSequences: req.stopSequences,
+        },
+        stream ? onChunk : undefined,
+      );
+      return {
+        text: r.text,
+        inputTokens: r.inputTokens,
+        outputTokens: r.outputTokens,
+        cacheCreationInputTokens: r.cacheCreationInputTokens,
+        cacheReadInputTokens: r.cacheReadInputTokens,
+        stopReason: r.stopReason,
+      };
     };
   }
 
   /**
-   * L2 router'ın kısa sınıflandırma çağrısı. DOĞRUDAN SDK'ya gider —
-   * cost-layer middleware'inden GEÇMEZ (özyineleme ve gereksiz cache/router olmaz).
+   * L2 router classification call. providerId router tarafından geçilir (provider-agnostic);
+   * undefined kalırsa registry built-in heuristic ile çözer. Cost middleware'den geçmez —
+   * classifier'ın kendisi router'a / cache'e sokulmaz.
    */
   private buildClassifier(): Classifier {
-    return async ({ model, maxTokens, systemPrompt, userMessage }) => {
-      const response = await this.client.messages.create({
+    return async ({ model, providerId, maxTokens, systemPrompt, userMessage }) => {
+      const r = await llmComplete({
+        providerId,
         model,
-        max_tokens: maxTokens,
+        maxTokens,
         temperature: 0,
-        system: systemPrompt,
+        systemPrompt,
         messages: [{ role: 'user', content: userMessage }],
       });
-      const text = response.content
-        .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-        .map((b) => b.text)
-        .join('');
-      return {
-        text,
-        inputTokens: response.usage.input_tokens,
-        outputTokens: response.usage.output_tokens,
-      };
-    };
-  }
-
-  /** Gerçek SDK çağrısını yapan executor. Middleware nihai isteği verir. */
-  private buildExecutor(stream: boolean): Executor {
-    return async (req: FinalRequest, onChunk?: (chunk: string) => void) => {
-      // L3 systemBlocks doldurduysa onu, yoksa düz systemPrompt'u kullan.
-      const system: Anthropic.MessageCreateParams['system'] =
-        req.systemBlocks ?? req.systemPrompt;
-
-      const body: Anthropic.MessageCreateParamsNonStreaming = {
-        model: req.model,
-        max_tokens: req.maxTokens,
-        temperature: req.temperature,
-        system,
-        messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
-        stop_sequences: req.stopSequences,
-      };
-
-      if (stream) {
-        log.info(`Streaming message to ${req.model} (maxTokens: ${req.maxTokens})`);
-        const s = this.client.messages.stream(body);
-        let fullText = '';
-        s.on('text', (text) => {
-          fullText += text;
-          onChunk?.(text);
-        });
-        const final = await s.finalMessage();
-        return {
-          text: fullText,
-          inputTokens: final.usage.input_tokens,
-          outputTokens: final.usage.output_tokens,
-          cacheCreationInputTokens: final.usage.cache_creation_input_tokens ?? 0,
-          cacheReadInputTokens: final.usage.cache_read_input_tokens ?? 0,
-          stopReason: final.stop_reason,
-        };
-      }
-
-      log.info(`Sending message to ${req.model} (maxTokens: ${req.maxTokens})`);
-      const response = await this.client.messages.create(body);
-      const text = response.content
-        .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-        .map((b) => b.text)
-        .join('');
-
-      return {
-        text,
-        inputTokens: response.usage.input_tokens,
-        outputTokens: response.usage.output_tokens,
-        cacheCreationInputTokens: response.usage.cache_creation_input_tokens ?? 0,
-        cacheReadInputTokens: response.usage.cache_read_input_tokens ?? 0,
-        stopReason: response.stop_reason,
-      };
+      return { text: r.text, inputTokens: r.inputTokens, outputTokens: r.outputTokens };
     };
   }
 }

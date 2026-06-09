@@ -32,6 +32,7 @@ interface RunStepRow {
   input_tokens: number;
   output_tokens: number;
   cost_usd: number;
+  baseline_cost_usd: number;
   duration_ms: number;
   created_at: string;
 }
@@ -81,6 +82,7 @@ function rowToRunStep(row: RunStepRow): RunStep {
     inputTokens: row.input_tokens,
     outputTokens: row.output_tokens,
     costUsd: row.cost_usd,
+    baselineCostUsd: row.baseline_cost_usd,
     durationMs: row.duration_ms,
     createdAt: row.created_at,
   };
@@ -130,6 +132,7 @@ export interface CreateRunStepInput {
   inputTokens?: number;
   outputTokens?: number;
   costUsd?: number;
+  baselineCostUsd?: number;
   durationMs?: number;
 }
 
@@ -225,8 +228,8 @@ export const taskRepo = {
     const now = new Date().toISOString();
 
     db.prepare(`
-      INSERT INTO run_steps (id, run_id, task_id, agent_id, type, input, output, input_tokens, output_tokens, cost_usd, duration_ms, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO run_steps (id, run_id, task_id, agent_id, type, input, output, input_tokens, output_tokens, cost_usd, baseline_cost_usd, duration_ms, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       input.runId,
@@ -238,6 +241,7 @@ export const taskRepo = {
       input.inputTokens ?? 0,
       input.outputTokens ?? 0,
       input.costUsd ?? 0,
+      input.baselineCostUsd ?? 0,
       input.durationMs ?? 0,
       now,
     );

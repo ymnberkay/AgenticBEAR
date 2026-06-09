@@ -186,6 +186,24 @@ CREATE TABLE IF NOT EXISTS agent_memories (
 
 CREATE INDEX IF NOT EXISTS idx_agent_memories_agent_id ON agent_memories(agent_id);
 CREATE INDEX IF NOT EXISTS idx_agent_memories_project_id ON agent_memories(project_id);`,
+
+  '005_llm_providers.sql': `-- User-defined custom LLM providers (DeepSeek, local Ollama/LM Studio, OpenRouter, …)
+CREATE TABLE IF NOT EXISTS llm_providers (
+  id TEXT PRIMARY KEY,
+  label TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  base_url TEXT NOT NULL DEFAULT '',
+  api_key TEXT NOT NULL DEFAULT '',
+  models_json TEXT NOT NULL DEFAULT '[]',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);`,
+
+  '006_cost_savings.sql': `-- Cost optimization baseline tracking — what the call WOULD have cost without
+-- the cost-layer (semantic cache, router downgrade, prompt cache). Savings = baseline - actual.
+ALTER TABLE run_steps ADD COLUMN baseline_cost_usd REAL NOT NULL DEFAULT 0.0;
+ALTER TABLE runs      ADD COLUMN total_baseline_cost_usd REAL NOT NULL DEFAULT 0.0;`,
 };
 
 let db: Database.Database;
@@ -226,7 +244,7 @@ function runMigrations(): void {
     )
   `);
 
-  const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql'];
+  const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql'];
 
   const appliedStmt = db.prepare('SELECT name FROM _migrations WHERE name = ?');
   const insertStmt = db.prepare('INSERT INTO _migrations (name) VALUES (?)');

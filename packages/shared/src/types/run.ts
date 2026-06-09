@@ -10,6 +10,8 @@ export interface Run {
   totalInputTokens: number;
   totalOutputTokens: number;
   totalCostUsd: number;
+  /** Cost-layer olmasaydı toplam maliyet — savings = totalBaselineCostUsd - totalCostUsd. */
+  totalBaselineCostUsd: number;
   createdAt: string;
 }
 

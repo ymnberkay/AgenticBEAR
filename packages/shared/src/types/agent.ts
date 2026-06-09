@@ -1,6 +1,14 @@
 export type AgentRole = 'orchestrator' | 'specialist';
 
-export type ClaudeModel =
+/**
+ * Model identifier. Historically a fixed union of Anthropic/OpenAI ids; now a free
+ * string so users can register arbitrary models from custom providers (DeepSeek,
+ * local Ollama/LM Studio, …). Built-in ids still live in CLAUDE_MODELS / MODEL_GROUPS.
+ */
+export type ClaudeModel = string;
+
+/** Well-known built-in model ids (documents the built-in pricing table / defaults). */
+export type KnownClaudeModel =
   | 'claude-opus-4-6'
   | 'claude-sonnet-4-6'
   | 'claude-haiku-4-5-20251001'
@@ -21,6 +29,8 @@ export type ClaudeModel =
 
 export interface ModelConfig {
   model: ClaudeModel;
+  /** Which provider serves this model. Absent → resolved by id heuristic (legacy agents). */
+  providerId?: string;
   maxTokens: number;
   temperature: number;
   topP?: number;

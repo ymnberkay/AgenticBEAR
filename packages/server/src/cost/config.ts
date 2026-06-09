@@ -61,17 +61,34 @@ export const costConfig = {
     /** Benzerlik eşiği. Üretimde 0.95+ ile başlayıp ölçerek indir. */
     threshold: envNum('COST_SEMANTIC_THRESHOLD', 0.95),
     ttlSeconds: envNum('COST_SEMANTIC_TTL_SECONDS', 60 * 60 * 24),
-    embeddingProvider: envStr<'voyage' | 'local'>('COST_EMBEDDING_PROVIDER', 'voyage'),
+    /** Embedder seçimi — gemini varsayılan (kullanıcının Gemini key'iyle çalışır). */
+    embeddingProvider: envStr<'gemini' | 'voyage' | 'openai' | 'local'>(
+      'COST_EMBEDDING_PROVIDER',
+      'gemini',
+    ),
+    geminiModel: envStr('COST_GEMINI_EMBEDDING_MODEL', 'gemini-embedding-001'),
     voyageModel: envStr('COST_VOYAGE_MODEL', 'voyage-3'),
+    openaiModel: envStr('COST_OPENAI_EMBEDDING_MODEL', 'text-embedding-3-small'),
     qdrantUrl: envStr('COST_QDRANT_URL', 'http://localhost:6333'),
     collection: envStr('COST_QDRANT_COLLECTION', 'agenticbear_llm_cache'),
   },
 
   router: {
-    /** Ucuz kademe (TRIVIAL + SIMPLE). */
-    cheapModel: envStr<ClaudeModel>('COST_ROUTER_CHEAP_MODEL', 'claude-haiku-4-5-20251001'),
-    /** Sınıflandırma çağrısının kendisi. */
-    classifierModel: envStr<ClaudeModel>('COST_ROUTER_CLASSIFIER_MODEL', 'claude-haiku-4-5-20251001'),
+    /** Per-provider tier mapping. Built-in family yoksa L2 atlanır (güvenli). */
+    tiers: {
+      anthropic: {
+        cheapModel: envStr('COST_ROUTER_ANTHROPIC_CHEAP', envStr('COST_ROUTER_CHEAP_MODEL', 'claude-haiku-4-5-20251001')),
+        classifierModel: envStr('COST_ROUTER_ANTHROPIC_CLASSIFIER', envStr('COST_ROUTER_CLASSIFIER_MODEL', 'claude-haiku-4-5-20251001')),
+      },
+      openai: {
+        cheapModel: envStr('COST_ROUTER_OPENAI_CHEAP', 'gpt-4o-mini'),
+        classifierModel: envStr('COST_ROUTER_OPENAI_CLASSIFIER', 'gpt-4o-mini'),
+      },
+      gemini: {
+        cheapModel: envStr('COST_ROUTER_GEMINI_CHEAP', 'gemini-2.5-flash-lite'),
+        classifierModel: envStr('COST_ROUTER_GEMINI_CLASSIFIER', 'gemini-2.5-flash-lite'),
+      },
+    } as Record<'anthropic' | 'openai' | 'gemini', { cheapModel: string; classifierModel: string }>,
     classifierMaxTokens: envNum('COST_ROUTER_CLASSIFIER_MAX_TOKENS', 5),
     /** TRIVIAL için kısılmış üst sınır. */
     trivialMaxTokens: envNum('COST_ROUTER_TRIVIAL_MAX_TOKENS', 512),

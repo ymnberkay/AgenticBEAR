@@ -8,6 +8,7 @@ interface AgentAnalyticsRow {
   input_tokens: number;
   output_tokens: number;
   cost_usd: number;
+  baseline_cost_usd: number;
   run_count: number;
 }
 
@@ -16,6 +17,7 @@ interface DateAnalyticsRow {
   input_tokens: number;
   output_tokens: number;
   cost_usd: number;
+  baseline_cost_usd: number;
 }
 
 interface RunTotalsRow {
@@ -23,6 +25,7 @@ interface RunTotalsRow {
   total_input_tokens: number;
   total_output_tokens: number;
   total_cost_usd: number;
+  total_baseline_cost_usd: number;
 }
 
 export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
@@ -32,18 +35,25 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
       const db = getDb();
       const { projectId } = request.params;
 
-      // Project-level run totals
+      // Project-level run totals.
+      // Savings sadece baseline takibi olan run'lardan toplanır — eski run'larda baseline=0,
+      // bu yüzden onları savings/baseline toplamlarına dahil etmek istemiyoruz (yoksa actual
+      // > baseline gibi yanıltıcı bir tablo çıkar).
       const totals = db.prepare(`
         SELECT
           COUNT(*) AS total_runs,
           COALESCE(SUM(total_input_tokens), 0)  AS total_input_tokens,
           COALESCE(SUM(total_output_tokens), 0) AS total_output_tokens,
-          COALESCE(SUM(total_cost_usd), 0)      AS total_cost_usd
+          COALESCE(SUM(total_cost_usd), 0)      AS total_cost_usd,
+          COALESCE(SUM(CASE WHEN total_baseline_cost_usd > 0 THEN total_baseline_cost_usd ELSE 0 END), 0)
+            AS total_baseline_cost_usd,
+          COALESCE(SUM(CASE WHEN total_baseline_cost_usd > 0 THEN MAX(0, total_baseline_cost_usd - total_cost_usd) ELSE 0 END), 0)
+            AS total_saved_usd
         FROM runs
         WHERE project_id = ?
-      `).get(projectId) as RunTotalsRow;
+      `).get(projectId) as RunTotalsRow & { total_saved_usd: number };
 
-      // Per-agent breakdown (from run_steps joined with agents)
+      // Per-agent breakdown (run_steps + agents). Aynı baseline > 0 filtresi.
       const byAgent = db.prepare(`
         SELECT
           rs.agent_id,
@@ -52,13 +62,17 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
           COALESCE(SUM(rs.input_tokens), 0)  AS input_tokens,
           COALESCE(SUM(rs.output_tokens), 0) AS output_tokens,
           COALESCE(SUM(rs.cost_usd), 0)      AS cost_usd,
-          COUNT(DISTINCT rs.run_id)           AS run_count
+          COALESCE(SUM(CASE WHEN rs.baseline_cost_usd > 0 THEN rs.baseline_cost_usd ELSE 0 END), 0)
+            AS baseline_cost_usd,
+          COALESCE(SUM(CASE WHEN rs.baseline_cost_usd > 0 THEN MAX(0, rs.baseline_cost_usd - rs.cost_usd) ELSE 0 END), 0)
+            AS saved_usd,
+          COUNT(DISTINCT rs.run_id)          AS run_count
         FROM run_steps rs
         JOIN agents a ON a.id = rs.agent_id
         WHERE a.project_id = ?
         GROUP BY rs.agent_id
         ORDER BY cost_usd DESC
-      `).all(projectId) as AgentAnalyticsRow[];
+      `).all(projectId) as (AgentAnalyticsRow & { saved_usd: number })[];
 
       // Daily breakdown — last 30 days
       const byDate = db.prepare(`
@@ -66,20 +80,32 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
           date(rs.created_at) AS date,
           COALESCE(SUM(rs.input_tokens), 0)  AS input_tokens,
           COALESCE(SUM(rs.output_tokens), 0) AS output_tokens,
-          COALESCE(SUM(rs.cost_usd), 0)      AS cost_usd
+          COALESCE(SUM(rs.cost_usd), 0)      AS cost_usd,
+          COALESCE(SUM(CASE WHEN rs.baseline_cost_usd > 0 THEN rs.baseline_cost_usd ELSE 0 END), 0)
+            AS baseline_cost_usd,
+          COALESCE(SUM(CASE WHEN rs.baseline_cost_usd > 0 THEN MAX(0, rs.baseline_cost_usd - rs.cost_usd) ELSE 0 END), 0)
+            AS saved_usd
         FROM run_steps rs
         JOIN agents a ON a.id = rs.agent_id
         WHERE a.project_id = ?
           AND rs.created_at >= date('now', '-30 days')
         GROUP BY date(rs.created_at)
         ORDER BY date ASC
-      `).all(projectId) as DateAnalyticsRow[];
+      `).all(projectId) as (DateAnalyticsRow & { saved_usd: number })[];
+
+      const totalSavedUsd = totals.total_saved_usd;
+      const savedPct = totals.total_baseline_cost_usd > 0
+        ? (totalSavedUsd / totals.total_baseline_cost_usd) * 100
+        : 0;
 
       return reply.send({
         totalRuns: totals.total_runs,
         totalInputTokens: totals.total_input_tokens,
         totalOutputTokens: totals.total_output_tokens,
         totalCostUsd: totals.total_cost_usd,
+        totalBaselineCostUsd: totals.total_baseline_cost_usd,
+        totalSavedUsd,
+        savedPct,
         byAgent: byAgent.map((r) => ({
           agentId: r.agent_id,
           agentName: r.agent_name,
@@ -87,6 +113,8 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
           inputTokens: r.input_tokens,
           outputTokens: r.output_tokens,
           costUsd: r.cost_usd,
+          baselineCostUsd: r.baseline_cost_usd,
+          savedUsd: r.saved_usd,
           runCount: r.run_count,
         })),
         byDate: byDate.map((r) => ({
@@ -94,6 +122,8 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
           inputTokens: r.input_tokens,
           outputTokens: r.output_tokens,
           costUsd: r.cost_usd,
+          baselineCostUsd: r.baseline_cost_usd,
+          savedUsd: r.saved_usd,
         })),
       });
     },

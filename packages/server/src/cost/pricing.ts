@@ -1,32 +1,33 @@
 /**
  * Cache-farkındalıklı maliyet hesabı.
- * Fiyatlar shared/CLAUDE_MODELS'tan (1k-başı $) gelir; cache okuma/yazma çarpanları config'ten.
- * shared/estimateCost'a dokunulmaz — bu cost katmanına özel.
+ * Fiyatlar çağıran tarafından bir Pricing nesnesi olarak verilir (built-in CLAUDE_MODELS
+ * veya custom provider model fiyatı — bkz. llm/provider-registry.modelPricing).
+ * cache okuma/yazma çarpanları config'ten. Bu sayede DeepSeek/yerel dahil HER sağlayıcının
+ * maliyeti gerçek usage token'larıyla ölçülür.
  */
-import { CLAUDE_MODELS } from '@subagent/shared';
-import type { ClaudeModel } from '@subagent/shared';
 import { costConfig } from './config.js';
 
-function perToken(model: ClaudeModel): { inK: number; outK: number } {
-  const p = CLAUDE_MODELS[model];
-  if (!p) return { inK: 0, outK: 0 };
-  return { inK: p.costPer1kInput / 1000, outK: p.costPer1kOutput / 1000 };
+export interface Pricing {
+  /** USD per 1K input tokens. */
+  costPer1kInput: number;
+  /** USD per 1K output tokens. */
+  costPer1kOutput: number;
+}
+
+interface Usage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
 }
 
 /**
  * Bir çağrının gerçek maliyeti (cache çarpanları uygulanmış).
  * cache_read girdi fiyatının ~%10'u, cache_creation ~%125'i.
  */
-export function actualCallCost(
-  model: ClaudeModel,
-  usage: {
-    inputTokens: number;
-    outputTokens: number;
-    cacheReadInputTokens: number;
-    cacheCreationInputTokens: number;
-  },
-): number {
-  const { inK, outK } = perToken(model);
+export function actualCallCost(pricing: Pricing, usage: Usage): number {
+  const inK = pricing.costPer1kInput / 1000;
+  const outK = pricing.costPer1kOutput / 1000;
   return (
     usage.inputTokens * inK +
     usage.outputTokens * outK +
@@ -37,18 +38,11 @@ export function actualCallCost(
 
 /**
  * Baseline maliyet: hiçbir katman yokmuş gibi.
- * Ana modele (istenen model), cache'siz, tam prefix-miss (tüm cache token'ları normal girdi sayılır).
+ * İstenen modele, cache'siz, tam prefix-miss (tüm cache token'ları normal girdi sayılır).
  */
-export function baselineCallCost(
-  requestedModel: ClaudeModel,
-  usage: {
-    inputTokens: number;
-    outputTokens: number;
-    cacheReadInputTokens: number;
-    cacheCreationInputTokens: number;
-  },
-): number {
-  const { inK, outK } = perToken(requestedModel);
+export function baselineCallCost(pricing: Pricing, usage: Usage): number {
+  const inK = pricing.costPer1kInput / 1000;
+  const outK = pricing.costPer1kOutput / 1000;
   const totalInput =
     usage.inputTokens + usage.cacheReadInputTokens + usage.cacheCreationInputTokens;
   return totalInput * inK + usage.outputTokens * outK;

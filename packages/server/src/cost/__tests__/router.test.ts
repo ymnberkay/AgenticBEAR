@@ -11,6 +11,7 @@ const MAIN = 'claude-sonnet-4-20250514';
 function req(overrides: Partial<LlmRequest> = {}): LlmRequest {
   return {
     model: MAIN,
+    providerKind: 'anthropic',
     maxTokens: 8192,
     temperature: 0,
     systemPrompt: 'sys',
@@ -131,13 +132,14 @@ describe('L2 — middleware entegrasyonu', () => {
     expect(costMetrics.getStats().recent[0].routerTier).toBe('COMPLEX');
   });
 
-  it('non-anthropic istek → router atlanır (model değişmez)', async () => {
+  it('desteklenmeyen kind (anthropic-compatible / custom) → router atlanır', async () => {
     const { exec, calls } = fakeExec();
-    await costMiddleware.complete(req({ model: 'gpt-4o' }), {
+    // anthropic-compatible (örn. DeepSeek-claude proxy) built-in tier mapping'inde değil
+    await costMiddleware.complete(req({ providerKind: 'anthropic-compatible' }), {
       executor: exec,
       classify: classifierReturning('TRIVIAL'),
     });
-    expect(calls[0].model).toBe('gpt-4o');
+    expect(calls[0].model).toBe(MAIN);
     expect(costMetrics.getStats().recent[0].routerTier).toBeNull();
   });
 

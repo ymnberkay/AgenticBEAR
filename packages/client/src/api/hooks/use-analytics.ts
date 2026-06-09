@@ -8,6 +8,8 @@ export interface AgentUsage {
   inputTokens: number;
   outputTokens: number;
   costUsd: number;
+  baselineCostUsd: number;
+  savedUsd: number;
   runCount: number;
 }
 
@@ -16,6 +18,8 @@ export interface DateUsage {
   inputTokens: number;
   outputTokens: number;
   costUsd: number;
+  baselineCostUsd: number;
+  savedUsd: number;
 }
 
 export interface ProjectAnalytics {
@@ -23,6 +27,10 @@ export interface ProjectAnalytics {
   totalInputTokens: number;
   totalOutputTokens: number;
   totalCostUsd: number;
+  totalBaselineCostUsd: number;
+  totalSavedUsd: number;
+  /** Tasarruf yüzdesi (0-100). */
+  savedPct: number;
   byAgent: AgentUsage[];
   byDate: DateUsage[];
 }

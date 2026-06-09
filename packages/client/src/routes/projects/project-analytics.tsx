@@ -1,5 +1,5 @@
 import { useParams } from '@tanstack/react-router';
-import { Loader2, BarChart3, Zap, DollarSign, Play } from 'lucide-react';
+import { Loader2, BarChart3, Zap, DollarSign, Play, PiggyBank } from 'lucide-react';
 import { useProjectAnalytics } from '../../api/hooks/use-analytics';
 import type { DateUsage } from '../../api/hooks/use-analytics';
 
@@ -9,13 +9,27 @@ function fmt(n: number): string {
   return String(n);
 }
 
-function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub?: string }) {
+function StatCard({
+  icon,
+  label,
+  value,
+  sub,
+  accentColor,
+  valueColor,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub?: string;
+  accentColor?: string;
+  valueColor?: string;
+}) {
   return (
     <div
       style={{
         background: 'var(--color-bg-surface)',
         border: '1px solid var(--color-border-subtle)',
-        borderLeft: '3px solid var(--color-border-default)',
+        borderLeft: `3px solid ${accentColor ?? 'var(--color-border-default)'}`,
         padding: '16px 20px',
       }}
     >
@@ -25,7 +39,7 @@ function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: s
           {label}
         </span>
       </div>
-      <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text-primary)', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>
+      <div style={{ fontSize: 24, fontWeight: 700, color: valueColor ?? 'var(--color-text-primary)', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>
         {value}
       </div>
       {sub && (
@@ -135,7 +149,7 @@ export function ProjectAnalyticsPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <StatCard
           icon={<Play className="h-3 w-3" />}
           label="Total Runs"
@@ -156,6 +170,18 @@ export function ProjectAnalyticsPage() {
           label="Total Cost"
           value={`$${data.totalCostUsd.toFixed(4)}`}
           sub={data.totalRuns > 0 ? `~$${(data.totalCostUsd / data.totalRuns).toFixed(4)} / run` : undefined}
+        />
+        <StatCard
+          icon={<PiggyBank className="h-3 w-3" />}
+          label="Saved"
+          value={`$${data.totalSavedUsd.toFixed(4)}`}
+          sub={
+            data.totalBaselineCostUsd > 0
+              ? `${data.savedPct.toFixed(1)}% off $${data.totalBaselineCostUsd.toFixed(4)} baseline`
+              : 'No baseline yet — run a few tasks'
+          }
+          accentColor={data.totalSavedUsd > 0 ? '#22c55e' : undefined}
+          valueColor={data.totalSavedUsd > 0 ? '#22c55e' : undefined}
         />
       </div>
 

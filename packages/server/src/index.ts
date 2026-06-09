@@ -16,6 +16,7 @@ import { settingsRoutes } from './routes/settings.js';
 import { workspaceRoutes } from './routes/workspace.js';
 import { eventRoutes } from './routes/events.js';
 import { costRoutes } from './routes/cost.js';
+import { providerRoutes } from './routes/providers.js';
 import { mcpRoutes } from './mcp/transport.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { templateRepo } from './db/repositories/template.repo.js';
@@ -70,6 +71,7 @@ async function main() {
   await app.register(workspaceRoutes);
   await app.register(eventRoutes);
   await app.register(costRoutes);
+  await app.register(providerRoutes);
   await app.register(mcpRoutes);
   await app.register(analyticsRoutes);
 
