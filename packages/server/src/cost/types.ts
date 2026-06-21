@@ -22,15 +22,33 @@ export interface CallMeta {
   /** Namespace çözünürlüğünü artırmak için (örn. agent slug). */
   agentSlug?: string;
   /** Çağrının türü; routing/classification gibi çağrılar router'a sokulmaz. */
-  callKind?: 'agent' | 'orchestration' | 'documentation' | 'routing' | 'classification';
+  callKind?: 'agent' | 'orchestration' | 'documentation' | 'routing' | 'classification' | 'gateway';
   /**
    * L1 semantic cache'e açık mı?
    * Tool kullanan / yan etkili / yüksek-temperature / kullanıcıya özel uçucu çağrılarda false olmalı.
    * undefined → middleware güvenli varsayılan uygular.
    */
   cacheable?: boolean;
+  /**
+   * L0 context compression'a açık mı? Hassas/birebir gereken içerikte false olmalı.
+   * undefined → varsayılan açık (compress edilir).
+   */
+  compressible?: boolean;
   /** Streaming çağrısı mı (L1 cache hit'i streaming'de chunk olarak yayınlanır). */
   isStream?: boolean;
+  /**
+   * L1 cache anahtarı neyi kapsasın:
+   *  - 'conversation' (varsayılan): system + TÜM mesajlar (bağlam-bağımlı; güvenli).
+   *  - 'lastUser': system + yalnızca SON kullanıcı mesajı → büyüyen geçmişe rağmen aynı soru
+   *    güvenle hit eder (FAQ/destek botları için). Bağlam-bağımlı botlarda yanlış hit riski olur.
+   */
+  cacheScope?: 'conversation' | 'lastUser';
+  /**
+   * L2 level-router için aday model havuzu (catalog id'leri ve/veya `owner:<provider>` joker).
+   * Gateway bunu API key'in izinli modellerinden doldurur. Boş/undefined → istenen modelin
+   * provider'ı içinde kalır (güvenli varsayılan).
+   */
+  routePool?: string[];
 }
 
 /** Choke-point'e giren istek (çağıranın niyeti). */
@@ -125,6 +143,8 @@ export interface LlmResult extends ExecutorResult {
    * router downgrade yok varsayımıyla. Savings = baseline - actual.
    */
   baselineCostUsd: number;
+  /** L0 compression ile kazanılan input token (counterfactual). */
+  compressionSavedTokens: number;
 }
 
 /** L1 cache entry payload'ı (Qdrant'a yazılır). */

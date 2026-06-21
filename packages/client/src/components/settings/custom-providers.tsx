@@ -36,6 +36,8 @@ interface ModelRow {
   /** USD per 1M tokens (UI-friendly; stored as per-1K). */
   inPer1M: string;
   outPer1M: string;
+  /** Capability level 1–10 for the router (weak/cheap → strong). */
+  level: string;
 }
 
 interface FormState {
@@ -51,16 +53,17 @@ const EMPTY_FORM: FormState = {
   kind: 'openai-compatible',
   baseUrl: '',
   apiKey: '',
-  models: [{ id: '', label: '', inPer1M: '', outPer1M: '' }],
+  models: [{ id: '', label: '', inPer1M: '', outPer1M: '', level: '' }],
 };
 
 function toModelRows(models: LLMModelDef[]): ModelRow[] {
-  if (models.length === 0) return [{ id: '', label: '', inPer1M: '', outPer1M: '' }];
+  if (models.length === 0) return [{ id: '', label: '', inPer1M: '', outPer1M: '', level: '' }];
   return models.map((m) => ({
     id: m.id,
     label: m.label,
     inPer1M: m.costPer1kInput ? String(m.costPer1kInput * 1000) : '',
     outPer1M: m.costPer1kOutput ? String(m.costPer1kOutput * 1000) : '',
+    level: m.level ? String(m.level) : '',
   }));
 }
 
@@ -72,6 +75,7 @@ function toModelDefs(rows: ModelRow[]): LLMModelDef[] {
       label: r.label.trim() || r.id.trim(),
       costPer1kInput: r.inPer1M ? Number(r.inPer1M) / 1000 : 0,
       costPer1kOutput: r.outPer1M ? Number(r.outPer1M) / 1000 : 0,
+      ...(r.level ? { level: Math.max(1, Math.min(10, Math.round(Number(r.level)))) } : {}),
     }));
 }
 
@@ -217,7 +221,7 @@ export function CustomProvidersSection() {
             {/* Models */}
             <div className="flex flex-col gap-2">
               <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                Models · price $/1M tokens
+                Models · price $/1M tokens · level 1–10 (router)
               </span>
               {form.models.map((m, i) => (
                 <div key={i} className="flex items-center gap-1.5">
@@ -225,13 +229,14 @@ export function CustomProvidersSection() {
                   <input placeholder="label" value={m.label} onChange={(e) => updateModel(i, { label: e.target.value })} style={{ ...inputStyle, flex: 2 }} />
                   <input placeholder="in" value={m.inPer1M} onChange={(e) => updateModel(i, { inPer1M: e.target.value })} style={{ ...inputStyle, flex: 1 }} />
                   <input placeholder="out" value={m.outPer1M} onChange={(e) => updateModel(i, { outPer1M: e.target.value })} style={{ ...inputStyle, flex: 1 }} />
+                  <input placeholder="lvl" type="number" min={1} max={10} value={m.level} onChange={(e) => updateModel(i, { level: e.target.value })} style={{ ...inputStyle, width: 52, flexShrink: 0 }} title="Capability level 1–10 (router)" />
                   <button type="button" onClick={() => setForm((f) => ({ ...f, models: f.models.filter((_, idx) => idx !== i) }))}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d88a8a', padding: 4, flexShrink: 0 }}>
                     <Trash2 style={{ width: 12, height: 12 }} />
                   </button>
                 </div>
               ))}
-              <button type="button" onClick={() => setForm((f) => ({ ...f, models: [...f.models, { id: '', label: '', inPer1M: '', outPer1M: '' }] }))}
+              <button type="button" onClick={() => setForm((f) => ({ ...f, models: [...f.models, { id: '', label: '', inPer1M: '', outPer1M: '', level: '' }] }))}
                 className="flex items-center gap-1.5 w-fit"
                 style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#6EACDA', background: 'none', border: 'none', cursor: 'pointer' }}>
                 <Plus style={{ width: 11, height: 11 }} /> add model

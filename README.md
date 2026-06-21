@@ -433,6 +433,34 @@ Architecture: all inference goes through a provider-agnostic unified client ([`p
 
 ---
 
+## LLM Gateway (OpenAI-compatible, cost-optimized)
+
+Run AgenticBEAR as an **internal model gateway**: an admin registers connections + keys once (in the **Models** tab), and any internal app/agent calls **one OpenAI-compatible endpoint** — every request passes through the cost-optimization layers (L1 semantic cache, L2 router, L3 prompt cache) and is dispatched to the right provider, with spend tracked per caller.
+
+**Endpoints** ([`routes/gateway.ts`](packages/server/src/routes/gateway.ts)):
+- `POST /v1/chat/completions` — standard OpenAI body (`model`, `messages`, `max_tokens`, `temperature`, `stream`). Returns OpenAI-shaped JSON; response headers add `x-agb-served-model`, `x-agb-cost-usd`, `x-agb-baseline-usd`, `x-agb-cache-hit`. `stream:true` → SSE chunks then `[DONE]`.
+- `GET /v1/models` — catalog of reachable models. Built-in providers (Anthropic/OpenAI/Gemini) are listed via **live discovery** from their own `/models` endpoint using the configured key (so the newest models — `gpt-5.5`, `claude-opus-4-…` — and exactly what the key can access show up; falls back to the static list if discovery fails). `model` is either a **bare built-in id** or **`<providerId>/<modelId>`** for a custom provider (e.g. `Dh0…/gemini-2.5-flash`).
+
+**Auth:** issue **gateway API keys** in the Models tab (`agb_live_<32-hex>`, shown once, stored as `sha256`). Pass `Authorization: Bearer <key>`. Bootstrap-friendly: while **no keys exist the gateway is open**; it's enforced once the first key is created. Admin endpoints: `GET/POST/PATCH/DELETE /api/gateway-keys`, usage at `GET /api/gateway-usage`.
+
+**Per-key model scope:** when creating a key you can restrict it to a subset of the reachable models (pick from the catalog). A scoped key only "sees" those models in `GET /v1/models`, and a request for any other model is rejected with **403**. An empty scope = all reachable models.
+
+**Drop-in usage** (OpenAI SDK):
+```python
+from openai import OpenAI
+client = OpenAI(base_url="http://localhost:3001/v1", api_key="agb_live_…")
+resp = client.chat.completions.create(
+    model="Dh0…/gemini-2.5-flash",          # or a bare built-in id
+    messages=[{"role": "user", "content": "Hello"}],
+)
+```
+
+**Cost is measured per caller:** each gateway call writes a `gateway_usage` row (key, model, tokens, actual vs baseline cost, cache hit, router tier); the Models tab shows totals + savings, by model and by key. The same call also feeds the live `costMetrics` dashboard (`/api/cost-stats`).
+
+> v1 protects only `/v1` (gateway). The admin UI and `/api/*` stay open on the internal network — add an admin login later if you expose it beyond a trusted network.
+
+---
+
 ## Supported Models — note
 
 > The built-in Anthropic key (orchestrator/router) is read from Settings or `ANTHROPIC_API_KEY`. Custom providers store their own key. Legacy agents without an explicit provider are resolved by model-id heuristic, so existing setups keep working.

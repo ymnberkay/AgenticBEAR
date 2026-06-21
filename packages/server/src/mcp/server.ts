@@ -18,7 +18,8 @@ import { eventBus } from '../utils/event-bus.js';
 import { createLogger } from '../utils/logger.js';
 import { buildAgentContextBlock, buildOrchestratorPrompt } from '../utils/prompt-adapter.js';
 import { buildMemoryBlock } from '../engine/context-builder.js';
-import { ClaudeService } from '../services/claude.service.js';
+import { withProjectKnowledge } from '../services/knowledge.service.js';
+import { ClaudeService, stepBreakdownFields } from '../services/claude.service.js';
 import type { Agent } from '@subagent/shared';
 
 const log = createLogger('mcp:server');
@@ -178,9 +179,8 @@ export function createMcpServer(projectId: string): McpServer {
 
       const memoryBlock = buildMemoryBlock(agent.id);
       const userMessage = context ? `${context}\n\n${query}` : query;
-      const systemPromptWithMemory = memoryBlock
-        ? `${agent.systemPrompt}\n\n${memoryBlock}`
-        : agent.systemPrompt;
+      const basePrompt = memoryBlock ? `${agent.systemPrompt}\n\n${memoryBlock}` : agent.systemPrompt;
+      const systemPromptWithMemory = withProjectKnowledge(basePrompt, projectId);
 
       try {
         // Server-side LLM çağrısı — cost middleware'den geçer (L1 cache + L2 router + L3 prompt cache).
@@ -229,6 +229,7 @@ export function createMcpServer(projectId: string): McpServer {
             costUsd: apiResult.actualCostUsd,
             baselineCostUsd: apiResult.baselineCostUsd,
             durationMs,
+            ...stepBreakdownFields(apiResult, agent.modelConfig.providerId),
           });
           taskRepo.updateTask(synthTask.id, {
             status: 'completed',

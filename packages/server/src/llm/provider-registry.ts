@@ -36,10 +36,10 @@ function resolveBuiltinKey(provider: 'anthropic' | 'openai' | 'gemini'): string 
 
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1';
 
-export function resolveProvider(providerId: string | undefined, model: string): ResolvedProvider {
-  // Built-in (explicit id) or legacy heuristic.
+export function resolveProvider(providerId: string | null | undefined, model: string): ResolvedProvider {
+  // Built-in (explicit id) or legacy heuristic. null = explicitly built-in (cleared custom provider).
   if (!providerId || isBuiltinProviderId(providerId)) {
-    const builtin = (providerId as 'anthropic' | 'openai' | 'gemini') ?? detectBuiltinProvider(model);
+    const builtin = providerId && isBuiltinProviderId(providerId) ? providerId : detectBuiltinProvider(model);
     const kind: ProviderKind = builtin;
     return {
       providerId: builtin,
@@ -74,7 +74,7 @@ export function isAnthropicKind(kind: ProviderKind): boolean {
 
 /** Per-model pricing ($/1K). Known built-ins → CLAUDE_MODELS; custom → provider model def; else 0. */
 export function modelPricing(
-  providerId: string | undefined,
+  providerId: string | null | undefined,
   model: string,
 ): { costPer1kInput: number; costPer1kOutput: number } {
   const known = CLAUDE_MODELS[model];

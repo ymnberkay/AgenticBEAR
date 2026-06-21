@@ -16,7 +16,27 @@ import { costConfig } from '../config.js';
 import { getEmbedder } from '../embedding.js';
 import { QdrantStore } from '../vector-store.js';
 import { canonicalText, namespaceOf, promptHash } from '../hash.js';
-import type { CachePayload, Embedder, LlmRequest, LlmResult, VectorStore } from '../types.js';
+import { poolFor, cheapest } from './model-select.js';
+import type { CachePayload, Classifier, Embedder, LlmRequest, LlmResult, VectorStore } from '../types.js';
+
+const JUDGE_SYSTEM =
+  `Two user requests, A and B. If the SAME answer would correctly serve BOTH (same intent), ` +
+  `reply YES. Otherwise reply NO. Reply with only YES or NO.`;
+
+/** Confirm a borderline semantic match with a cheap model before serving it from cache. */
+async function judgeEquivalent(judge: Classifier, req: LlmRequest, newText: string, cachedPrompt: string): Promise<boolean> {
+  const cheap = cheapest(poolFor(req.meta.routePool, req.providerId, req.model)) ?? { model: req.model, providerId: req.providerId };
+  try {
+    const res = await judge({
+      model: cheap.model, providerId: cheap.providerId, maxTokens: 3,
+      systemPrompt: JUDGE_SYSTEM,
+      userMessage: `A: ${newText.slice(0, 1500)}\n\nB: ${cachedPrompt.slice(0, 1500)}`,
+    });
+    return /\byes\b/i.test(res.text);
+  } catch {
+    return false; // judge down → treat as miss (safe)
+  }
+}
 
 const log = createLogger('cost:l1');
 
@@ -47,7 +67,8 @@ export function __setBackendsForTest(opts: { embedder?: Embedder | null; store?:
  */
 export function isCacheable(req: LlmRequest): boolean {
   if (req.meta.cacheable !== true) return false;
-  if (typeof req.temperature === 'number' && req.temperature > 0.3) return false;
+  // FAQ-mode (lastUser) keys explicitly opt into caching regardless of temperature.
+  if (req.meta.cacheScope !== 'lastUser' && typeof req.temperature === 'number' && req.temperature > 0.3) return false;
   if (req.meta.callKind === 'routing' || req.meta.callKind === 'classification') return false;
   return true;
 }
@@ -74,11 +95,12 @@ function toResult(req: LlmRequest, payload: CachePayload): LlmResult {
     // Middleware cache-hit yolunda gerçek değerleri tekrar hesaplar; burada placeholder.
     actualCostUsd: 0,
     baselineCostUsd: 0,
+    compressionSavedTokens: 0,
   };
 }
 
 /** Cache'te ara. Miss veya herhangi bir hata → null (sessizce L2'ye düş). */
-export async function lookup(req: LlmRequest): Promise<LlmResult | null> {
+export async function lookup(req: LlmRequest, judge?: Classifier): Promise<LlmResult | null> {
   const ns = namespaceOf(req);
   const text = canonicalText(req);
   const vs = resolveStore();
@@ -109,9 +131,19 @@ export async function lookup(req: LlmRequest): Promise<LlmResult | null> {
     const vector = await emb.embed(text);
     const hits = await vs.search(ns, vector, 1);
     const top = hits[0];
-    if (top && top.score >= costConfig.semanticCache.threshold && !isExpired(top.payload)) {
-      log.info(`L1 semantic hit (ns=${ns}, score=${top.score.toFixed(3)})`);
-      return toResult(req, top.payload);
+    if (top && !isExpired(top.payload)) {
+      // High confidence → serve directly.
+      if (top.score >= costConfig.semanticCache.threshold) {
+        log.info(`L1 semantic hit (ns=${ns}, score=${top.score.toFixed(3)})`);
+        return toResult(req, top.payload);
+      }
+      // Uncertain band → confirm with a cheap LLM-as-judge before serving.
+      if (judge && costConfig.semanticCache.judge && top.score >= costConfig.semanticCache.judgeThreshold) {
+        if (await judgeEquivalent(judge, req, text, top.payload.prompt)) {
+          log.info(`L1 semantic hit via judge (ns=${ns}, score=${top.score.toFixed(3)})`);
+          return toResult(req, top.payload);
+        }
+      }
     }
   } catch (err) {
     log.warn('L1 semantic lookup failed', err);

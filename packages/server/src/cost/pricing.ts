@@ -25,13 +25,13 @@ interface Usage {
  * Bir çağrının gerçek maliyeti (cache çarpanları uygulanmış).
  * cache_read girdi fiyatının ~%10'u, cache_creation ~%125'i.
  */
-export function actualCallCost(pricing: Pricing, usage: Usage): number {
+export function actualCallCost(pricing: Pricing, usage: Usage, cacheReadMultiplier = costConfig.pricing.cacheReadMultiplier): number {
   const inK = pricing.costPer1kInput / 1000;
   const outK = pricing.costPer1kOutput / 1000;
   return (
     usage.inputTokens * inK +
     usage.outputTokens * outK +
-    usage.cacheReadInputTokens * inK * costConfig.pricing.cacheReadMultiplier +
+    usage.cacheReadInputTokens * inK * cacheReadMultiplier +
     usage.cacheCreationInputTokens * inK * costConfig.pricing.cacheWriteMultiplier
   );
 }

@@ -15,6 +15,8 @@ interface AgentRow {
   template_id: string | null;
   color: string;
   icon: string;
+  x_axis: number | null;
+  y_axis: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -40,6 +42,8 @@ function rowToAgent(row: AgentRow): Agent {
     templateId: row.template_id,
     color: row.color,
     icon: row.icon,
+    xAxis: row.x_axis,
+    yAxis: row.y_axis,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -76,8 +80,8 @@ export const agentRepo = {
     };
 
     db.prepare(`
-      INSERT INTO agents (id, project_id, role, name, slug, description, system_prompt, model_config, permissions, template_id, color, icon, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO agents (id, project_id, role, name, slug, description, system_prompt, model_config, permissions, template_id, color, icon, x_axis, y_axis, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       input.projectId,
@@ -91,6 +95,8 @@ export const agentRepo = {
       input.templateId ?? null,
       input.color ?? '#71717a',
       input.icon ?? 'Bot',
+      input.xAxis ?? null,
+      input.yAxis ?? null,
       now,
       now,
     );
@@ -116,6 +122,8 @@ export const agentRepo = {
     const systemPrompt = input.systemPrompt ?? existing.systemPrompt;
     const color = input.color ?? existing.color;
     const icon = input.icon ?? existing.icon;
+    const xAxis = input.xAxis !== undefined ? input.xAxis : (existing.xAxis ?? null);
+    const yAxis = input.yAxis !== undefined ? input.yAxis : (existing.yAxis ?? null);
 
     const modelConfig: ModelConfig = input.modelConfig
       ? { ...existing.modelConfig, ...input.modelConfig }
@@ -126,12 +134,12 @@ export const agentRepo = {
       : existing.permissions;
 
     db.prepare(`
-      UPDATE agents SET name = ?, slug = ?, description = ?, system_prompt = ?, model_config = ?, permissions = ?, color = ?, icon = ?, updated_at = ?
+      UPDATE agents SET name = ?, slug = ?, description = ?, system_prompt = ?, model_config = ?, permissions = ?, color = ?, icon = ?, x_axis = ?, y_axis = ?, updated_at = ?
       WHERE id = ?
     `).run(
       name, slug, description, systemPrompt,
       JSON.stringify(modelConfig), JSON.stringify(permissions),
-      color, icon, now, id,
+      color, icon, xAxis, yAxis, now, id,
     );
 
     return this.findById(id)!;

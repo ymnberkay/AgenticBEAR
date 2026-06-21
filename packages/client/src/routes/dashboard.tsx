@@ -380,8 +380,8 @@ export function DashboardPage() {
         />
       </div>
 
-      {/* Bottom-left settings */}
-      <div className="fixed z-10 animate-fade-in-up" style={{ bottom: '24px', left: '32px', animationDelay: '160ms' }}>
+      {/* Bottom-left nav */}
+      <div className="fixed z-10 animate-fade-in-up flex items-center gap-2" style={{ bottom: '24px', left: '32px', animationDelay: '160ms' }}>
         <button
           onClick={() => navigate({ to: '/settings' })}
           className="flex items-center gap-2 transition-all duration-150"

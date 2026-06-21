@@ -34,6 +34,13 @@ interface RunStepRow {
   cost_usd: number;
   baseline_cost_usd: number;
   duration_ms: number;
+  model: string | null;
+  provider_id: string | null;
+  cache_hit: number;
+  router_tier: string | null;
+  cache_read_tokens: number;
+  cache_creation_tokens: number;
+  compression_saved_tokens: number;
   created_at: string;
 }
 
@@ -84,6 +91,13 @@ function rowToRunStep(row: RunStepRow): RunStep {
     costUsd: row.cost_usd,
     baselineCostUsd: row.baseline_cost_usd,
     durationMs: row.duration_ms,
+    model: row.model,
+    providerId: row.provider_id,
+    cacheHit: row.cache_hit === 1,
+    routerTier: row.router_tier,
+    cacheReadTokens: row.cache_read_tokens,
+    cacheCreationTokens: row.cache_creation_tokens,
+    compressionSavedTokens: row.compression_saved_tokens,
     createdAt: row.created_at,
   };
 }
@@ -134,6 +148,13 @@ export interface CreateRunStepInput {
   costUsd?: number;
   baselineCostUsd?: number;
   durationMs?: number;
+  model?: string | null;
+  providerId?: string | null;
+  cacheHit?: boolean;
+  routerTier?: string | null;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
+  compressionSavedTokens?: number;
 }
 
 export interface CreateFileChangeInput {
@@ -228,8 +249,8 @@ export const taskRepo = {
     const now = new Date().toISOString();
 
     db.prepare(`
-      INSERT INTO run_steps (id, run_id, task_id, agent_id, type, input, output, input_tokens, output_tokens, cost_usd, baseline_cost_usd, duration_ms, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO run_steps (id, run_id, task_id, agent_id, type, input, output, input_tokens, output_tokens, cost_usd, baseline_cost_usd, duration_ms, model, provider_id, cache_hit, router_tier, cache_read_tokens, cache_creation_tokens, compression_saved_tokens, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       input.runId,
@@ -243,6 +264,13 @@ export const taskRepo = {
       input.costUsd ?? 0,
       input.baselineCostUsd ?? 0,
       input.durationMs ?? 0,
+      input.model ?? null,
+      input.providerId ?? null,
+      input.cacheHit ? 1 : 0,
+      input.routerTier ?? null,
+      input.cacheReadTokens ?? 0,
+      input.cacheCreationTokens ?? 0,
+      input.compressionSavedTokens ?? 0,
       now,
     );
 

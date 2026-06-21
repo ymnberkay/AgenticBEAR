@@ -123,13 +123,29 @@ async function callAnthropic(
   };
 }
 
-// ── OpenAI-compatible (OpenAI, DeepSeek, Ollama, LM Studio, Groq, OpenRouter, …) ──
+/**
+ * Build the chat-completions URL, preserving any query string on the base URL.
+ * This lets Azure-style endpoints carry their required `?api-version=…` (e.g. a base of
+ * `https://x.services.ai.azure.com/openai/v1?api-version=preview` →
+ * `.../openai/v1/chat/completions?api-version=preview`).
+ */
+function chatCompletionsUrl(base: string): string {
+  try {
+    const u = new URL(base);
+    u.pathname = `${u.pathname.replace(/\/+$/, '')}/chat/completions`;
+    return u.toString();
+  } catch {
+    return `${base.replace(/\/$/, '')}/chat/completions`;
+  }
+}
+
+// ── OpenAI-compatible (OpenAI, DeepSeek, Azure Foundry, Ollama, LM Studio, Groq, …) ──
 async function callOpenAICompatible(
   req: UnifiedRequest,
   provider: ResolvedProvider,
   onChunk?: (chunk: string) => void,
 ): Promise<UnifiedResult> {
-  const baseUrl = (provider.baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '');
+  const url = chatCompletionsUrl(provider.baseUrl || 'https://api.openai.com/v1');
   const messages: Array<{ role: string; content: string }> = [];
   if (req.systemPrompt) messages.push({ role: 'system', content: req.systemPrompt });
   for (const m of req.messages) messages.push({ role: m.role, content: m.content });
@@ -144,7 +160,7 @@ async function callOpenAICompatible(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (provider.apiKey) headers.Authorization = `Bearer ${provider.apiKey}`;
 
-  const res = await fetch(`${baseUrl}/chat/completions`, {
+  const res = await fetch(url, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
@@ -155,17 +171,23 @@ async function callOpenAICompatible(
 
   const data = (await res.json()) as {
     choices: Array<{ message: { content: string }; finish_reason?: string }>;
-    usage?: { prompt_tokens?: number; completion_tokens?: number };
+    usage?: { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number } };
   };
   const text = data.choices[0]?.message?.content ?? '';
   if (onChunk && text) onChunk(text);
 
+  // OpenAI/Azure auto-cache the repeated prompt prefix and bill it cheaper, reporting it in
+  // prompt_tokens_details.cached_tokens. Split it out (Anthropic convention: input = non-cached)
+  // so the cost layer credits it as prompt-cache (L3) savings.
+  const promptTokens = data.usage?.prompt_tokens ?? 0;
+  const cached = data.usage?.prompt_tokens_details?.cached_tokens ?? 0;
+
   return {
     text,
-    inputTokens: data.usage?.prompt_tokens ?? 0,
+    inputTokens: Math.max(0, promptTokens - cached),
     outputTokens: data.usage?.completion_tokens ?? 0,
     cacheCreationInputTokens: 0,
-    cacheReadInputTokens: 0,
+    cacheReadInputTokens: cached,
     stopReason: data.choices[0]?.finish_reason ?? null,
     providerKind: provider.kind,
     servedProviderId: provider.providerId,

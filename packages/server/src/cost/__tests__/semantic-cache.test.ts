@@ -197,3 +197,39 @@ describe('L1 — semantic cache', () => {
     expect(calls()).toBe(2);
   });
 });
+
+describe('L1 — LLM-judge gate (uncertain band)', () => {
+  let savedSc: { threshold: number; judge: boolean; judgeThreshold: number };
+  beforeEach(() => {
+    savedSc = { threshold: costConfig.semanticCache.threshold, judge: costConfig.semanticCache.judge, judgeThreshold: costConfig.semanticCache.judgeThreshold };
+    // Force every semantic neighbor into the "uncertain" band so the judge decides.
+    costConfig.semanticCache.threshold = 2;       // unreachable (cosine ≤ 1) → never high-confidence
+    costConfig.semanticCache.judgeThreshold = 0;  // any score ≥ 0 is uncertain
+    costConfig.semanticCache.judge = true;
+  });
+  afterEach(() => {
+    Object.assign(costConfig.semanticCache, savedSc);
+    semanticCache.__setBackendsForTest({ embedder: null, store: null });
+  });
+
+  const yes = async () => ({ text: 'YES', inputTokens: 5, outputTokens: 1 });
+  const no = async () => ({ text: 'NO', inputTokens: 5, outputTokens: 1 });
+  const meta = { role: 'specialist', agentSlug: 'x', cacheable: true } as const;
+  const ask = (content: string) => req({ messages: [{ role: 'user', content }], meta });
+
+  it('judge YES on an uncertain neighbor → served from cache', async () => {
+    semanticCache.__setBackendsForTest({ embedder: fakeEmbedder(), store: memStore() });
+    const { exec } = fakeExec('cached answer');
+    await costMiddleware.complete(ask('How do I reset my password?'), { executor: exec });
+    const hit = await semanticCache.lookup(ask('steps to reset password'), yes);
+    expect(hit?.text).toBe('cached answer');
+  });
+
+  it('judge NO on an uncertain neighbor → miss', async () => {
+    semanticCache.__setBackendsForTest({ embedder: fakeEmbedder(), store: memStore() });
+    const { exec } = fakeExec('cached answer');
+    await costMiddleware.complete(ask('How do I reset my password?'), { executor: exec });
+    const hit = await semanticCache.lookup(ask('what is the capital of France'), no);
+    expect(hit).toBeNull();
+  });
+});

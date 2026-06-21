@@ -204,6 +204,67 @@ CREATE TABLE IF NOT EXISTS llm_providers (
 -- the cost-layer (semantic cache, router downgrade, prompt cache). Savings = baseline - actual.
 ALTER TABLE run_steps ADD COLUMN baseline_cost_usd REAL NOT NULL DEFAULT 0.0;
 ALTER TABLE runs      ADD COLUMN total_baseline_cost_usd REAL NOT NULL DEFAULT 0.0;`,
+
+  '007_gateway.sql': `-- OpenAI-compatible gateway: API keys for internal callers + per-call usage rows.
+CREATE TABLE IF NOT EXISTS gateway_keys (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL DEFAULT '',
+  key_prefix TEXT NOT NULL,
+  key_hash TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  last_used_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_gateway_keys_hash ON gateway_keys(key_hash);
+
+CREATE TABLE IF NOT EXISTS gateway_usage (
+  id TEXT PRIMARY KEY,
+  key_id TEXT,
+  model TEXT NOT NULL,
+  provider_id TEXT,
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  cost_usd REAL NOT NULL DEFAULT 0.0,
+  baseline_usd REAL NOT NULL DEFAULT 0.0,
+  cache_hit INTEGER NOT NULL DEFAULT 0,
+  router_tier TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_gateway_usage_key ON gateway_usage(key_id);
+CREATE INDEX IF NOT EXISTS idx_gateway_usage_created ON gateway_usage(created_at);`,
+
+  '008_gateway_key_scope.sql': `-- Per-key model scope: which catalog model ids a gateway key may call ([] = all).
+ALTER TABLE gateway_keys ADD COLUMN allowed_models TEXT NOT NULL DEFAULT '[]';`,
+
+  '009_agent_canvas_and_knowledge.sql': `-- Agent canvas coordinates (for a future visual graph) + per-project knowledge documents.
+ALTER TABLE agents ADD COLUMN x_axis REAL;
+ALTER TABLE agents ADD COLUMN y_axis REAL;
+
+CREATE TABLE IF NOT EXISTS project_documents (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  content TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_project_documents_project ON project_documents(project_id);`,
+
+  '010_run_step_breakdown.sql': `-- Enrich run_steps so project analytics can break down by model + cost layer.
+ALTER TABLE run_steps ADD COLUMN model TEXT;
+ALTER TABLE run_steps ADD COLUMN provider_id TEXT;
+ALTER TABLE run_steps ADD COLUMN cache_hit INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE run_steps ADD COLUMN router_tier TEXT;
+ALTER TABLE run_steps ADD COLUMN cache_read_tokens INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE run_steps ADD COLUMN cache_creation_tokens INTEGER NOT NULL DEFAULT 0;`,
+
+  '011_run_step_compression.sql': `-- L0 context compression: input tokens saved per step (for project Analytics).
+ALTER TABLE run_steps ADD COLUMN compression_saved_tokens INTEGER NOT NULL DEFAULT 0;`,
+
+  '012_gateway_key_expiry.sql': `-- Optional expiry for gateway API keys (NULL = never expires).
+ALTER TABLE gateway_keys ADD COLUMN expires_at TEXT;`,
+
+  '013_gateway_key_cache_scope.sql': `-- Per-key L1 cache scope: 'conversation' (default) or 'lastUser' (FAQ mode).
+ALTER TABLE gateway_keys ADD COLUMN cache_scope TEXT;`,
 };
 
 let db: Database.Database;
@@ -244,7 +305,7 @@ function runMigrations(): void {
     )
   `);
 
-  const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql'];
+  const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql', '007_gateway.sql', '008_gateway_key_scope.sql', '009_agent_canvas_and_knowledge.sql', '010_run_step_breakdown.sql', '011_run_step_compression.sql', '012_gateway_key_expiry.sql', '013_gateway_key_cache_scope.sql'];
 
   const appliedStmt = db.prepare('SELECT name FROM _migrations WHERE name = ?');
   const insertStmt = db.prepare('INSERT INTO _migrations (name) VALUES (?)');

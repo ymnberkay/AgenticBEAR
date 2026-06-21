@@ -29,8 +29,12 @@ export type KnownClaudeModel =
 
 export interface ModelConfig {
   model: ClaudeModel;
-  /** Which provider serves this model. Absent → resolved by id heuristic (legacy agents). */
-  providerId?: string;
+  /**
+   * Which provider serves this model. Absent/null → a built-in provider, resolved from the
+   * model id. Sent as `null` (not omitted) when switching back to a built-in so a stale custom
+   * providerId is cleared on update instead of being kept by the merge.
+   */
+  providerId?: string | null;
   maxTokens: number;
   temperature: number;
   topP?: number;
@@ -59,6 +63,9 @@ export interface Agent {
   templateId: string | null;
   color: string;
   icon: string;
+  /** Canvas coordinates for a visual agent graph (optional). */
+  xAxis?: number | null;
+  yAxis?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -74,6 +81,8 @@ export interface CreateAgentInput {
   templateId?: string;
   color?: string;
   icon?: string;
+  xAxis?: number | null;
+  yAxis?: number | null;
 }
 
 export interface UpdateAgentInput {
@@ -84,4 +93,6 @@ export interface UpdateAgentInput {
   permissions?: Partial<AgentPermissions>;
   color?: string;
   icon?: string;
+  xAxis?: number | null;
+  yAxis?: number | null;
 }

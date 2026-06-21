@@ -5,12 +5,14 @@ import {
   createRootRoute,
   RouterProvider,
   Outlet,
+  redirect,
 } from '@tanstack/react-router';
 import { AppShell } from './components/layout/app-shell';
 import { DashboardPage } from './routes/dashboard';
 import { ProjectDetailPage } from './routes/projects/project-detail';
 import { ProjectAgentsPage } from './routes/projects/project-agents';
 import { ProjectAnalyticsPage } from './routes/projects/project-analytics';
+import { ProjectChatPage } from './routes/projects/project-chat';
 
 import { ProjectSettingsPage } from './routes/projects/project-settings';
 import { RunDetailPage } from './routes/projects/run-detail';
@@ -73,6 +75,13 @@ const projectAnalyticsRoute = createRoute({
   component: ProjectAnalyticsPage,
 });
 
+// Project chat
+const projectChatRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: '/chat',
+  component: ProjectChatPage,
+});
+
 // Project settings
 const projectSettingsRoute = createRoute({
   getParentRoute: () => projectRoute,
@@ -101,6 +110,13 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 });
 
+// Legacy /models path → now a tab inside Settings.
+const modelsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/models',
+  beforeLoad: () => { throw redirect({ to: '/settings', hash: 'models' }); },
+});
+
 // Build the route tree
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
@@ -108,11 +124,13 @@ const routeTree = rootRoute.addChildren([
     projectIndexRoute,
     projectAgentsRoute,
     projectAnalyticsRoute,
+    projectChatRoute,
     projectSettingsRoute,
     runDetailRoute,
   ]),
   templatesRoute,
   settingsRoute,
+  modelsRoute,
 ]);
 
 // Create router

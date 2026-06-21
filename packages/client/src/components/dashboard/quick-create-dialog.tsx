@@ -1,19 +1,35 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
+import { FolderPickerInput } from '../ui/folder-picker';
 import { useCreateProject } from '../../api/hooks/use-projects';
+import { useSettings } from '../../api/hooks/use-settings';
 
 interface QuickCreateDialogProps {
   open: boolean;
   onClose: () => void;
 }
 
+const fpInputStyle: React.CSSProperties = {
+  height: 38, padding: '0 12px', fontSize: 13.5, color: 'var(--color-text-primary)',
+  background: 'var(--glass-bg)', border: '1px solid var(--color-border-default)', outline: 'none',
+};
+
 export function QuickCreateDialog({ open, onClose }: QuickCreateDialogProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [workspacePath, setWorkspacePath] = useState('');
   const [error, setError] = useState('');
   const createProject = useCreateProject();
+  const { data: settings } = useSettings();
+
+  // Prefill the workspace path from the configured default when the dialog opens.
+  useEffect(() => {
+    if (open && !workspacePath && settings?.defaultWorkspacePath) {
+      setWorkspacePath(settings.defaultWorkspacePath);
+    }
+  }, [open, settings, workspacePath]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,11 +40,13 @@ export function QuickCreateDialog({ open, onClose }: QuickCreateDialogProps) {
       {
         name: name.trim(),
         description: description.trim() || undefined,
+        workspacePath: workspacePath.trim() || undefined,
       },
       {
         onSuccess: () => {
           setName('');
           setDescription('');
+          setWorkspacePath('');
           setError('');
           onClose();
         },
@@ -51,6 +69,14 @@ export function QuickCreateDialog({ open, onClose }: QuickCreateDialogProps) {
           onChange={(e) => setName(e.target.value)}
           autoFocus
         />
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[12.5px] font-medium text-text-secondary">
+            Workspace Path
+            <span className="text-text-disabled font-normal ml-1.5">(folder on your machine where agents work)</span>
+          </label>
+          <FolderPickerInput value={workspacePath} onChange={setWorkspacePath} inputStyle={fpInputStyle} />
+        </div>
 
         <div className="flex flex-col gap-1.5">
           <label className="text-[12.5px] font-medium text-text-secondary">

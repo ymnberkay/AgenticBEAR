@@ -17,6 +17,10 @@ import { workspaceRoutes } from './routes/workspace.js';
 import { eventRoutes } from './routes/events.js';
 import { costRoutes } from './routes/cost.js';
 import { providerRoutes } from './routes/providers.js';
+import { gatewayRoutes } from './routes/gateway.js';
+import { gatewayKeyRoutes } from './routes/gateway-keys.js';
+import { documentRoutes } from './routes/documents.js';
+import { chatRoutes } from './routes/chat.js';
 import { mcpRoutes } from './mcp/transport.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { templateRepo } from './db/repositories/template.repo.js';
@@ -72,6 +76,10 @@ async function main() {
   await app.register(eventRoutes);
   await app.register(costRoutes);
   await app.register(providerRoutes);
+  await app.register(gatewayRoutes);
+  await app.register(gatewayKeyRoutes);
+  await app.register(documentRoutes);
+  await app.register(chatRoutes);
   await app.register(mcpRoutes);
   await app.register(analyticsRoutes);
 

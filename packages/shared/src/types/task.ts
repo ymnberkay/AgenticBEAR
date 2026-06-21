@@ -38,6 +38,15 @@ export interface RunStep {
   /** Cost-layer olmasaydı maliyet — savings = baselineCostUsd - costUsd. */
   baselineCostUsd: number;
   durationMs: number;
+  /** Served model (router sonrası) — per-model kırılım için. */
+  model?: string | null;
+  providerId?: string | null;
+  cacheHit?: boolean;
+  routerTier?: string | null;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
+  /** L0 compression ile kazanılan input token. */
+  compressionSavedTokens?: number;
   createdAt: string;
 }
 

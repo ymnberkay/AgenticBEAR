@@ -1,5 +1,5 @@
 import { Link, useMatchRoute } from '@tanstack/react-router';
-import { Bot, ChevronRight, ChevronLeft, BarChart3 } from 'lucide-react';
+import { Bot, ChevronRight, ChevronLeft, BarChart3, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Project } from '@subagent/shared';
 import { useUIStore } from '../../stores/ui.store';
@@ -10,6 +10,7 @@ interface ProjectNavProps {
 
 const navItems = [
   { to: '/agents' as const, label: 'Agents', icon: Bot, description: 'manage ai agents' },
+  { to: '/chat' as const, label: 'Chat', icon: MessageSquare, description: 'talk to agents' },
   { to: '/analytics' as const, label: 'Analytics', icon: BarChart3, description: 'token usage & cost' },
 ];
 

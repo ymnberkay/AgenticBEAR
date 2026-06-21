@@ -26,6 +26,16 @@ export type {
 } from './provider.js';
 
 export type {
+  GatewayKey,
+  CreateGatewayKeyInput,
+  GatewayKeyCreated,
+  GatewayUsageRow,
+  GatewayUsageBucket,
+  GatewayUsageSummary,
+} from './gateway.js';
+export { PROVIDER_SCOPE_PREFIX } from './gateway.js';
+
+export type {
   Run,
   RunStatus,
   CreateRunInput,
@@ -63,3 +73,8 @@ export type {
   AgentMemory,
   MemoryType,
 } from './memory.js';
+
+export type {
+  ProjectDocument,
+  CreateProjectDocumentInput,
+} from './document.js';

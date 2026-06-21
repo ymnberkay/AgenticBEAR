@@ -59,6 +59,8 @@ async function routeViaLLM(
     modelConfig: orchestrator.modelConfig ?? DEFAULT_MODEL_CONFIG,
     systemPrompt: orchestrator.systemPrompt,
     userMessage: classifyPrompt,
+    // Routing classification: don't cache/route it, but do count its cost in metrics.
+    meta: { role: 'orchestrator', callKind: 'classification' },
   });
 
   // JSON'ı response'dan çıkar — markdown code block içinde gelebilir

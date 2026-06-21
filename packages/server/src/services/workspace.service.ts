@@ -1,17 +1,16 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { resolve, relative, dirname } from 'node:path';
+import { resolve, dirname, sep } from 'node:path';
 import { buildFileTree, type TreeNode } from '../utils/file-tree.js';
 
 /**
  * Ensures the resolved path is within the workspace root.
- * Throws if path traversal is attempted.
+ * Throws if path traversal is attempted (boundary-safe: '/ws-evil' is NOT inside '/ws').
  */
 function assertWithinWorkspace(workspacePath: string, relativePath: string): string {
   const absWorkspace = resolve(workspacePath);
   const absTarget = resolve(absWorkspace, relativePath);
 
-  // Check that resolved path starts with workspace
-  if (!absTarget.startsWith(absWorkspace)) {
+  if (absTarget !== absWorkspace && !absTarget.startsWith(absWorkspace + sep)) {
     throw new Error(`Path traversal detected: "${relativePath}" resolves outside workspace`);
   }
 

@@ -22,6 +22,8 @@ export interface CostEntry {
   cacheCreationInputTokens: number;
   /** Router sınıflandırma çağrısının kendi token maliyeti (küçük ama görünür). */
   routerOverheadTokens: number;
+  /** L0 compression: input tokens saved by compressing context before the call (counterfactual). */
+  compressionSavedTokens?: number;
   actualCostUsd: number;
   baselineCostUsd: number;
 }
@@ -38,6 +40,7 @@ export interface CostStats {
       cacheRead: number;
       cacheCreation: number;
       routerOverhead: number;
+      compressionSaved: number;
     };
     cost: {
       baselineUsd: number;
@@ -64,6 +67,7 @@ class CostMetrics {
     cacheRead: 0,
     cacheCreation: 0,
     routerOverhead: 0,
+    compressionSaved: 0,
     baselineUsd: 0,
     actualUsd: 0,
   };
@@ -80,6 +84,7 @@ class CostMetrics {
     this.session.cacheRead += entry.cacheReadInputTokens;
     this.session.cacheCreation += entry.cacheCreationInputTokens;
     this.session.routerOverhead += entry.routerOverheadTokens;
+    this.session.compressionSaved += entry.compressionSavedTokens ?? 0;
     this.session.baselineUsd += entry.baselineCostUsd;
     this.session.actualUsd += entry.actualCostUsd;
 
@@ -108,6 +113,7 @@ class CostMetrics {
           cacheRead: this.session.cacheRead,
           cacheCreation: this.session.cacheCreation,
           routerOverhead: this.session.routerOverhead,
+          compressionSaved: this.session.compressionSaved,
         },
         cost: {
           baselineUsd: round(baseline),
@@ -133,6 +139,7 @@ class CostMetrics {
       cacheRead: 0,
       cacheCreation: 0,
       routerOverhead: 0,
+      compressionSaved: 0,
       baselineUsd: 0,
       actualUsd: 0,
     };

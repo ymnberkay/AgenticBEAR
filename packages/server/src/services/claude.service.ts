@@ -14,8 +14,8 @@ export interface ClaudeMessage {
 
 export interface ClaudeCallParams {
   model: ClaudeModel;
-  /** Provider serving this model (built-in or custom). Absent → resolved by id heuristic. */
-  providerId?: string;
+  /** Provider serving this model (built-in or custom). Absent/null → resolved by id heuristic. */
+  providerId?: string | null;
   maxTokens: number;
   temperature?: number;
   systemPrompt?: string;
@@ -34,10 +34,14 @@ export interface ClaudeCallResult {
   cacheReadInputTokens: number;
   cacheHit: boolean;
   servedModel: ClaudeModel;
+  /** Router kademesi (varsa) — gateway usage kaydı için. */
+  routerTier: string | null;
   /** Gerçek maliyet ($USD) — router/cache sonrası. */
   actualCostUsd: number;
   /** Cost-layer olmasaydı maliyet ($USD) — savings hesabı için. */
   baselineCostUsd: number;
+  /** L0 compression ile kazanılan input token. */
+  compressionSavedTokens: number;
 }
 
 /**
@@ -46,6 +50,19 @@ export interface ClaudeCallResult {
  * unified client ([llm/client.ts]), which dispatches to the resolved provider
  * (Anthropic, OpenAI, Gemini, or any custom OpenAI-/Anthropic-compatible endpoint).
  */
+/** Map a call result to the run_steps breakdown columns (model + cost-layer fields). */
+export function stepBreakdownFields(result: ClaudeCallResult, providerId?: string | null) {
+  return {
+    model: result.servedModel,
+    providerId: providerId ?? null,
+    cacheHit: result.cacheHit,
+    routerTier: result.routerTier,
+    cacheReadTokens: result.cacheReadInputTokens,
+    cacheCreationTokens: result.cacheCreationInputTokens,
+    compressionSavedTokens: result.compressionSavedTokens,
+  };
+}
+
 export class ClaudeService {
   // apiKey kept for call-site compatibility; the unified client resolves keys per provider.
   constructor(_apiKey?: string) {}
@@ -72,7 +89,7 @@ export class ClaudeService {
     const result = await costMiddleware.complete(
       {
         model: params.model,
-        providerId: params.providerId,
+        providerId: params.providerId ?? undefined,
         providerKind: resolved.kind,
         pricing,
         maxTokens: params.maxTokens,
@@ -95,8 +112,10 @@ export class ClaudeService {
       cacheReadInputTokens: result.cacheReadInputTokens,
       cacheHit: result.cacheHit,
       servedModel: result.servedModel,
+      routerTier: result.routerTier ?? null,
       actualCostUsd: result.actualCostUsd,
       baselineCostUsd: result.baselineCostUsd,
+      compressionSavedTokens: result.compressionSavedTokens,
     };
   }
 

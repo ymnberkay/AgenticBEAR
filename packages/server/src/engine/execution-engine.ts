@@ -1,4 +1,4 @@
-import { ClaudeService } from '../services/claude.service.js';
+import { ClaudeService, stepBreakdownFields } from '../services/claude.service.js';
 import { decomposeObjective } from '../services/orchestrator.service.js';
 import { executeTask } from '../services/agent-runner.service.js';
 import { tokenTracker } from '../services/token-tracker.service.js';
@@ -98,6 +98,7 @@ export const executionEngine = {
           costUsd: orchUsage.costUsd,
           baselineCostUsd: orchUsage.baselineCostUsd,
           durationMs: 0,
+          ...stepBreakdownFields(decomposition.apiResult, orchestrator.modelConfig.providerId),
         });
       } catch (stepErr) {
         log.warn('Could not record orchestrator reasoning step (non-fatal)', stepErr);
@@ -340,7 +341,7 @@ export const executionEngine = {
       );
 
       // Create run step
-      taskRepo.createStep({
+      const stepRow = taskRepo.createStep({
         runId,
         taskId: task.id,
         agentId: agent.id,
@@ -352,7 +353,27 @@ export const executionEngine = {
         costUsd: usage.costUsd,
         baselineCostUsd: usage.baselineCostUsd,
         durationMs,
+        ...stepBreakdownFields(result.apiResult, agent.modelConfig.providerId),
       });
+
+      // Record every file the agent actually wrote to the workspace (shown in the workspace UI).
+      for (const f of result.filesWritten) {
+        taskRepo.createFileChange({
+          runStepId: stepRow.id,
+          runId,
+          filePath: f.path,
+          operation: f.operation,
+          previousContent: f.previousContent,
+          newContent: f.content,
+          agentId: f.agentId,
+        });
+        eventBus.emitAndCreate('file:changed', runId, {
+          taskId: task.id,
+          agentId: agent.id,
+          filePath: f.path,
+          operation: f.operation,
+        });
+      }
 
       // Mark task complete
       queue.markComplete(task.id);
@@ -498,6 +519,7 @@ Format it clearly so it can be saved as a .txt file.`;
         costUsd: docUsage.costUsd,
         baselineCostUsd: docUsage.baselineCostUsd,
         durationMs,
+        ...stepBreakdownFields(result, docAgent.modelConfig.providerId),
       });
 
       eventBus.emitAndCreate('task:completed', runId, {

@@ -48,7 +48,7 @@ export const tokenTracker = {
     model: ClaudeModel,
     inputTokens: number,
     outputTokens: number,
-    providerId?: string,
+    providerId?: string | null,
     override?: CostOverride,
   ): TokenUsage {
     let state = runStates.get(runId);

@@ -14,7 +14,7 @@ export function ProjectWorkspacePage() {
       {/* File tree */}
       <div className="w-[200px] shrink-0 border-r border-border-default bg-bg-nav overflow-y-auto">
         <FileTree
-          nodes={fileTree}
+          nodes={fileTree?.children}
           isLoading={isLoading}
           selectedPath={selectedPath}
           onSelectFile={setSelectedPath}

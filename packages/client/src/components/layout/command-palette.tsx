@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, FolderOpen, Plus, Settings, FileCode2,
-  LayoutDashboard, Bot, Zap,
+  LayoutDashboard, Bot, Zap, Boxes,
 } from 'lucide-react';
 import { useUIStore } from '../../stores/ui.store';
 import { useProjects } from '../../api/hooks/use-projects';
@@ -84,6 +84,15 @@ export function CommandPalette() {
         category: 'Shortcuts',
       },
       {
+        id: 'slash-models',
+        label: '/models',
+        description: 'Models & gateway',
+        shortcut: '/models',
+        icon: <Boxes style={{ width: 14, height: 14 }} />,
+        action: () => { navigate({ to: '/models' }); closeModal(); },
+        category: 'Shortcuts',
+      },
+      {
         id: 'slash-settings',
         label: '/settings',
         description: 'Open global settings',
@@ -105,6 +114,13 @@ export function CommandPalette() {
         label: 'Browse Templates',
         icon: <FileCode2 style={{ width: 14, height: 14 }} />,
         action: () => { navigate({ to: '/templates' }); closeModal(); },
+        category: 'Navigation',
+      },
+      {
+        id: 'models',
+        label: 'Open Models & Gateway',
+        icon: <Boxes style={{ width: 14, height: 14 }} />,
+        action: () => { navigate({ to: '/models' }); closeModal(); },
         category: 'Navigation',
       },
       {

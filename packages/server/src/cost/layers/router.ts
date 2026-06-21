@@ -1,32 +1,28 @@
 /**
- * L2 — Router (3 kademe), provider-agnostic.
+ * L2 — Level-based router, provider-agnostic.
  *
- * Kısa, ucuz bir sınıflandırma çağrısı (her provider'ın kendi en ucuz/küçük modeli ile,
- * max_tokens ~5) görevi TRIVIAL / SIMPLE / COMPLEX olarak etiketler:
- *   TRIVIAL → cheapModel + düşük max_tokens
- *   SIMPLE  → cheapModel
- *   COMPLEX → ana model (istenen model)
+ * A short, cheap classification call rates the request's complexity 1–10. The router then picks
+ * the CHEAPEST candidate model whose capability level ≥ complexity, capped at the requested
+ * model's level (the requested model is the ceiling — never an upgrade). Candidates come from the
+ * route pool: the gateway API key's allowed models, or — if none — the requested model's provider.
  *
- * Her ana provider ailesinin (anthropic | openai | gemini) kendi cheap/classifier modeli
- * config'ten gelir. Tanınmayan / custom (-compatible) provider'larda L2 atlanır (güvenli).
- *
- * Fallback: sınıflandırma çıktısı bu üç kelimeden biri değilse veya çağrı patlarsa
- * → güvenli tarafta COMPLEX (istenen model). Asla riskli downgrade yok.
- *
- * Router yalnızca model/max_tokens'ı seçer; agent mantığını veya tool erişimini değiştirmez.
- * Sınıflandırma çağrısının kendi token maliyeti overhead olarak raporlanır.
+ * Fallback: classification fails / no cheaper eligible candidate → keep the requested model.
+ * The router only picks model/provider/max_tokens; it never changes agent logic or tool access.
  */
-import { isBuiltinProviderId } from '@subagent/shared';
-import type { ClaudeModel, ProviderKind } from '@subagent/shared';
+import type { ClaudeModel } from '@subagent/shared';
 import type { RouterTier } from '../config.js';
 import { costConfig } from '../config.js';
 import { modelPricing } from '../../llm/provider-registry.js';
-import { providerRepo } from '../../db/repositories/provider.repo.js';
 import { actualCallCost } from '../pricing.js';
+import {
+  poolFor, levelOf, priceOf, selectForComplexity, cheapest, parseComplexity, COMPLEXITY_CLASSIFY_SYSTEM,
+} from './model-select.js';
 import type { Classifier, LlmRequest } from '../types.js';
 
 export interface RouterDecision {
   model: ClaudeModel;
+  /** Served provider (may differ from requested when routing across the key's allowed pool). */
+  providerId?: string;
   maxTokens: number;
   tier: RouterTier | null;
   /** Sınıflandırma çağrısının toplam token'ı (görünürlük için). */
@@ -34,13 +30,6 @@ export interface RouterDecision {
   /** Sınıflandırma çağrısının $ maliyeti (gerçek maliyete eklenir). */
   overheadCostUsd: number;
 }
-
-const CLASSIFY_SYSTEM =
-  `Görevi zorluğuna göre TEK KELİME ile sınıflandır.\n` +
-  `TRIVIAL = selamlama, tek satır, neredeyse çıktısız.\n` +
-  `SIMPLE = kısa olgusal yanıt, hafif akıl yürütme.\n` +
-  `COMPLEX = analiz, çok adımlı işlem, uzun sentez, kod yazımı.\n` +
-  `Yalnızca şu üç kelimeden BİRİNİ döndür: TRIVIAL, SIMPLE, COMPLEX. Başka hiçbir şey yazma.`;
 
 /** Sınıflandırmaya gönderilecek kullanıcı metni için üst sınır (maliyeti küçük tut). */
 const CLASSIFY_INPUT_CHAR_CAP = 2000;
@@ -50,53 +39,6 @@ export function isRoutable(req: LlmRequest): boolean {
   return req.meta.callKind !== 'routing' && req.meta.callKind !== 'classification';
 }
 
-/** Built-in family. */
-function builtinFamily(kind: ProviderKind | undefined): 'anthropic' | 'openai' | 'gemini' | null {
-  if (kind === 'anthropic') return 'anthropic';
-  if (kind === 'openai') return 'openai';
-  if (kind === 'gemini') return 'gemini';
-  return null;
-}
-
-interface TierResolution {
-  cheapModel: string;
-  classifierModel: string;
-  providerId: string;
-}
-
-/**
- * Tier kararları:
- *  1) Built-in provider (anthropic/openai/gemini) → config.router.tiers'tan
- *  2) Custom provider (-compatible) → DB'den, en ucuz model = cheap = classifier
- *  3) Çözülemiyor → null (L2 atlanır)
- *
- * Aynı (en ucuz) model zaten servis ediliyorsa downgrade yok → null.
- */
-function resolveTiers(req: LlmRequest): TierResolution | null {
-  // Built-in family
-  const builtin = builtinFamily(req.providerKind);
-  if (builtin) {
-    const cfg = costConfig.router.tiers[builtin];
-    if (!cfg) return null;
-    if (cfg.cheapModel === req.model) return null;
-    return { cheapModel: cfg.cheapModel, classifierModel: cfg.classifierModel, providerId: builtin };
-  }
-
-  // Custom provider — kullanıcının verdiği modellerden en ucuzu cheap = classifier.
-  if (req.providerId && !isBuiltinProviderId(req.providerId)) {
-    const custom = providerRepo.findById(req.providerId);
-    if (!custom || custom.enabled === false || custom.models.length < 2) return null;
-    const sorted = [...custom.models].sort(
-      (a, b) => (a.costPer1kInput ?? 0) - (b.costPer1kInput ?? 0),
-    );
-    const cheapest = sorted[0];
-    if (cheapest.id === req.model) return null; // zaten en ucuzu kullanıyor
-    return { cheapModel: cheapest.id, classifierModel: cheapest.id, providerId: req.providerId };
-  }
-
-  return null;
-}
-
 function lastUserText(req: LlmRequest): string {
   for (let i = req.messages.length - 1; i >= 0; i--) {
     if (req.messages[i].role === 'user') return req.messages[i].content;
@@ -104,68 +46,54 @@ function lastUserText(req: LlmRequest): string {
   return req.messages.map((m) => m.content).join('\n');
 }
 
-/** Sınıflandırma çıktısını kademeye çevir; eşleşmezse güvenli COMPLEX. */
-export function parseTier(text: string): RouterTier {
-  const up = text.toUpperCase();
-  if (/\bTRIVIAL\b/.test(up)) return 'TRIVIAL';
-  if (/\bSIMPLE\b/.test(up)) return 'SIMPLE';
-  return 'COMPLEX';
-}
-
 function keepRequested(req: LlmRequest, tier: RouterTier | null): RouterDecision {
-  return { model: req.model, maxTokens: req.maxTokens, tier, overheadTokens: 0, overheadCostUsd: 0 };
+  return { model: req.model, providerId: req.providerId, maxTokens: req.maxTokens, tier, overheadTokens: 0, overheadCostUsd: 0 };
 }
 
 /**
- * Model/max_tokens kararı. classify yoksa, family tanınmıyorsa veya hata olursa
+ * Pick model/provider by complexity. classify yoksa, havuzda alternatif yoksa veya hata olursa
  * istenen modelde kalır.
  */
 export async function decide(req: LlmRequest, classify?: Classifier): Promise<RouterDecision> {
   if (!classify) return keepRequested(req, null);
 
-  const tiers = resolveTiers(req);
-  if (!tiers) return keepRequested(req, null);
+  const pool = poolFor(req.meta.routePool, req.providerId, req.model);
+  const ceiling = levelOf(pool, req.providerId, req.model);
+  // Anything cheaper to route to? (a candidate strictly below the ceiling)
+  if (!pool.some((c) => c.level < ceiling)) return keepRequested(req, null);
+  // Skip cheap ceilings — classifier overhead would outweigh the downgrade saving.
+  const ceilingPrice = priceOf(pool, req.providerId, req.model);
+  if (ceilingPrice > 0 && ceilingPrice < costConfig.router.minCeilingPrice) return keepRequested(req, null);
 
-  const { classifierMaxTokens, trivialMaxTokens } = costConfig.router;
-  const { cheapModel, classifierModel, providerId } = tiers;
+  const classifier = cheapest(pool);
+  if (!classifier) return keepRequested(req, null);
 
-  let tier: RouterTier;
+  let complexity: number;
   let overheadTokens = 0;
   let overheadCostUsd = 0;
   try {
     const res = await classify({
-      model: classifierModel,
-      providerId,
-      maxTokens: classifierMaxTokens,
-      systemPrompt: CLASSIFY_SYSTEM,
+      model: classifier.model,
+      providerId: classifier.providerId,
+      maxTokens: costConfig.router.classifierMaxTokens,
+      systemPrompt: COMPLEXITY_CLASSIFY_SYSTEM,
       userMessage: lastUserText(req).slice(0, CLASSIFY_INPUT_CHAR_CAP),
     });
-    tier = parseTier(res.text);
+    complexity = parseComplexity(res.text);
     overheadTokens = res.inputTokens + res.outputTokens;
-    const classifierPricing = modelPricing(providerId, classifierModel);
-    overheadCostUsd = actualCallCost(classifierPricing, {
-      inputTokens: res.inputTokens,
-      outputTokens: res.outputTokens,
-      cacheReadInputTokens: 0,
-      cacheCreationInputTokens: 0,
+    overheadCostUsd = actualCallCost(modelPricing(classifier.providerId, classifier.model), {
+      inputTokens: res.inputTokens, outputTokens: res.outputTokens, cacheReadInputTokens: 0, cacheCreationInputTokens: 0,
     });
   } catch {
-    // Sınıflandırma patladı → güvenli tarafta istenen modelde kal (downgrade yok).
     return keepRequested(req, null);
   }
 
-  if (tier === 'TRIVIAL') {
-    return {
-      model: cheapModel as ClaudeModel,
-      maxTokens: Math.min(req.maxTokens, trivialMaxTokens),
-      tier,
-      overheadTokens,
-      overheadCostUsd,
-    };
+  const sel = selectForComplexity(pool, { providerId: req.providerId, model: req.model }, complexity);
+  if (!sel.downgraded) {
+    return { model: req.model, providerId: req.providerId, maxTokens: req.maxTokens, tier: 'COMPLEX', overheadTokens, overheadCostUsd };
   }
-  if (tier === 'SIMPLE') {
-    return { model: cheapModel as ClaudeModel, maxTokens: req.maxTokens, tier, overheadTokens, overheadCostUsd };
-  }
-  // COMPLEX → ana model.
-  return { model: req.model, maxTokens: req.maxTokens, tier: 'COMPLEX', overheadTokens, overheadCostUsd };
+  // Downgraded → mark tier (drives L2 savings attribution); trim max_tokens for ultra-simple tasks.
+  const tier: RouterTier = complexity <= 2 ? 'TRIVIAL' : 'SIMPLE';
+  const maxTokens = tier === 'TRIVIAL' ? Math.min(req.maxTokens, costConfig.router.trivialMaxTokens) : req.maxTokens;
+  return { model: sel.model as ClaudeModel, providerId: sel.providerId, maxTokens, tier, overheadTokens, overheadCostUsd };
 }

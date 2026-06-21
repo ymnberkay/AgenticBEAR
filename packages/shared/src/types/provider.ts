@@ -23,6 +23,12 @@ export interface LLMModelDef {
   costPer1kInput?: number;
   /** USD per 1K output tokens. */
   costPer1kOutput?: number;
+  /**
+   * Capability level 1–10 (weak/cheap → strong/expensive). The L2 router picks the cheapest
+   * model whose level meets the request's complexity, capped at the requested model's level.
+   * Omit → derived from the model name.
+   */
+  level?: number;
 }
 
 export interface LLMProvider {

@@ -23,6 +23,7 @@ import type { LlmRequest, LlmResult, MiddlewareDeps } from './types.js';
 import * as semanticCache from './layers/semantic-cache.js';
 import * as router from './layers/router.js';
 import * as promptCache from './layers/prompt-cache.js';
+import * as compression from './layers/compression.js';
 
 const log = createLogger('cost');
 
@@ -67,14 +68,27 @@ export async function complete(
   onChunk?: (chunk: string) => void,
 ): Promise<LlmResult> {
   const { executor, classify } = deps;
+
+  // ── L0: Context Compression (deterministic; before everything else) ──
+  let compressionSavedTokens = 0;
+  if (costConfig.layers.compression && compression.isCompressible(req)) {
+    try {
+      const c = compression.compress(req);
+      req = c.req;
+      compressionSavedTokens = Math.max(0, c.originalTokens - c.compressedTokens);
+    } catch (err) {
+      log.warn('Compression failed, skipping L0', err);
+    }
+  }
+
   const requestedModel = req.model;
   const anthropic = isAnthropicFamily(req);
   const requestedPricing: Pricing = req.pricing ?? knownPricing(requestedModel) ?? ZERO_PRICING;
 
-  // ── L1: Semantic Cache ──────────────────────────────────────────────
+  // ── L1: Semantic Cache (judge gate uses the same cheap classifier) ──
   if (costConfig.layers.semanticCache && semanticCache.isCacheable(req)) {
     try {
-      const hit = await semanticCache.lookup(req);
+      const hit = await semanticCache.lookup(req, classify);
       if (hit) {
         if (onChunk && hit.text) onChunk(hit.text);
         const baselineCostUsd = baselineCallCost(requestedPricing, {
@@ -88,8 +102,9 @@ export async function complete(
           ...hit,
           actualCostUsd: 0,
           baselineCostUsd,
+          compressionSavedTokens,
         };
-        recordHit(req, requestedModel, baselineCostUsd, enriched);
+        recordHit(req, requestedModel, baselineCostUsd, enriched, compressionSavedTokens);
         return enriched;
       }
     } catch (err) {
@@ -100,6 +115,7 @@ export async function complete(
 
   // ── L2: Router (provider-agnostic — desteklenen family yoksa router.decide() pas geçer) ──
   let servedModel = requestedModel;
+  let servedProviderId = req.providerId;
   let servedMaxTokens = req.maxTokens;
   let routerTier = null as LlmResult['routerTier'];
   let routerOverheadTokens = 0;
@@ -109,6 +125,7 @@ export async function complete(
     try {
       const decision = await router.decide(req, classify);
       servedModel = decision.model;
+      servedProviderId = decision.providerId;
       servedMaxTokens = decision.maxTokens;
       routerTier = decision.tier;
       routerOverheadTokens = decision.overheadTokens;
@@ -119,13 +136,13 @@ export async function complete(
     }
   }
 
-  // ── L3: Prompt Caching (Anthropic family only) ──────────────────────
-  const usePromptCache = costConfig.layers.promptCache && anthropic;
+  // ── L3: Prompt Caching (Anthropic family only; not when the router changed providers) ──
+  const usePromptCache = costConfig.layers.promptCache && anthropic && servedProviderId === req.providerId;
   const finalReq = usePromptCache
-    ? { ...promptCache.apply(req, { model: servedModel, maxTokens: servedMaxTokens }), providerId: req.providerId }
+    ? { ...promptCache.apply(req, { model: servedModel, maxTokens: servedMaxTokens }), providerId: servedProviderId }
     : {
         model: servedModel,
-        providerId: req.providerId,
+        providerId: servedProviderId,
         maxTokens: servedMaxTokens,
         temperature: req.temperature,
         systemPrompt: req.systemPrompt,
@@ -139,8 +156,10 @@ export async function complete(
 
   // ── Maliyet hesabı ──────────────────────────────────────────────────
   // Served model, requested'dan farklıysa (router downgrade) o modelin gerçek pricing'i.
-  const servedPricing = resolveServedPricing(servedModel, requestedModel, requestedPricing, req.providerId);
-  const actualCostUsd = actualCallCost(servedPricing, exec) + routerOverheadCostUsd;
+  const servedPricing = resolveServedPricing(servedModel, requestedModel, requestedPricing, servedProviderId);
+  // OpenAI/Azure bill cached prompt tokens at ~50%; Anthropic at ~10% (config default).
+  const cacheReadMultiplier = isAnthropicFamily(req) ? costConfig.pricing.cacheReadMultiplier : 0.5;
+  const actualCostUsd = actualCallCost(servedPricing, exec, cacheReadMultiplier) + routerOverheadCostUsd;
   const baselineCostUsd = baselineCallCost(requestedPricing, exec);
 
   const result: LlmResult = {
@@ -151,6 +170,7 @@ export async function complete(
     routerTier,
     actualCostUsd,
     baselineCostUsd,
+    compressionSavedTokens,
   };
 
   // ── L1'e yaz ────────────────────────────────────────────────────────
@@ -176,6 +196,7 @@ export async function complete(
     cacheReadInputTokens: exec.cacheReadInputTokens,
     cacheCreationInputTokens: exec.cacheCreationInputTokens,
     routerOverheadTokens,
+    compressionSavedTokens,
     actualCostUsd,
     baselineCostUsd,
   });
@@ -188,6 +209,7 @@ function recordHit(
   requestedModel: LlmResult['requestedModel'],
   baselineCostUsd: number,
   hit: LlmResult,
+  compressionSavedTokens: number,
 ): void {
   // Cache hit → no LLM call, actual cost 0; baseline = what this call would have cost.
   costMetrics.record({
@@ -203,6 +225,7 @@ function recordHit(
     cacheReadInputTokens: 0,
     cacheCreationInputTokens: 0,
     routerOverheadTokens: 0,
+    compressionSavedTokens,
     actualCostUsd: 0,
     baselineCostUsd,
   });

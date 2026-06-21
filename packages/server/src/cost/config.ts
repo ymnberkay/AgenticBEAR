@@ -55,11 +55,53 @@ export const costConfig = {
     semanticCache: envBool('COST_LAYER_SEMANTIC_CACHE', true),
     router: envBool('COST_LAYER_ROUTER', true),
     promptCache: envBool('COST_LAYER_PROMPT_CACHE', true),
+    /** L0 — context compression before the call (headroom-style input-token reduction). */
+    compression: envBool('COST_LAYER_COMPRESSION', true),
+  },
+
+  /**
+   * L4 — Output minimization (ponytail-style). Injects a "lazy senior dev" decision-ladder
+   * directive into agentic system prompts so coding agents write less over-engineered code →
+   * fewer OUTPUT tokens. off (default, no behavior change) | lite (short nudge) | full (ladder).
+   */
+  outputMinimize: envStr<'off' | 'lite' | 'full'>('COST_OUTPUT_MINIMIZE', 'off'),
+
+  /**
+   * Exact-match cache for READ-ONLY agent tool results (read_file/list_files), keyed by
+   * workspace + tool + sorted args, invalidated on any write to that workspace. Avoids redundant
+   * tool re-execution within/across agentic turns (BetterDB agent-cache idea). ttl in ms.
+   */
+  toolResultCache: envBool('COST_TOOL_RESULT_CACHE', true),
+  toolResultCacheTtlMs: envNum('COST_TOOL_RESULT_CACHE_TTL_MS', 30_000),
+
+  /**
+   * RTK-style aggressive compression of tool OUTPUT (listings/logs/command results) before it
+   * re-enters the agentic context — repeated-line dedup + JSON minify + head/tail truncation.
+   */
+  toolOutputCompress: envBool('COST_TOOL_OUTPUT_COMPRESS', true),
+  toolOutputMaxLines: envNum('COST_TOOL_OUTPUT_MAX_LINES', 200),
+
+  /** L0 compression — deterministic & conservative (no neural/AST in v1). */
+  compression: {
+    /** Mesaj içeriği bu karakterin altındaysa dokunma (küçük promptta fayda yok). */
+    minChars: envNum('COST_COMPRESSION_MIN_CHARS', 400),
+    /** Tek bir blok (dosya/dependency çıktısı) bu karakteri aşarsa head+tail bırakıp ortayı kırp. */
+    maxBlockChars: envNum('COST_COMPRESSION_MAX_BLOCK_CHARS', 12_000),
+    /** Geçerli JSON bloklarını minify et. */
+    jsonMinify: envBool('COST_COMPRESSION_JSON_MINIFY', true),
   },
 
   semanticCache: {
-    /** Benzerlik eşiği. Üretimde 0.95+ ile başlayıp ölçerek indir. */
-    threshold: envNum('COST_SEMANTIC_THRESHOLD', 0.95),
+    /** Benzerlik eşiği. 0.90 + judge gate ile paraphrase'leri güvenle yakalar. */
+    threshold: envNum('COST_SEMANTIC_THRESHOLD', 0.90),
+    /**
+     * LLM-as-judge gate (BetterDB "full" mode). When ON, similarities in the UNCERTAIN band
+     * [judgeThreshold, threshold) are confirmed by a cheap model ("same question?") before serving
+     * → safely catches more paraphrases without raising false-positive risk. Off by default
+     * (adds one cheap call on uncertain hits).
+     */
+    judge: envBool('COST_SEMANTIC_JUDGE', true),
+    judgeThreshold: envNum('COST_SEMANTIC_JUDGE_THRESHOLD', 0.80),
     ttlSeconds: envNum('COST_SEMANTIC_TTL_SECONDS', 60 * 60 * 24),
     /** Embedder seçimi — gemini varsayılan (kullanıcının Gemini key'iyle çalışır). */
     embeddingProvider: envStr<'gemini' | 'voyage' | 'openai' | 'local'>(
@@ -92,6 +134,12 @@ export const costConfig = {
     classifierMaxTokens: envNum('COST_ROUTER_CLASSIFIER_MAX_TOKENS', 5),
     /** TRIVIAL için kısılmış üst sınır. */
     trivialMaxTokens: envNum('COST_ROUTER_TRIVIAL_MAX_TOKENS', 512),
+    /**
+     * Sadece istenen modelin blended fiyatı ($/1K in+out) bunun üzerindeyse route et. Ucuz
+     * modellerde (nano/lite/flash) sınıflandırma masrafı tasarrufu yer → route etme. Pahalı tavan
+     * modellerde (Opus/GPT-5/Sonnet) downgrade tasarrufu masrafı kat kat aşar.
+     */
+    minCeilingPrice: envNum('COST_ROUTER_MIN_CEILING_PRICE', 0.006),
   },
 
   promptCache: {

@@ -44,6 +44,24 @@ describe('cost middleware — skeleton (Adım 2)', () => {
     Object.assign(costConfig.layers, savedLayers);
   });
 
+  it('OpenAI-compatible cache_read tokens → baseline > actual (prompt-cache savings)', async () => {
+    costConfig.layers.semanticCache = false;
+    costConfig.layers.router = false;
+    costConfig.layers.promptCache = false;
+    costConfig.layers.compression = false;
+
+    // Executor reports cached prompt tokens (as OpenAI/Azure auto-caching would).
+    const exec: Executor = async () => ({
+      text: 'r', inputTokens: 100, outputTokens: 20,
+      cacheCreationInputTokens: 0, cacheReadInputTokens: 900, stopReason: 'stop',
+    });
+    const req = baseReq({ model: 'gpt-4o-mini', providerKind: 'openai-compatible', pricing: { costPer1kInput: 1, costPer1kOutput: 1 } });
+    const res = await costMiddleware.complete(req, { executor: exec });
+
+    // baseline treats all 1000 input as full price; actual discounts the 900 cached → cheaper.
+    expect(res.baselineCostUsd).toBeGreaterThan(res.actualCostUsd);
+  });
+
   it('tüm katmanlar KAPALI → executor isteği birebir alır, dönüşüm yok', async () => {
     costConfig.layers.semanticCache = false;
     costConfig.layers.router = false;
@@ -121,23 +139,22 @@ describe('cost middleware — skeleton (Adım 2)', () => {
     expect(stats.recent[0].routerTier).toBeNull(); // L2 yok
   });
 
-  it('non-anthropic model → L2/L3 atlanır ama maliyet ÖLÇÜLÜR (built-in fiyat)', async () => {
+  it('non-anthropic model → L3 (prompt cache) atlanır ama maliyet ÖLÇÜLÜR; karmaşık iş modelde kalır', async () => {
     costConfig.layers.semanticCache = false;
     costConfig.layers.router = true;
     costConfig.layers.promptCache = true;
 
     const { exec, calls } = fakeExecutor();
+    // Complexity 10 → router keeps the requested model (no downgrade).
     await costMiddleware.complete(baseReq({ model: 'gpt-4o' }), {
       executor: exec,
-      classify: async () => ({ text: 'TRIVIAL', inputTokens: 10, outputTokens: 1 }),
+      classify: async () => ({ text: '10', inputTokens: 10, outputTokens: 1 }),
     });
 
     const stats = costMetrics.getStats();
-    // gpt-4o CLAUDE_MODELS'ta tanımlı → gerçek maliyet > 0 (artık 0 değil)
-    expect(stats.session.cost.actualUsd).toBeGreaterThan(0);
-    // L3 uygulanmadı, router downgrade etmedi (gpt-4o anthropic ailesi değil)
-    expect(calls[0].systemBlocks).toBeUndefined();
-    expect(stats.recent[0].routerTier).toBeNull();
+    expect(stats.session.cost.actualUsd).toBeGreaterThan(0); // built-in price → cost measured
+    expect(calls[0].model).toBe('gpt-4o');                   // complex → kept
+    expect(calls[0].systemBlocks).toBeUndefined();           // L3 anthropic-only
     expect(stats.recent[0].promptCacheApplied).toBe(false);
   });
 });

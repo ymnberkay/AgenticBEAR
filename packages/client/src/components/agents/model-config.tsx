@@ -42,7 +42,9 @@ export function ModelConfigForm({ config, onChange }: ModelConfigFormProps) {
               value={currentValue}
               onChange={(e) => {
                 const { model, providerId } = decodeModelValue(e.target.value);
-                onChange({ ...config, model, providerId });
+                // Send null (not undefined) for built-ins so the server merge CLEARS any stale
+                // custom providerId — otherwise a Claude model would keep an old Azure/etc. provider.
+                onChange({ ...config, model, providerId: providerId ?? null });
               }}
               className="w-full appearance-none pr-8 focus:outline-none transition-all duration-200"
               style={{
