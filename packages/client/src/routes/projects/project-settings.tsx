@@ -87,14 +87,14 @@ export function ProjectSettingsPage() {
 
       {/* Page header */}
       <div className="flex items-center gap-2" style={{ marginBottom: 28 }}>
-        <Settings style={{ width: 13, height: 13, color: '#6EACDA', flexShrink: 0 }} />
+        <Settings style={{ width: 13, height: 13, color: '#7c8cf8', flexShrink: 0 }} />
         <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
           Project Settings
         </span>
       </div>
 
       {/* General section */}
-      <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: '3px solid #6EACDA', marginBottom: 12 }}>
+      <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: '3px solid #7c8cf8', marginBottom: 12 }}>
         <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border-subtle)' }}>
           <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
             General
@@ -110,7 +110,7 @@ export function ProjectSettingsPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 style={{ ...fieldStyle, height: 36, padding: '0 12px' }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(110,172,218,0.5)'; }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(124,140,248,0.5)'; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
               />
             </div>
@@ -122,7 +122,7 @@ export function ProjectSettingsPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
                 style={{ ...fieldStyle, padding: '8px 12px', resize: 'none' }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(110,172,218,0.5)'; }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(124,140,248,0.5)'; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
               />
             </div>
@@ -145,7 +145,7 @@ export function ProjectSettingsPage() {
                 value={status}
                 onChange={(e) => setStatus(e.target.value as ProjectStatus)}
                 style={{ ...fieldStyle, height: 36, padding: '0 12px', cursor: 'pointer', appearance: 'none' }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(110,172,218,0.5)'; }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(124,140,248,0.5)'; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
               >
                 <option value="active" style={{ background: '#031d38' }}>Active</option>
@@ -161,7 +161,7 @@ export function ProjectSettingsPage() {
               disabled={updateProject.isPending}
               style={{
                 height: 32, padding: '0 18px',
-                background: updateProject.isPending ? '#03346E' : '#6EACDA',
+                background: updateProject.isPending ? '#03346E' : '#7c8cf8',
                 color: '#021526',
                 fontSize: 12, fontWeight: 600,
                 fontFamily: 'var(--font-sans)',
@@ -169,7 +169,7 @@ export function ProjectSettingsPage() {
                 transition: 'background 0.15s',
               }}
               onMouseEnter={(e) => { if (!updateProject.isPending) e.currentTarget.style.background = '#ffd561'; }}
-              onMouseLeave={(e) => { if (!updateProject.isPending) e.currentTarget.style.background = '#6EACDA'; }}
+              onMouseLeave={(e) => { if (!updateProject.isPending) e.currentTarget.style.background = '#7c8cf8'; }}
             >
               {updateProject.isPending ? 'Saving…' : 'Save Changes'}
             </button>
@@ -178,7 +178,7 @@ export function ProjectSettingsPage() {
       </section>
 
       {/* MCP Integration section */}
-      <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: '3px solid #6EACDA', marginBottom: 12 }}>
+      <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: '3px solid #7c8cf8', marginBottom: 12 }}>
         <div className="flex items-center justify-between" style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border-subtle)' }}>
           <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
             MCP Integration
@@ -302,9 +302,9 @@ export function ProjectSettingsPage() {
       <Toast toast={toast} />
 
       {/* Danger zone */}
-      <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: '3px solid rgba(251,73,52,0.5)' }}>
+      <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: '3px solid rgba(224,96,96,0.5)' }}>
         <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border-subtle)' }}>
-          <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'rgba(251,73,52,0.7)' }}>
+          <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'rgba(224,96,96,0.7)' }}>
             Danger Zone
           </span>
         </div>
@@ -325,15 +325,15 @@ export function ProjectSettingsPage() {
             style={{
               height: 30, padding: '0 14px',
               fontSize: 11, fontFamily: 'var(--font-mono)',
-              color: 'rgba(251,73,52,0.7)',
+              color: 'rgba(224,96,96,0.7)',
               background: 'transparent',
-              border: '1px solid rgba(251,73,52,0.25)',
+              border: '1px solid rgba(224,96,96,0.25)',
               cursor: deleteProject.isPending ? 'not-allowed' : 'pointer',
               transition: 'all 0.15s',
               opacity: deleteProject.isPending ? 0.5 : 1,
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(251,73,52,0.08)'; e.currentTarget.style.borderColor = 'rgba(251,73,52,0.4)'; e.currentTarget.style.color = '#e06060'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(251,73,52,0.25)'; e.currentTarget.style.color = 'rgba(251,73,52,0.7)'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(224,96,96,0.08)'; e.currentTarget.style.borderColor = 'rgba(224,96,96,0.4)'; e.currentTarget.style.color = '#e06060'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(224,96,96,0.25)'; e.currentTarget.style.color = 'rgba(224,96,96,0.7)'; }}
           >
             <Trash2 style={{ width: 11, height: 11 }} />
             {deleteProject.isPending ? 'Deleting…' : 'Delete'}

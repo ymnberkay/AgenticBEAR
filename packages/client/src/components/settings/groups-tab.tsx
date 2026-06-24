@@ -44,7 +44,7 @@ export function GroupsTab({ onSaved }: { onSaved: (msg: string) => void }) {
         </select>
         <button type="button" disabled={createGroup.isPending || !name.trim()} className="flex items-center gap-1.5"
           onClick={() => createGroup.mutate({ name: name.trim(), role }, { onSuccess: () => { setName(''); setRole('contributor'); onSaved('Group created'); } })}
-          style={{ height: 36, padding: '0 14px', background: '#6EACDA', color: '#021526', fontSize: 12.5, fontWeight: 600, border: 'none', cursor: 'pointer', flexShrink: 0 }}>
+          style={{ height: 36, padding: '0 14px', background: '#7c8cf8', color: '#021526', fontSize: 12.5, fontWeight: 600, border: 'none', cursor: 'pointer', flexShrink: 0 }}>
           <Plus style={{ width: 13, height: 13 }} /> add
         </button>
       </div>
@@ -73,9 +73,9 @@ export function GroupsTab({ onSaved }: { onSaved: (msg: string) => void }) {
                 return (
                   <button key={p.id} type="button" onClick={() => toggleProject(g.id, g.projectIds, p.id)}
                     style={{ fontSize: 11, fontFamily: 'var(--font-mono)', padding: '3px 8px', cursor: 'pointer',
-                      background: on ? 'rgba(110,172,218,0.15)' : 'var(--color-bg-surface)',
-                      border: `1px solid ${on ? 'rgba(110,172,218,0.5)' : 'var(--color-border-subtle)'}`,
-                      color: on ? '#6EACDA' : 'var(--color-text-disabled)' }}>
+                      background: on ? 'rgba(124,140,248,0.15)' : 'var(--color-bg-surface)',
+                      border: `1px solid ${on ? 'rgba(124,140,248,0.5)' : 'var(--color-border-subtle)'}`,
+                      color: on ? '#7c8cf8' : 'var(--color-text-disabled)' }}>
                     {on ? '✓ ' : ''}{p.name}
                   </button>
                 );

@@ -12,7 +12,7 @@ export function AppShell({ children }: AppShellProps) {
         className="pointer-events-none absolute inset-0"
         style={{
           backgroundImage:
-            'radial-gradient(1200px 540px at 8% -18%, rgba(212,146,78,0.13), transparent 60%), radial-gradient(920px 520px at 110% 0%, rgba(107,191,160,0.09), transparent 62%)',
+            'radial-gradient(1200px 540px at 8% -18%, rgba(124,140,248,0.13), transparent 60%), radial-gradient(920px 520px at 110% 0%, rgba(109,181,138,0.09), transparent 62%)',
         }}
       />
       <div

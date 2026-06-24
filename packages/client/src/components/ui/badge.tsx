@@ -10,11 +10,11 @@ interface BadgeProps {
 }
 
 const variantStyles: Record<BadgeVariant, React.CSSProperties> = {
-  default: { background: 'rgba(146,131,116,0.12)', color: '#9ca8a2', border: '1px solid rgba(146,131,116,0.2)' },
-  success: { background: 'rgba(184,187,38,0.10)', color: '#6db58a', border: '1px solid rgba(184,187,38,0.22)' },
-  warning: { background: 'rgba(254,128,25,0.10)', color: '#e2b04a', border: '1px solid rgba(254,128,25,0.22)' },
-  error:   { background: 'rgba(251,73,52,0.10)',  color: '#e06060', border: '1px solid rgba(251,73,52,0.22)' },
-  info:    { background: 'rgba(131,165,152,0.10)', color: '#6EACDA', border: '1px solid rgba(131,165,152,0.22)' },
+  default: { background: 'var(--color-bg-raised)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border-default)' },
+  success: { background: 'var(--color-success-subtle)', color: 'var(--color-success)', border: '1px solid rgba(109,181,138,0.25)' },
+  warning: { background: 'var(--color-warning-subtle)', color: 'var(--color-warning)', border: '1px solid rgba(226,176,74,0.25)' },
+  error:   { background: 'var(--color-error-subtle)',   color: 'var(--color-error)',   border: '1px solid rgba(224,96,96,0.25)' },
+  info:    { background: 'var(--color-accent-subtle)',  color: 'var(--color-accent)',  border: '1px solid rgba(124,140,248,0.25)' },
 };
 
 export function Badge({ variant = 'default', color, children, className }: BadgeProps) {
@@ -36,6 +36,7 @@ export function Badge({ variant = 'default', color, children, className }: Badge
         letterSpacing: '0.04em',
         textTransform: 'uppercase',
         fontFamily: 'var(--font-mono)',
+        borderRadius: 'var(--radius-sm)',
         ...style,
       }}
     >

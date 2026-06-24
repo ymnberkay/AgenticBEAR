@@ -21,9 +21,9 @@ interface CommandItem {
 }
 
 const categoryColor: Record<string, string> = {
-  Navigation: '#6EACDA',
+  Navigation: '#7c8cf8',
   Actions:    '#6db58a',
-  Projects:   '#6EACDA',
+  Projects:   '#7c8cf8',
   Shortcuts:  '#e2b04a',
 };
 
@@ -233,10 +233,11 @@ export function CommandPalette() {
               style={{
                 width: '100%',
                 maxWidth: 600,
-                background: '#031d38',
-                border: '1px solid #03346E',
-                borderTop: '1px solid rgba(110,172,218,0.35)',
-                boxShadow: '0 32px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(110,172,218,0.06)',
+                background: 'var(--color-bg-surface)',
+                border: '1px solid var(--color-border-default)',
+                borderTop: '1px solid rgba(124,140,248,0.35)',
+                borderRadius: 'var(--radius-lg)',
+                boxShadow: '0 32px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(124,140,248,0.06)',
                 overflow: 'hidden',
               }}
               initial={{ opacity: 0 }}
@@ -250,7 +251,7 @@ export function CommandPalette() {
             >
               {/* Search input */}
               <div className="flex items-center gap-3 px-4" style={{ height: 52, borderBottom: '1px solid #03346E' }}>
-                <Search style={{ width: 15, height: 15, flexShrink: 0, color: '#6EACDA' }} />
+                <Search style={{ width: 15, height: 15, flexShrink: 0, color: '#7c8cf8' }} />
                 <input
                   ref={inputRef}
                   value={query}
@@ -274,9 +275,10 @@ export function CommandPalette() {
                     style={{
                       fontSize: 10,
                       fontFamily: 'var(--font-mono)',
-                      color: '#9ca8a2',
-                      background: '#042a52',
-                      border: '1px solid #03346E',
+                      color: 'var(--color-text-secondary)',
+                      background: 'var(--color-bg-raised)',
+                      border: '1px solid var(--color-border-default)',
+                      borderRadius: 'var(--radius-sm)',
                       padding: '2px 6px',
                       cursor: 'pointer',
                       flexShrink: 0,
@@ -288,9 +290,10 @@ export function CommandPalette() {
                   <kbd style={{
                     fontFamily: 'var(--font-mono)',
                     fontSize: 10,
-                    color: '#3d4a50',
-                    background: '#042a52',
-                    border: '1px solid #03346E',
+                    color: 'var(--color-text-disabled)',
+                    background: 'var(--color-bg-raised)',
+                    border: '1px solid var(--color-border-default)',
+                    borderRadius: 'var(--radius-sm)',
                     padding: '2px 6px',
                     flexShrink: 0,
                   }}>
@@ -303,9 +306,9 @@ export function CommandPalette() {
               {!query && (
                 <div
                   className="flex items-center gap-3 px-4 py-2 overflow-x-auto"
-                  style={{ borderBottom: '1px solid #2a2827', background: '#232120' }}
+                  style={{ borderBottom: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-muted)' }}
                 >
-                  <span style={{ fontSize: 10, color: '#3d4a50', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+                  <span style={{ fontSize: 10, color: 'var(--color-text-disabled)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                     shortcuts:
                   </span>
                   {['/agents', '/new', '/templates', '/settings'].map((s) => (
@@ -315,16 +318,17 @@ export function CommandPalette() {
                       style={{
                         fontSize: 11,
                         fontFamily: 'var(--font-mono)',
-                        color: '#e2b04a',
-                        background: 'rgba(254,128,25,0.08)',
-                        border: '1px solid rgba(254,128,25,0.2)',
+                        color: 'var(--color-accent)',
+                        background: 'var(--color-accent-subtle)',
+                        border: '1px solid rgba(124,140,248,0.25)',
+                        borderRadius: 'var(--radius-sm)',
                         padding: '2px 8px',
                         cursor: 'pointer',
                         flexShrink: 0,
                         transition: 'all 0.12s',
                       }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(254,128,25,0.16)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(254,128,25,0.08)'; }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(124,140,248,0.18)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent-subtle)'; }}
                     >
                       {s}
                     </button>
@@ -373,7 +377,7 @@ export function CommandPalette() {
                             margin: '0 6px',
                             padding: '8px 10px',
                             background: isSelected ? '#042a52' : 'transparent',
-                            borderLeft: isSelected ? '2px solid #6EACDA' : '2px solid transparent',
+                            borderLeft: isSelected ? '2px solid #7c8cf8' : '2px solid transparent',
                               color: isSelected ? '#E2E2B6' : '#9ca8a2',
                             cursor: 'pointer',
                             textAlign: 'left',
@@ -433,7 +437,7 @@ export function CommandPalette() {
               {/* Footer */}
               <div
                 className="flex items-center justify-between px-4 py-2"
-                style={{ borderTop: '1px solid #2a2827', background: '#232120' }}
+                style={{ borderTop: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-muted)' }}
               >
                 <div className="flex items-center gap-4" style={{ fontSize: 10, color: '#3d4a50', fontFamily: 'var(--font-mono)' }}>
                   {[

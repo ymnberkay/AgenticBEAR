@@ -35,7 +35,7 @@ export function Toast({ toast }: { toast: ToastState }) {
         gap: 8,
         padding: '10px 16px',
         background: 'var(--color-bg-surface)',
-        border: '1px solid rgba(110,172,218,0.3)',
+        border: '1px solid rgba(124,140,248,0.3)',
         borderLeft: '3px solid #6db58a',
         fontFamily: 'var(--font-mono)',
         fontSize: 12,

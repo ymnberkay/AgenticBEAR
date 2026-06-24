@@ -31,8 +31,8 @@ export function OrchestratorView({ orchestrator, status = 'idle', onConfigure }:
             transition: 'all 0.15s',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(110,172,218,0.4)';
-            e.currentTarget.style.background = 'rgba(110,172,218,0.03)';
+            e.currentTarget.style.borderColor = 'rgba(124,140,248,0.4)';
+            e.currentTarget.style.background = 'rgba(124,140,248,0.03)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.borderColor = 'var(--color-border-default)';
@@ -145,7 +145,7 @@ export function OrchestratorView({ orchestrator, status = 'idle', onConfigure }:
               background: 'transparent',
               transition: 'all 0.15s',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = '#6EACDA'; e.currentTarget.style.borderColor = 'rgba(110,172,218,0.3)'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#7c8cf8'; e.currentTarget.style.borderColor = 'rgba(124,140,248,0.3)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; }}
           >
             <Pencil style={{ width: 10, height: 10 }} />

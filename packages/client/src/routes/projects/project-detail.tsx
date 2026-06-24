@@ -56,7 +56,7 @@ function NetworkCanvas() {
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < 160) {
             const alpha = (1 - dist / 160) * 0.12;
-            ctx.strokeStyle = `rgba(110,172,218,${alpha})`;
+            ctx.strokeStyle = `rgba(124,140,248,${alpha})`;
             ctx.lineWidth = 0.6;
             ctx.beginPath();
             ctx.moveTo(a.x / 100 * W, a.y / 100 * H);
@@ -74,7 +74,7 @@ function NetworkCanvas() {
         const radius = n.r * (1 + 0.3 * Math.sin(n.pulse));
         ctx.beginPath();
         ctx.arc(px, py, radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(110,172,218,${glow})`;
+        ctx.fillStyle = `rgba(124,140,248,${glow})`;
         ctx.fill();
       });
 
@@ -99,7 +99,7 @@ function NetworkCanvas() {
 const statusConfig: Record<string, { color: string; label: string }> = {
   active:   { color: '#6db58a', label: 'active' },
   archived: { color: '#9ca8a2', label: 'archived' },
-  draft:    { color: '#6EACDA', label: 'draft' },
+  draft:    { color: '#7c8cf8', label: 'draft' },
 };
 
 export function ProjectDetailPage() {
@@ -107,6 +107,7 @@ export function ProjectDetailPage() {
   const { data: project, isLoading } = useProject(projectId);
   const paletteOpen = useUIStore((s) => s.commandPaletteOpen);
   const openModal = useUIStore((s) => s.openModal);
+  const navCollapsed = useUIStore((s) => s.projectNavCollapsed);
 
   if (isLoading) {
     return (
@@ -149,7 +150,7 @@ export function ProjectDetailPage() {
             <Link
               to="/"
               style={{ color: 'var(--color-text-disabled)', textDecoration: 'none', flexShrink: 0, transition: 'color 0.15s' }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#6EACDA'; }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#7c8cf8'; }}
               onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
             >
               agenticbear
@@ -189,9 +190,9 @@ export function ProjectDetailPage() {
                   fontFamily: 'var(--font-sans)',
                   fontSize: 12,
                   cursor: 'pointer',
-                  borderRadius: 0,
+                  borderRadius: 'var(--radius-md)',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(110,172,218,0.35)'; e.currentTarget.style.background = 'var(--color-bg-overlay)'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(124,140,248,0.35)'; e.currentTarget.style.background = 'var(--color-bg-overlay)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; e.currentTarget.style.background = 'var(--color-bg-raised)'; }}
               >
                 <Search style={{ width: 12, height: 12, flexShrink: 0 }} />
@@ -217,7 +218,7 @@ export function ProjectDetailPage() {
                 textDecoration: 'none',
                 transition: 'all 0.15s ease',
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#6EACDA'; e.currentTarget.style.borderColor = 'rgba(110,172,218,0.3)'; e.currentTarget.style.background = 'rgba(110,172,218,0.06)'; }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#7c8cf8'; e.currentTarget.style.borderColor = 'rgba(124,140,248,0.3)'; e.currentTarget.style.background = 'rgba(124,140,248,0.06)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; e.currentTarget.style.background = 'transparent'; }}
             >
               <Settings style={{ width: 12, height: 12 }} />
@@ -227,19 +228,21 @@ export function ProjectDetailPage() {
         </div>
       </div>
 
-      {/* Content */}
+      {/* Content — left offset tracks the nav so it reflows when collapsed */}
       <div className="flex-1 relative min-h-0" style={{ background: 'var(--color-bg-base)' }}>
         <ProjectNav project={project} />
-        <div
-          className="absolute inset-0 overflow-y-auto"
-          style={{ background: 'var(--color-bg-base)', left: 'var(--nav-width)', padding: '32px 40px' }}
+        <motion.div
+          className="overflow-y-auto"
+          animate={{ left: navCollapsed ? 56 : 200 }}
+          transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+          style={{ position: 'absolute', top: 0, right: 0, bottom: 0, background: 'var(--color-bg-base)', padding: '32px 40px' }}
         >
           {/* Abstract background decoration */}
           <NetworkCanvas />
           <div style={{ position: 'relative', zIndex: 1 }}>
             <Outlet />
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

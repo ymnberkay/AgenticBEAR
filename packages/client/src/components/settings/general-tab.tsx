@@ -45,14 +45,14 @@ export function GeneralTab({ onSaved }: { onSaved: (msg: string) => void }) {
 
   const saveAction = (
     <button type="button" onClick={save} disabled={updateSettings.isPending}
-      style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#6EACDA', background: 'none', border: 'none', cursor: 'pointer' }}>
+      style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#7c8cf8', background: 'none', border: 'none', cursor: 'pointer' }}>
       {updateSettings.isPending ? 'saving…' : 'save'}
     </button>
   );
 
   return (
     <div className="flex flex-col gap-3">
-      <Section icon={<Cpu style={{ width: 13, height: 13 }} />} color="#6EACDA" title="Model Defaults" action={saveAction}>
+      <Section icon={<Cpu style={{ width: 13, height: 13 }} />} color="#7c8cf8" title="Model Defaults" action={saveAction}>
         <div className="flex flex-col gap-5">
           <Field label="Default Model">
             <select value={defaultModel} onChange={(e) => setDefaultModel(e.target.value as ClaudeModel)}

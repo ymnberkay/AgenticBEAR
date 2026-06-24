@@ -4,14 +4,14 @@ import type { ReactNode, CSSProperties } from 'react';
 export const inputStyle: CSSProperties = {
   width: '100%', height: 36, padding: '0 12px', background: 'var(--color-bg-base)',
   border: '1px solid var(--color-border-default)', color: 'var(--color-text-primary)',
-  fontFamily: 'var(--font-mono)', fontSize: 13, outline: 'none',
+  fontFamily: 'var(--font-mono)', fontSize: 13, outline: 'none', borderRadius: 'var(--radius-sm)',
 };
 
 export function Section({
   icon, color, title, action, children,
 }: { icon: ReactNode; color: string; title: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: `3px solid ${color}` }}>
+    <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: `3px solid ${color}`, borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
       <div className="flex items-center justify-between" style={{ padding: '14px 16px', borderBottom: '1px solid var(--color-border-subtle)' }}>
         <div className="flex items-center gap-2.5">
           <span style={{ color, display: 'flex' }}>{icon}</span>
@@ -61,7 +61,7 @@ export function Pager({ page, total, onPage }: { page: number; total: number; on
   const btn = (enabled: boolean): CSSProperties => ({
     background: 'none', border: 'none', padding: 0,
     cursor: enabled ? 'pointer' : 'default',
-    color: enabled ? '#6EACDA' : 'var(--color-border-default)',
+    color: enabled ? '#7c8cf8' : 'var(--color-border-default)',
   });
   return (
     <div className="flex items-center justify-between" style={{ marginTop: 8, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>

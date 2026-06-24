@@ -20,7 +20,7 @@ const iconMap: Record<string, React.FC<{ className?: string; style?: React.CSSPr
 
 const taskStatusConfig: Record<string, { icon: React.FC<{ className?: string }>; color: string; label: string }> = {
   completed: { icon: CheckCircle, color: '#6db58a', label: 'Completed' },
-  in_progress: { icon: Loader2, color: '#6EACDA', label: 'In Progress' },
+  in_progress: { icon: Loader2, color: '#7c8cf8', label: 'In Progress' },
   failed: { icon: AlertCircle, color: '#e06060', label: 'Failed' },
   queued: { icon: Clock, color: '#6a5a48', label: 'Queued' },
   delegated: { icon: Clock, color: '#a8947c', label: 'Delegated' },
@@ -81,8 +81,8 @@ export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit, sele
           <div className="flex items-center gap-2 mt-1">
             <span className="text-[11px] text-text-tertiary font-mono">{modelLabel}</span>
             {status === 'running' && (
-              <span className="flex items-center gap-1 text-[10px] text-[#6EACDA]">
-                <span className="h-1.5 w-1.5 rounded-full animate-pulse bg-[#6EACDA]" />
+              <span className="flex items-center gap-1 text-[10px] text-[#7c8cf8]">
+                <span className="h-1.5 w-1.5 rounded-full animate-pulse bg-[#7c8cf8]" />
                 Running
               </span>
             )}
@@ -294,7 +294,7 @@ export function ActivityDetailPanel({
 }) {
   const isRunning = activity.status === 'running';
   const isFailed = activity.status === 'failed';
-  const statusColor = isRunning ? '#6EACDA' : isFailed ? '#e06060' : '#6db58a';
+  const statusColor = isRunning ? '#7c8cf8' : isFailed ? '#e06060' : '#6db58a';
   const statusLabel = isRunning ? 'Running' : isFailed ? 'Failed' : 'Completed';
 
   const duration =
@@ -414,7 +414,7 @@ function ActivityRow({
 }) {
   const isRunning = activity.status === 'running';
   const isFailed = activity.status === 'failed';
-  const statusColor = isRunning ? '#6EACDA' : isFailed ? '#e06060' : '#6db58a';
+  const statusColor = isRunning ? '#7c8cf8' : isFailed ? '#e06060' : '#6db58a';
   const StatusIcon = isRunning ? Loader2 : isFailed ? AlertCircle : CheckCircle;
   const statusLabel = isRunning ? 'Running' : isFailed ? 'Failed' : 'Completed';
 

@@ -15,8 +15,8 @@ import { AppShell } from './components/layout/app-shell';
 import { DashboardPage } from './routes/dashboard';
 import { ProjectDetailPage } from './routes/projects/project-detail';
 import { ProjectAgentsPage } from './routes/projects/project-agents';
-import { ProjectAnalyticsPage } from './routes/projects/project-analytics';
 import { ProjectChatPage } from './routes/projects/project-chat';
+import { ProjectMonitorPage } from './routes/projects/project-monitor';
 
 import { ProjectSettingsPage } from './routes/projects/project-settings';
 import { RunDetailPage } from './routes/projects/run-detail';
@@ -57,26 +57,33 @@ const projectRoute = createRoute({
   component: ProjectDetailPage,
 });
 
-// Project index (redirects to agents by default)
+// Project index → Chat (chat-centric entry)
 const projectIndexRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: '/',
-  component: ProjectAgentsPage,
+  component: ProjectChatPage,
 });
 
-// Project agents
+// Project agents (the "agentic" workspace)
 const projectAgentsRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: '/agents',
   component: ProjectAgentsPage,
 });
 
+// Project monitor (live mission control)
+const projectMonitorRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: '/monitor',
+  component: ProjectMonitorPage,
+});
 
-// Project analytics
+
+// Analytics folded into Monitor — keep the path working for old links.
 const projectAnalyticsRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: '/analytics',
-  component: ProjectAnalyticsPage,
+  beforeLoad: ({ params }) => { throw redirect({ to: '/projects/$projectId/monitor', params }); },
 });
 
 // Project chat
@@ -127,6 +134,7 @@ const routeTree = rootRoute.addChildren([
   projectRoute.addChildren([
     projectIndexRoute,
     projectAgentsRoute,
+    projectMonitorRoute,
     projectAnalyticsRoute,
     projectChatRoute,
     projectSettingsRoute,

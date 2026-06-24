@@ -145,7 +145,7 @@ export function CustomProvidersSection() {
         </div>
         {!open && (
           <button type="button" onClick={startNew} className="flex items-center gap-1.5"
-            style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#6EACDA', background: 'none', border: 'none', cursor: 'pointer' }}>
+            style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#7c8cf8', background: 'none', border: 'none', cursor: 'pointer' }}>
             <Plus style={{ width: 12, height: 12 }} /> add provider
           </button>
         )}
@@ -238,7 +238,7 @@ export function CustomProvidersSection() {
               ))}
               <button type="button" onClick={() => setForm((f) => ({ ...f, models: [...f.models, { id: '', label: '', inPer1M: '', outPer1M: '', level: '' }] }))}
                 className="flex items-center gap-1.5 w-fit"
-                style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#6EACDA', background: 'none', border: 'none', cursor: 'pointer' }}>
+                style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#7c8cf8', background: 'none', border: 'none', cursor: 'pointer' }}>
                 <Plus style={{ width: 11, height: 11 }} /> add model
               </button>
             </div>
@@ -249,7 +249,7 @@ export function CustomProvidersSection() {
                 Cancel
               </button>
               <button type="button" onClick={save} disabled={createProvider.isPending || updateProvider.isPending}
-                style={{ height: 32, padding: '0 16px', background: '#6EACDA', color: '#021526', fontSize: 12.5, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
+                style={{ height: 32, padding: '0 16px', background: '#7c8cf8', color: '#021526', fontSize: 12.5, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
                 {editingId ? 'Save changes' : 'Add provider'}
               </button>
             </div>

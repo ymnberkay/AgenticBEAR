@@ -50,11 +50,11 @@ export function ProjectList({ projects, isLoading, onCreateProject }: ProjectLis
         <div
           className="flex h-16 w-16 items-center justify-center mb-5"
           style={{
-            background: 'rgba(110, 172, 218, 0.08)',
-            border: '1px solid rgba(110, 172, 218, 0.2)',
+            background: 'rgba(124,140,248, 0.08)',
+            border: '1px solid rgba(124,140,248, 0.2)',
           }}
         >
-          <FolderPlus className="h-7 w-7" style={{ color: '#6EACDA' }} />
+          <FolderPlus className="h-7 w-7" style={{ color: '#7c8cf8' }} />
         </div>
         <h3
           className="text-[16px] font-semibold mb-2"
@@ -73,7 +73,7 @@ export function ProjectList({ projects, isLoading, onCreateProject }: ProjectLis
           className="text-[13px] font-semibold px-5 transition-all duration-150 hover:opacity-80"
           style={{
             height: 38,
-            background: '#6EACDA',
+            background: '#7c8cf8',
             color: '#021526',
             fontFamily: 'var(--font-sans)',
             border: 'none',

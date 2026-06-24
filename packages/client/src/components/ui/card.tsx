@@ -16,11 +16,12 @@ export function Card({ header, footer, hoverable = false, children, className, .
         background: 'var(--color-bg-surface)',
         border: '1px solid var(--color-border-subtle)',
         borderLeft: '3px solid var(--color-border-subtle)',
+        borderRadius: 'var(--radius-md)',
       }}
       onMouseEnter={hoverable ? (e) => {
-        e.currentTarget.style.borderLeftColor = '#6EACDA';
+        e.currentTarget.style.borderLeftColor = '#7c8cf8';
         e.currentTarget.style.borderColor = 'var(--color-border-default)';
-        e.currentTarget.style.borderLeftColor = '#6EACDA';
+        e.currentTarget.style.borderLeftColor = '#7c8cf8';
         e.currentTarget.style.background = 'var(--color-bg-raised)';
       } : undefined}
       onMouseLeave={hoverable ? (e) => {

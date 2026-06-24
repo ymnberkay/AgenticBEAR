@@ -69,7 +69,8 @@ export function Dialog({
                 maxHeight: '90vh',
                 background: 'var(--color-bg-surface)',
                 border: '1px solid var(--color-border-default)',
-                boxShadow: '0 24px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(212,146,78,0.06)',
+                borderRadius: 'var(--radius-lg)',
+                boxShadow: '0 24px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(124,140,248,0.06)',
               }}
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}

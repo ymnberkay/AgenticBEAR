@@ -1,5 +1,5 @@
 import { Link, useMatchRoute } from '@tanstack/react-router';
-import { Bot, ChevronRight, ChevronLeft, BarChart3, MessageSquare } from 'lucide-react';
+import { Bot, ChevronRight, ChevronLeft, MessageSquare, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Project } from '@subagent/shared';
 import { useUIStore } from '../../stores/ui.store';
@@ -8,10 +8,12 @@ interface ProjectNavProps {
   project: Project;
 }
 
+// Chat-centric: the project index ('') is the chat surface; agentic + monitor live alongside.
+// Monitor folds in usage/cost (the former Analytics tab) plus a live event feed.
 const navItems = [
-  { to: '/agents' as const, label: 'Agents', icon: Bot, description: 'manage ai agents' },
-  { to: '/chat' as const, label: 'Chat', icon: MessageSquare, description: 'talk to agents' },
-  { to: '/analytics' as const, label: 'Analytics', icon: BarChart3, description: 'token usage & cost' },
+  { to: '' as const, label: 'Chat', icon: MessageSquare, description: 'talk to agents', exact: true },
+  { to: '/agents' as const, label: 'Agents', icon: Bot, description: 'agentic workspace', exact: false },
+  { to: '/monitor' as const, label: 'Monitor', icon: Activity, description: 'live + usage/cost', exact: false },
 ];
 
 const NAV_FULL = 200;
@@ -49,7 +51,7 @@ export function ProjectNav({ project }: ProjectNavProps) {
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, paddingTop: 12, paddingBottom: 12, gap: 4 }}
           >
             {navItems.map((item) => {
-              const isActive = matchRoute({ to: `/projects/$projectId${item.to}`, params: { projectId: project.id }, fuzzy: true });
+              const isActive = matchRoute({ to: `/projects/$projectId${item.to}`, params: { projectId: project.id }, fuzzy: !item.exact });
               return (
                 <Link
                   key={item.to}
@@ -59,9 +61,9 @@ export function ProjectNav({ project }: ProjectNavProps) {
                   style={{
                     width: 32, height: 32,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: isActive ? '#6EACDA' : 'var(--color-text-disabled)',
-                    background: isActive ? 'rgba(110,172,218,0.10)' : 'transparent',
-                    borderLeft: isActive ? '2px solid #6EACDA' : '2px solid transparent',
+                    color: isActive ? '#7c8cf8' : 'var(--color-text-disabled)',
+                    background: isActive ? 'rgba(124,140,248,0.10)' : 'transparent',
+                    borderLeft: isActive ? '2px solid #7c8cf8' : '2px solid transparent',
                     transition: 'all 0.15s ease', flexShrink: 0,
                   }}
                   onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.color = 'var(--color-text-secondary)'; e.currentTarget.style.background = 'var(--color-bg-hover)'; } }}
@@ -80,7 +82,7 @@ export function ProjectNav({ project }: ProjectNavProps) {
                 color: 'var(--color-text-disabled)', background: 'transparent',
                 border: '1px solid var(--color-border-subtle)', transition: 'all 0.15s ease', flexShrink: 0,
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#6EACDA'; e.currentTarget.style.color = '#6EACDA'; e.currentTarget.style.background = 'rgba(110,172,218,0.08)'; }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#7c8cf8'; e.currentTarget.style.color = '#7c8cf8'; e.currentTarget.style.background = 'rgba(124,140,248,0.08)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; e.currentTarget.style.color = 'var(--color-text-disabled)'; e.currentTarget.style.background = 'transparent'; }}
             >
               <ChevronRight style={{ width: 12, height: 12 }} />
@@ -116,7 +118,7 @@ export function ProjectNav({ project }: ProjectNavProps) {
             {/* Nav items */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '2px 0 8px' }}>
               {navItems.map((item) => {
-                const isActive = matchRoute({ to: `/projects/$projectId${item.to}`, params: { projectId: project.id }, fuzzy: true });
+                const isActive = matchRoute({ to: `/projects/$projectId${item.to}`, params: { projectId: project.id }, fuzzy: !item.exact });
                 return (
                   <Link
                     key={item.to}
@@ -125,20 +127,20 @@ export function ProjectNav({ project }: ProjectNavProps) {
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10,
                       fontSize: 13, fontWeight: isActive ? 500 : 400,
-                      color: isActive ? '#6EACDA' : 'var(--color-text-secondary)',
+                      color: isActive ? '#7c8cf8' : 'var(--color-text-secondary)',
                       padding: '9px 14px',
-                      background: isActive ? 'rgba(110,172,218,0.07)' : 'transparent',
-                      borderLeft: isActive ? '2px solid #6EACDA' : '2px solid transparent',
+                      background: isActive ? 'rgba(124,140,248,0.07)' : 'transparent',
+                      borderLeft: isActive ? '2px solid #7c8cf8' : '2px solid transparent',
                       transition: 'all 0.15s ease',
                       fontFamily: 'var(--font-sans)', textDecoration: 'none', whiteSpace: 'nowrap',
                     }}
-                    onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = 'rgba(110,172,218,0.04)'; e.currentTarget.style.color = 'var(--color-text-primary)'; } }}
+                    onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = 'rgba(124,140,248,0.04)'; e.currentTarget.style.color = 'var(--color-text-primary)'; } }}
                     onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-secondary)'; } }}
                   >
                     <item.icon style={{ width: 14, height: 14, flexShrink: 0 }} />
                     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                       <span style={{ lineHeight: 1.2 }}>{item.label}</span>
-                      <span style={{ fontSize: 10, color: isActive ? 'rgba(110,172,218,0.5)' : 'var(--color-text-disabled)', lineHeight: 1.2, marginTop: 2, fontFamily: 'var(--font-mono)' }}>
+                      <span style={{ fontSize: 10, color: isActive ? 'rgba(124,140,248,0.5)' : 'var(--color-text-disabled)', lineHeight: 1.2, marginTop: 2, fontFamily: 'var(--font-mono)' }}>
                         {item.description}
                       </span>
                     </div>

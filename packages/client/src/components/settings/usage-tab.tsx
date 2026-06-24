@@ -52,10 +52,10 @@ export function UsageTab() {
         {RANGES.map((r) => (
           <button key={r.value} type="button" onClick={() => setRange(r.value)}
             style={{
-              height: 28, padding: '0 12px', fontSize: 11.5, fontFamily: 'var(--font-mono)', cursor: 'pointer',
-              background: range === r.value ? 'rgba(110,172,218,0.15)' : 'var(--color-bg-surface)',
-              border: `1px solid ${range === r.value ? 'rgba(110,172,218,0.5)' : 'var(--color-border-subtle)'}`,
-              color: range === r.value ? '#6EACDA' : 'var(--color-text-disabled)',
+              height: 28, padding: '0 12px', fontSize: 11.5, fontFamily: 'var(--font-mono)', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
+              background: range === r.value ? 'var(--color-accent-subtle)' : 'var(--color-bg-surface)',
+              border: `1px solid ${range === r.value ? 'var(--color-accent)' : 'var(--color-border-subtle)'}`,
+              color: range === r.value ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
             }}>
             {r.label}
           </button>

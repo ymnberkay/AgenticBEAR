@@ -1,39 +1,41 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { Send, Plus, Trash2, BookOpen, Upload, Loader2, FolderTree, X } from 'lucide-react';
+import { Plus, Trash2, BookOpen, Upload, FolderTree, X, MessageSquarePlus, PanelLeftClose, PanelLeft, Sparkles } from 'lucide-react';
 import { useAgents } from '../../api/hooks/use-agents';
 import { useDocuments, useCreateDocument, useDeleteDocument } from '../../api/hooks/use-documents';
 import { useFileTree, workspaceKeys } from '../../api/hooks/use-workspace';
 import { FileTree } from '../../components/workspace/file-tree';
 import { FileViewer } from '../../components/workspace/file-viewer';
 import { streamChat, type ChatMessage, type ToolEvent } from '../../api/chat';
+import { ChatMessage as ChatBubble } from '../../components/chat/chat-message';
+import { ChatComposer } from '../../components/chat/chat-composer';
+import { useConversations, type ChatEntry } from '../../components/chat/use-conversations';
 
-/** A rendered chat entry: a message plus any tool activity the agent performed for it. */
-interface ChatEntry extends ChatMessage {
-  activity?: string[];
-}
-
-/** Human-readable one-liner for a tool event (shown dimmed above the answer). */
+/** Human-readable one-liner for a tool event (shown as an activity chip). */
 function activityLine(e: ToolEvent): string | null {
   switch (e.kind) {
-    case 'write':
-      return `${e.operation === 'modify' ? '✏️ edited' : '📝 wrote'} ${e.path}`;
-    case 'delegate':
-      return `→ delegated to ${e.agent}${e.task ? `: ${e.task.length > 70 ? `${e.task.slice(0, 67)}…` : e.task}` : ''}`;
+    case 'write': return `${e.operation === 'modify' ? 'edited' : 'wrote'} ${e.path}`;
+    case 'delegate': return `→ delegated to ${e.agent}${e.task ? `: ${e.task.length > 70 ? `${e.task.slice(0, 67)}…` : e.task}` : ''}`;
     case 'tool':
-      if (e.name === 'read_file') return '📄 read a file';
-      if (e.name === 'list_files') return '📁 listed files';
-      return `🔧 ${e.name}`;
-    default:
-      return null; // toolResult is noisy — skip
+      if (e.name === 'read_file') return 'read a file';
+      if (e.name === 'list_files') return 'listed files';
+      return `${e.name}`;
+    default: return null;
   }
 }
 
+const SUGGESTIONS = [
+  { icon: '⚡', text: 'Summarize what this project does' },
+  { icon: '🛠️', text: 'Write a small helper function under src' },
+  { icon: '🔎', text: 'List the files and explain the structure' },
+  { icon: '📝', text: 'Draft a README for this project' },
+];
+
 const inputStyle: React.CSSProperties = {
-  width: '100%', height: 36, padding: '0 12px', background: 'var(--color-bg-base)',
+  width: '100%', height: 34, padding: '0 10px', background: 'var(--color-bg-base)',
   border: '1px solid var(--color-border-default)', color: 'var(--color-text-primary)',
-  fontFamily: 'var(--font-mono)', fontSize: 13, outline: 'none',
+  fontFamily: 'var(--font-mono)', fontSize: 12.5, outline: 'none', borderRadius: 'var(--radius-sm)',
 };
 
 export function ProjectChatPage() {
@@ -42,267 +44,277 @@ export function ProjectChatPage() {
   const { data: docs } = useDocuments(projectId);
   const createDoc = useCreateDocument(projectId);
   const deleteDoc = useDeleteDocument(projectId);
-
   const queryClient = useQueryClient();
   const { data: fileTree, isLoading: treeLoading } = useFileTree(projectId);
 
-  const [agentId, setAgentId] = useState('');
-  const [messages, setMessages] = useState<ChatEntry[]>([]);
+  const conv = useConversations(projectId);
+  const [messages, setMessages] = useState<ChatEntry[]>(conv.active?.messages ?? []);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
-  const [showKnowledge, setShowKnowledge] = useState(false);
-  const [showWorkspace, setShowWorkspace] = useState(false);
-  // Files changed during this chat session (from streamed `write` events): path → operation.
+  const [agentId, setAgentId] = useState('');
+  const [railOpen, setRailOpen] = useState(true);
+  const [panel, setPanel] = useState<null | 'knowledge' | 'workspace'>(null);
   const [changed, setChanged] = useState<Map<string, 'create' | 'modify'>>(new Map());
   const [viewerPath, setViewerPath] = useState<string | null>(null);
   const [docName, setDocName] = useState('');
   const [docContent, setDocContent] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Grow the input box to fit its content (up to a cap), so multi-line edits stay visible.
-  const autosizeInput = () => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 320)}px`;
-  };
-  useEffect(() => { autosizeInput(); }, [input]);
+  const agentList = useMemo(() => agents ?? [], [agents]);
+  const activeAgent = agentList.find((a) => a.id === agentId);
 
-  // Default to the orchestrator, else the first agent.
+  // Default agent = the active conversation's, else orchestrator, else first.
   useEffect(() => {
-    if (!agentId && agents && agents.length > 0) {
-      setAgentId((agents.find((a) => a.role === 'orchestrator') ?? agents[0]).id);
-    }
-  }, [agents, agentId]);
+    if (agentList.length === 0) return;
+    const fallback = (agentList.find((a) => a.role === 'orchestrator') ?? agentList[0]).id;
+    setAgentId(conv.active?.agentId || fallback);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentList, conv.activeId]);
+
+  // Load messages when switching conversations.
+  useEffect(() => { setMessages(conv.active?.messages ?? []); setChanged(new Map()); /* eslint-disable-next-line */ }, [conv.activeId]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   async function send() {
     const text = input.trim();
     if (!text || !agentId || streaming) return;
-    // Wire history carries only role/content; tool activity is local UI state.
+
+    // Ensure a conversation exists.
+    let id = conv.activeId;
+    if (!id) id = conv.startNew(agentId);
+
     const history: ChatMessage[] = [
       ...messages.map((m) => ({ role: m.role, content: m.content })),
       { role: 'user', content: text },
     ];
-    setMessages((prev) => [...prev, { role: 'user', content: text }, { role: 'assistant', content: '' }]);
+    // `work` is the live source of truth; we clone it into state on each chunk for rendering.
+    const work: ChatEntry[] = [...messages, { role: 'user', content: text }, { role: 'assistant', content: '' }];
+    setMessages([...work]);
     setInput('');
     setStreaming(true);
-    const appendToLast = (t: string) =>
-      setMessages((prev) => {
-        const copy = [...prev];
-        const last = copy[copy.length - 1];
-        copy[copy.length - 1] = { ...last, content: last.content + t };
-        return copy;
-      });
-    const addActivity = (line: string) =>
-      setMessages((prev) => {
-        const copy = [...prev];
-        const last = copy[copy.length - 1];
-        copy[copy.length - 1] = { ...last, activity: [...(last.activity ?? []), line] };
-        return copy;
-      });
+
+    const setLast = (fn: (last: ChatEntry) => ChatEntry) => { work[work.length - 1] = fn(work[work.length - 1]); setMessages([...work]); };
+
     const touched: string[] = [];
     await streamChat(projectId, agentId, history, {
-      onDelta: appendToLast,
+      onDelta: (t) => setLast((last) => ({ ...last, content: last.content + t })),
       onTool: (e) => {
         const line = activityLine(e);
-        if (line) addActivity(line);
+        if (line) setLast((last) => ({ ...last, activity: [...(last.activity ?? []), line] }));
         if (e.kind === 'write' && e.path) {
           touched.push(e.path);
           setChanged((prev) => new Map(prev).set(e.path!, (e.operation as 'create' | 'modify') ?? 'modify'));
         }
       },
-      onError: (m) => appendToLast(`\n\n⚠️ ${m}`),
+      onError: (m) => setLast((last) => ({ ...last, content: `${last.content}\n\n⚠️ ${m}` })),
     });
     setStreaming(false);
-    // Files changed → refresh the tree (new files appear) + any open/changed file contents.
+
+    // Persist the finished turn into the conversation store.
+    conv.update(id, work, agentId);
+
     if (touched.length > 0) {
       queryClient.invalidateQueries({ queryKey: workspaceKeys.fileTree(projectId) });
       for (const p of touched) queryClient.invalidateQueries({ queryKey: workspaceKeys.fileContent(projectId, p) });
-      setShowWorkspace(true);
+      setPanel('workspace');
     }
   }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const content = await file.text();
     setDocName(file.name);
-    setDocContent(content);
+    setDocContent(await file.text());
     e.target.value = '';
   }
-
   function addDoc() {
     if (!docName.trim() || !docContent.trim()) return;
-    createDoc.mutate(
-      { name: docName.trim(), content: docContent },
-      { onSuccess: () => { setDocName(''); setDocContent(''); } },
-    );
+    createDoc.mutate({ name: docName.trim(), content: docContent }, { onSuccess: () => { setDocName(''); setDocContent(''); } });
   }
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 120px)' }}>
-      {/* Header: agent picker + knowledge toggle */}
-      <div className="flex items-center gap-3 flex-wrap" style={{ marginBottom: 12 }}>
-        <select value={agentId} onChange={(e) => setAgentId(e.target.value)}
-          style={{ ...inputStyle, width: 'auto', minWidth: 220, cursor: 'pointer' }}>
-          {(agents ?? []).map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.role === 'orchestrator' ? '🧭 ' : '• '}{a.name} ({a.role})
-            </option>
-          ))}
-        </select>
-        <button type="button" onClick={() => setShowKnowledge((s) => !s)} className="flex items-center gap-1.5"
-          style={{ height: 36, padding: '0 12px', fontSize: 12, fontFamily: 'var(--font-mono)', background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', color: showKnowledge ? '#6EACDA' : 'var(--color-text-disabled)', cursor: 'pointer' }}>
-          <BookOpen style={{ width: 13, height: 13 }} /> Knowledge ({docs?.length ?? 0})
-        </button>
-        <button type="button" onClick={() => setShowWorkspace((s) => !s)} className="flex items-center gap-1.5"
-          style={{ height: 36, padding: '0 12px', fontSize: 12, fontFamily: 'var(--font-mono)', background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', color: showWorkspace ? '#6EACDA' : 'var(--color-text-disabled)', cursor: 'pointer' }}>
-          <FolderTree style={{ width: 13, height: 13 }} /> Files{changed.size > 0 ? ` (${changed.size})` : ''}
-        </button>
-        {messages.length > 0 && (
-          <button type="button" onClick={() => setMessages([])}
-            style={{ height: 36, padding: '0 12px', fontSize: 12, fontFamily: 'var(--font-mono)', background: 'none', border: '1px solid var(--color-border-subtle)', color: 'var(--color-text-disabled)', cursor: 'pointer' }}>
-            clear
+    <div className="flex" style={{ height: 'calc(100vh - 116px)', gap: 0 }}>
+      {/* ── Conversation rail ── */}
+      {railOpen ? (
+        <div className="flex flex-col" style={{ width: 230, flexShrink: 0, borderRight: '1px solid var(--color-border-subtle)', paddingRight: 12, marginRight: 14 }}>
+          <button type="button" onClick={() => { setMessages([]); conv.startNew(agentId); }} className="flex items-center justify-center gap-2"
+            style={{ height: 36, background: 'var(--color-accent)', color: '#0d1117', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, marginBottom: 12 }}>
+            <MessageSquarePlus style={{ width: 15, height: 15 }} /> New chat
           </button>
-        )}
-      </div>
-
-      {/* Knowledge panel */}
-      {showKnowledge && (
-        <div style={{ marginBottom: 12, padding: 14, background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: '3px solid #6db58a' }}>
-          <p style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', marginTop: 0, marginBottom: 10 }}>
-            Documents added here are injected into every agent's context in this project.
-          </p>
-          <div className="flex flex-col gap-1.5" style={{ marginBottom: 12 }}>
-            {(docs ?? []).map((d) => (
-              <div key={d.id} className="flex items-center justify-between gap-3" style={{ padding: '6px 10px', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)' }}>
-                <span className="truncate" style={{ fontSize: 12, color: 'var(--color-text-primary)' }}>{d.name}</span>
-                <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
-                  <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>{(d.content.length / 1000).toFixed(1)}k chars</span>
-                  <button type="button" onClick={() => deleteDoc.mutate(d.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d88a8a' }}>
-                    <Trash2 style={{ width: 13, height: 13 }} />
-                  </button>
-                </div>
-              </div>
-            ))}
-            {(docs ?? []).length === 0 && <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>No documents yet.</span>}
-          </div>
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <input placeholder="document name" value={docName} onChange={(e) => setDocName(e.target.value)} style={inputStyle} />
-              <label className="flex items-center gap-1.5" style={{ height: 36, padding: '0 12px', fontSize: 12, fontFamily: 'var(--font-mono)', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-default)', color: 'var(--color-text-disabled)', cursor: 'pointer', flexShrink: 0 }}>
-                <Upload style={{ width: 13, height: 13 }} /> file
-                <input type="file" accept=".txt,.md,.json,.csv,text/*" onChange={onFile} style={{ display: 'none' }} />
-              </label>
-            </div>
-            <textarea placeholder="paste document content…" value={docContent} onChange={(e) => setDocContent(e.target.value)}
-              style={{ ...inputStyle, height: 80, padding: '8px 12px', resize: 'vertical' }} />
-            <button type="button" onClick={addDoc} disabled={createDoc.isPending} className="flex items-center gap-1.5 w-fit"
-              style={{ height: 32, padding: '0 14px', fontSize: 12.5, fontWeight: 600, background: '#6EACDA', color: '#021526', border: 'none', cursor: 'pointer' }}>
-              <Plus style={{ width: 13, height: 13 }} /> add document
+          <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
+            <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-text-disabled)', fontFamily: 'var(--font-mono)' }}>Chats</span>
+            <button type="button" onClick={() => setRailOpen(false)} title="Hide" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-disabled)' }}>
+              <PanelLeftClose style={{ width: 14, height: 14 }} />
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Body: chat column + optional workspace panel */}
-      <div className="flex-1 flex gap-3" style={{ minHeight: 0 }}>
-      <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto flex flex-col gap-3" style={{ padding: '4px 2px' }}>
-        {messages.length === 0 && (
-          <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--color-text-disabled)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-            Chat with the selected agent. Project knowledge is included automatically.
-          </div>
-        )}
-        {messages.map((m, i) => (
-          <div key={i} className="flex flex-col" style={{ alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-            {m.activity && m.activity.length > 0 && (
-              <div className="flex flex-col gap-0.5" style={{ maxWidth: '80%', marginBottom: 4 }}>
-                {m.activity.map((line, j) => (
-                  <span key={j} style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', paddingLeft: 2 }}>
-                    {line}
-                  </span>
-                ))}
-              </div>
+          <div className="flex-1 overflow-y-auto flex flex-col" style={{ gap: 2 }}>
+            {conv.conversations.length === 0 && (
+              <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', padding: '4px 2px' }}>No chats yet.</span>
             )}
-            <div style={{
-              maxWidth: '80%', padding: '10px 14px', fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap',
-              fontFamily: m.role === 'assistant' ? 'var(--font-mono)' : 'var(--font-sans)',
-              background: m.role === 'user' ? 'rgba(110,172,218,0.12)' : 'var(--color-bg-surface)',
-              border: `1px solid ${m.role === 'user' ? 'rgba(110,172,218,0.3)' : 'var(--color-border-subtle)'}`,
-              color: 'var(--color-text-primary)',
-            }}>
-              {m.content || (streaming && i === messages.length - 1 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : '')}
-            </div>
-          </div>
-        ))}
-        <div ref={endRef} />
-      </div>
-
-      {/* Input */}
-      <div className="flex items-end gap-2" style={{ marginTop: 12 }}>
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-          placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
-          rows={1}
-          style={{ ...inputStyle, height: 40, minHeight: 40, maxHeight: 320, padding: '10px 12px', resize: 'none', overflowY: 'auto', fontFamily: 'var(--font-sans)' }}
-        />
-        <button type="button" onClick={send} disabled={streaming || !input.trim()}
-          className="flex items-center justify-center" style={{ height: 40, width: 44, flexShrink: 0, background: streaming || !input.trim() ? 'var(--color-bg-surface)' : '#6EACDA', color: streaming || !input.trim() ? 'var(--color-text-disabled)' : '#021526', border: 'none', cursor: streaming || !input.trim() ? 'default' : 'pointer' }}>
-          {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send style={{ width: 16, height: 16 }} />}
-        </button>
-      </div>
-      </div>
-
-      {/* Workspace panel: files changed in this chat + the directory tree */}
-      {showWorkspace && (
-        <div className="flex flex-col" style={{ width: 300, flexShrink: 0, border: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-surface)', minHeight: 0 }}>
-          <div className="flex items-center justify-between" style={{ padding: '8px 10px', borderBottom: '1px solid var(--color-border-subtle)' }}>
-            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>Workspace</span>
-            <button type="button" onClick={() => setShowWorkspace(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-disabled)' }}><X style={{ width: 13, height: 13 }} /></button>
-          </div>
-
-          {/* Changed in this chat */}
-          <div style={{ borderBottom: '1px solid var(--color-border-subtle)', maxHeight: 160, overflowY: 'auto' }}>
-            <div style={{ fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', padding: '8px 10px 4px' }}>
-              Changed in this chat ({changed.size})
-            </div>
-            {changed.size === 0 ? (
-              <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', padding: '0 10px 8px' }}>No edits yet.</div>
-            ) : (
-              <div className="flex flex-col" style={{ paddingBottom: 6 }}>
-                {[...changed.entries()].map(([path, op]) => (
-                  <button key={path} type="button" onClick={() => setViewerPath(path)}
-                    className="flex items-center gap-1.5 hover:bg-bg-raised" style={{ padding: '3px 10px', background: viewerPath === path ? 'rgba(110,172,218,0.1)' : 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-                    <span style={{ fontSize: 10, color: op === 'create' ? '#6db58a' : '#e2b04a', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{op === 'create' ? '+' : '~'}</span>
-                    <span className="truncate" style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)' }}>{path}</span>
+            {conv.conversations.map((c) => {
+              const on = c.id === conv.activeId;
+              return (
+                <div key={c.id} className="group flex items-center" style={{ borderRadius: 'var(--radius-sm)', background: on ? 'var(--color-accent-subtle)' : 'transparent' }}>
+                  <button type="button" onClick={() => conv.setActiveId(c.id)} className="truncate"
+                    style={{ flex: 1, textAlign: 'left', padding: '7px 9px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12.5, color: on ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)' }}>
+                    {c.title}
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Directory tree */}
-          <div className="flex-1 overflow-y-auto">
-            <div style={{ fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', padding: '8px 10px 2px' }}>Files</div>
-            <FileTree nodes={fileTree?.children} isLoading={treeLoading} selectedPath={viewerPath} onSelectFile={setViewerPath} changedFiles={new Set(changed.keys())} />
+                  <button type="button" onClick={() => conv.remove(c.id)} title="Delete"
+                    style={{ opacity: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-disabled)', padding: '0 7px' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-error)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
+                    className="group-hover:opacity-100">
+                    <Trash2 style={{ width: 12.5, height: 12.5 }} />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
+      ) : (
+        <button type="button" onClick={() => setRailOpen(true)} title="Chats"
+          style={{ width: 30, height: 30, marginRight: 12, flexShrink: 0, background: 'none', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--color-text-disabled)' }}>
+          <PanelLeft style={{ width: 14, height: 14 }} />
+        </button>
       )}
+
+      {/* ── Chat column ── */}
+      <div className="flex-1 flex flex-col" style={{ minWidth: 0 }}>
+        {/* Tiny header: knowledge + files toggles */}
+        <div className="flex items-center justify-end gap-1.5" style={{ marginBottom: 8 }}>
+          <button type="button" onClick={() => setPanel((p) => (p === 'knowledge' ? null : 'knowledge'))} className="flex items-center gap-1.5"
+            style={{ height: 28, padding: '0 10px', fontSize: 11.5, fontFamily: 'var(--font-mono)', background: 'none', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)', color: panel === 'knowledge' ? 'var(--color-accent)' : 'var(--color-text-tertiary)', cursor: 'pointer' }}>
+            <BookOpen style={{ width: 13, height: 13 }} /> Knowledge ({docs?.length ?? 0})
+          </button>
+          <button type="button" onClick={() => setPanel((p) => (p === 'workspace' ? null : 'workspace'))} className="flex items-center gap-1.5"
+            style={{ height: 28, padding: '0 10px', fontSize: 11.5, fontFamily: 'var(--font-mono)', background: 'none', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)', color: panel === 'workspace' ? 'var(--color-accent)' : 'var(--color-text-tertiary)', cursor: 'pointer' }}>
+            <FolderTree style={{ width: 13, height: 13 }} /> Files{changed.size > 0 ? ` (${changed.size})` : ''}
+          </button>
+        </div>
+
+        <div className="flex-1 flex" style={{ minHeight: 0, gap: 14 }}>
+          {/* Thread + composer */}
+          <div className="flex-1 flex flex-col" style={{ minWidth: 0 }}>
+            <div className="flex-1 overflow-y-auto flex flex-col" style={{ gap: 22, padding: '6px 4px 12px' }}>
+              {messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center" style={{ margin: 'auto', maxWidth: 560, textAlign: 'center', gap: 18 }}>
+                  <div className="flex items-center justify-center" style={{ width: 46, height: 46, borderRadius: 'var(--radius-lg)', background: 'var(--color-accent-subtle)', border: '1px solid var(--glass-border-hover)' }}>
+                    <Sparkles style={{ width: 22, height: 22, color: 'var(--color-accent)' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--color-text-primary)' }}>What should we work on?</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)', marginTop: 5 }}>
+                      {activeAgent ? `chatting with ${activeAgent.name}` : 'pick an agent'} · project knowledge is included automatically
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center" style={{ gap: 8 }}>
+                    {SUGGESTIONS.map((s) => (
+                      <button key={s.text} type="button" onClick={() => setInput(s.text)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 12px', fontSize: 12.5, background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-secondary)', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--glass-border-hover)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; e.currentTarget.style.color = 'var(--color-text-secondary)'; }}>
+                        <span>{s.icon}</span>{s.text}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                messages.map((m, i) => (
+                  <ChatBubble key={i} entry={m} agentName={activeAgent?.name ?? 'agent'} agentColor={activeAgent?.color ?? 'var(--color-accent)'}
+                    streaming={streaming && i === messages.length - 1} />
+                ))
+              )}
+              <div ref={endRef} />
+            </div>
+
+            <div style={{ maxWidth: 760, width: '100%', margin: '0 auto' }}>
+              <ChatComposer
+                value={input} onChange={setInput} onSend={send} streaming={streaming}
+                agents={agentList} agentId={agentId} onAgentChange={setAgentId}
+                onAttach={() => setPanel('knowledge')}
+              />
+              <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', textAlign: 'center', marginTop: 6 }}>
+                {activeAgent?.role === 'orchestrator' ? '◆ Orchestrator — can delegate work to specialist agents' : 'agentic: the agent can read & write files'}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Right slide-over: knowledge or workspace ── */}
+          {panel && (
+            <div className="flex flex-col" style={{ width: 300, flexShrink: 0, border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-md)', background: 'var(--color-bg-surface)', minHeight: 0 }}>
+              <div className="flex items-center justify-between" style={{ padding: '9px 11px', borderBottom: '1px solid var(--color-border-subtle)' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+                  {panel === 'knowledge' ? 'Knowledge' : 'Workspace'}
+                </span>
+                <button type="button" onClick={() => setPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-disabled)' }}><X style={{ width: 14, height: 14 }} /></button>
+              </div>
+
+              {panel === 'knowledge' ? (
+                <div className="flex-1 overflow-y-auto" style={{ padding: 11 }}>
+                  <p style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', margin: '0 0 10px' }}>
+                    Documents added here are injected into every agent's context in this project.
+                  </p>
+                  <div className="flex flex-col gap-1.5" style={{ marginBottom: 12 }}>
+                    {(docs ?? []).map((d) => (
+                      <div key={d.id} className="flex items-center justify-between gap-2" style={{ padding: '6px 9px', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)' }}>
+                        <span className="truncate" style={{ fontSize: 11.5, color: 'var(--color-text-primary)' }}>{d.name}</span>
+                        <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
+                          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>{(d.content.length / 1000).toFixed(1)}k</span>
+                          <button type="button" onClick={() => deleteDoc.mutate(d.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-error)' }}><Trash2 style={{ width: 12, height: 12 }} /></button>
+                        </div>
+                      </div>
+                    ))}
+                    {(docs ?? []).length === 0 && <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>No documents.</span>}
+                  </div>
+                  <input placeholder="document name" value={docName} onChange={(e) => setDocName(e.target.value)} style={{ ...inputStyle, marginBottom: 8 }} />
+                  <textarea placeholder="paste content…" value={docContent} onChange={(e) => setDocContent(e.target.value)}
+                    style={{ ...inputStyle, height: 80, padding: '7px 10px', resize: 'vertical', marginBottom: 8 }} />
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={addDoc} disabled={createDoc.isPending} className="flex items-center gap-1.5"
+                      style={{ height: 30, padding: '0 12px', fontSize: 12, fontWeight: 600, background: 'var(--color-accent)', color: '#0d1117', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}>
+                      <Plus style={{ width: 13, height: 13 }} /> add
+                    </button>
+                    <label className="flex items-center gap-1.5" style={{ height: 30, padding: '0 10px', fontSize: 11.5, fontFamily: 'var(--font-mono)', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-tertiary)', cursor: 'pointer' }}>
+                      <Upload style={{ width: 13, height: 13 }} /> file
+                      <input type="file" accept=".txt,.md,.json,.csv,text/*" onChange={onFile} style={{ display: 'none' }} />
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
+                  <div style={{ borderBottom: '1px solid var(--color-border-subtle)', maxHeight: 150, overflowY: 'auto' }}>
+                    <div style={{ fontSize: 9.5, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', padding: '8px 10px 4px' }}>Changed in this chat ({changed.size})</div>
+                    {changed.size === 0 ? (
+                      <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', padding: '0 10px 8px' }}>No changes yet.</div>
+                    ) : (
+                      <div className="flex flex-col" style={{ paddingBottom: 6 }}>
+                        {[...changed.entries()].map(([path, op]) => (
+                          <button key={path} type="button" onClick={() => setViewerPath(path)} className="flex items-center gap-1.5"
+                            style={{ padding: '3px 10px', background: viewerPath === path ? 'var(--color-accent-subtle)' : 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                            <span style={{ fontSize: 10, color: op === 'create' ? 'var(--color-success)' : 'var(--color-warning)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{op === 'create' ? '+' : '~'}</span>
+                            <span className="truncate" style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)' }}>{path}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    <div style={{ fontSize: 9.5, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', padding: '8px 10px 2px' }}>Files</div>
+                    <FileTree nodes={fileTree?.children} isLoading={treeLoading} selectedPath={viewerPath} onSelectFile={setViewerPath} changedFiles={new Set(changed.keys())} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* File viewer overlay */}
       {viewerPath && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setViewerPath(null)}>
-          <div className="flex flex-col" style={{ width: '80%', maxWidth: 900, height: '80%', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-default)' }} onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between" style={{ padding: '8px 12px', borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setViewerPath(null)}>
+          <div className="flex flex-col" style={{ width: '80%', maxWidth: 900, height: '80%', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between" style={{ padding: '9px 12px', borderBottom: '1px solid var(--color-border-subtle)' }}>
               <span className="truncate" style={{ fontSize: 12.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)' }}>{viewerPath}</span>
               <button type="button" onClick={() => setViewerPath(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-disabled)' }}><X style={{ width: 15, height: 15 }} /></button>
             </div>

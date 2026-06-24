@@ -95,7 +95,7 @@ print(resp.choices[0].message.content)`;
           <div>
             <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
               <span style={{ fontSize: 11, color: 'var(--color-text-disabled)', fontFamily: 'var(--font-mono)' }}>Python (OpenAI SDK)</span>
-              <button type="button" onClick={() => copy(snippet, 'snip')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: copied === 'snip' ? '#6db58a' : '#6EACDA', fontSize: 11, fontFamily: 'var(--font-mono)' }}>
+              <button type="button" onClick={() => copy(snippet, 'snip')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: copied === 'snip' ? '#6db58a' : '#7c8cf8', fontSize: 11, fontFamily: 'var(--font-mono)' }}>
                 {copied === 'snip' ? 'copied' : 'copy'}
               </button>
             </div>
@@ -108,7 +108,7 @@ print(resp.choices[0].message.content)`;
       <Section icon={<KeyRound style={{ width: 13, height: 13 }} />} color="#d88aa0" title="API Keys"
         action={!formOpen && (
           <button type="button" onClick={() => setFormOpen(true)} className="flex items-center gap-1.5"
-            style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#6EACDA', background: 'none', border: 'none', cursor: 'pointer' }}>
+            style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#7c8cf8', background: 'none', border: 'none', cursor: 'pointer' }}>
             <Plus style={{ width: 12, height: 12 }} /> create new API key
           </button>
         )}>
@@ -172,7 +172,7 @@ print(resp.choices[0].message.content)`;
 
               <div className="flex items-center gap-2">
                 <button type="button" disabled={createKey.isPending} onClick={submit} className="flex items-center gap-1.5"
-                  style={{ height: 34, padding: '0 16px', background: '#6EACDA', color: '#021526', fontSize: 12.5, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
+                  style={{ height: 34, padding: '0 16px', background: '#7c8cf8', color: '#021526', fontSize: 12.5, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
                   <Plus style={{ width: 13, height: 13 }} /> {createKey.isPending ? 'creating…' : 'create key'}
                 </button>
                 <button type="button" onClick={resetForm} style={{ height: 34, padding: '0 14px', background: 'none', border: '1px solid var(--color-border-subtle)', color: 'var(--color-text-disabled)', fontSize: 12.5, fontFamily: 'var(--font-mono)', cursor: 'pointer' }}>cancel</button>

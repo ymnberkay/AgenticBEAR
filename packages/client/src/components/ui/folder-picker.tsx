@@ -32,7 +32,7 @@ export function FolderPickerInput({ value, onChange, inputStyle }: FolderPickerP
           onChange={(e) => onChange(e.target.value)}
           placeholder="/Users/you/projects"
           style={{ ...inputStyle, flex: 1 }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(110,172,218,0.5)'; }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(124,140,248,0.5)'; }}
           onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
         />
         <button
@@ -48,7 +48,7 @@ export function FolderPickerInput({ value, onChange, inputStyle }: FolderPickerP
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             transition: 'border-color 0.15s, color 0.15s',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(110,172,218,0.5)'; e.currentTarget.style.color = '#6EACDA'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(124,140,248,0.5)'; e.currentTarget.style.color = '#7c8cf8'; }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
         >
           <FolderOpen style={{ width: 14, height: 14 }} />
@@ -92,12 +92,12 @@ function FolderModal({ initialPath, onSelect, onClose }: {
         width: 480, maxHeight: '70vh',
         background: 'var(--color-bg-surface)',
         border: '1px solid var(--color-border-default)',
-        borderTop: '2px solid #6EACDA',
+        borderTop: '2px solid #7c8cf8',
         display: 'flex', flexDirection: 'column',
       }}>
         {/* Header */}
         <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border-subtle)', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <FolderOpen style={{ width: 13, height: 13, color: '#6EACDA', flexShrink: 0 }} />
+          <FolderOpen style={{ width: 13, height: 13, color: '#7c8cf8', flexShrink: 0 }} />
           <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', flex: 1 }}>
             Select Folder
           </span>
@@ -153,7 +153,7 @@ function FolderModal({ initialPath, onSelect, onClose }: {
                 cursor: 'pointer', color: 'var(--color-text-disabled)',
                 fontFamily: 'var(--font-mono)', fontSize: 12,
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(110,172,218,0.05)'; }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(124,140,248,0.05)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
             >
               <ArrowLeft style={{ width: 12, height: 12 }} />
@@ -167,7 +167,7 @@ function FolderModal({ initialPath, onSelect, onClose }: {
             </div>
           )}
           {isError && (
-            <div style={{ padding: '20px 16px', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(251,73,52,0.7)' }}>
+            <div style={{ padding: '20px 16px', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(224,96,96,0.7)' }}>
               Cannot read directory
             </div>
           )}
@@ -190,10 +190,10 @@ function FolderModal({ initialPath, onSelect, onClose }: {
                 fontFamily: 'var(--font-mono)', fontSize: 12,
                 color: 'var(--color-text-secondary)',
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(110,172,218,0.05)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(124,140,248,0.05)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-secondary)'; }}
             >
-              <Folder style={{ width: 12, height: 12, color: '#6EACDA', flexShrink: 0 }} />
+              <Folder style={{ width: 12, height: 12, color: '#7c8cf8', flexShrink: 0 }} />
               {entry.name}
             </button>
           ))}
@@ -220,7 +220,7 @@ function FolderModal({ initialPath, onSelect, onClose }: {
             onClick={() => onSelect(effectivePath)}
             className="flex items-center gap-1.5"
             style={{
-              height: 30, padding: '0 14px', background: '#6EACDA',
+              height: 30, padding: '0 14px', background: '#7c8cf8',
               border: 'none', color: '#021526',
               fontFamily: 'var(--font-mono)', fontSize: 12,
               fontWeight: 600, cursor: 'pointer',

@@ -11,17 +11,17 @@
 
   --color-border-default: #0d4080;
   --color-border-subtle:  #052038;
-  --color-border-focus:   #6EACDA;
+  --color-border-focus:   #7c8cf8;
 
   --color-text-primary:   #E2E2B6;
   --color-text-secondary: #9ca8a2;
   --color-text-tertiary:  #637070;
   --color-text-disabled:  #3d4a50;
 
-  --color-accent:         #6EACDA;
+  --color-accent:         #7c8cf8;
   --color-accent-hover:   #94c5e8;
   --color-accent-muted:   #4a8ab8;
-  --color-accent-subtle:  rgba(110, 172, 218, 0.12);
+  --color-accent-subtle:  rgba(124,140,248, 0.12);
 
   --color-success:        #6db58a;
   --color-success-subtle: rgba(109, 181, 138, 0.12);
@@ -29,10 +29,10 @@
   --color-warning-subtle: rgba(226, 176, 74, 0.12);
   --color-error:          #e06060;
   --color-error-subtle:   rgba(224, 96, 96, 0.12);
-  --color-info:           #6EACDA;
-  --color-info-subtle:    rgba(110, 172, 218, 0.12);
+  --color-info:           #7c8cf8;
+  --color-info-subtle:    rgba(124,140,248, 0.12);
 
-  --color-agent-orchestrator: #6EACDA;
+  --color-agent-orchestrator: #7c8cf8;
   --color-agent-backend:      #6db58a;
   --color-agent-frontend:     #a8d4e8;
   --color-agent-database:     #e2b04a;
@@ -61,8 +61,8 @@ html, body {
   background-color: var(--color-bg-base);
   /* Navy grid — subtle blue lines at 48px */
   background-image:
-    linear-gradient(rgba(110, 172, 218, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(110, 172, 218, 0.025) 1px, transparent 1px);
+    linear-gradient(rgba(124,140,248, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124,140,248, 0.025) 1px, transparent 1px);
   background-size: 48px 48px;
   background-attachment: fixed;
   color: var(--color-text-primary);
@@ -89,7 +89,7 @@ html, body {
 
 /* ─── Selection & Focus ─── */
 ::selection {
-  background-color: rgba(110, 172, 218, 0.28);
+  background-color: rgba(124,140,248, 0.28);
   color: #E2E2B6;
 }
 
@@ -149,8 +149,8 @@ a {
 }
 
 @keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 12px rgba(110, 172, 218, 0.25); }
-  50%       { box-shadow: 0 0 24px rgba(110, 172, 218, 0.25), 0 0 48px rgba(110, 172, 218, 0.10); }
+  0%, 100% { box-shadow: 0 0 12px rgba(124,140,248, 0.25); }
+  50%       { box-shadow: 0 0 24px rgba(124,140,248, 0.25), 0 0 48px rgba(124,140,248, 0.10); }
 }
 
 @keyframes staggerReveal {
@@ -206,12 +206,18 @@ a {
 
 /* ─── Agent status pulse ─── */
 @keyframes agentPulse {
-  0%, 100% { box-shadow: 0 0 0 0 var(--agent-color, rgba(110, 172, 218, 0.3)); }
-  50%       { box-shadow: 0 0 10px 3px var(--agent-color, rgba(110, 172, 218, 0.3)); }
+  0%, 100% { box-shadow: 0 0 0 0 var(--agent-color, rgba(124,140,248, 0.3)); }
+  50%       { box-shadow: 0 0 10px 3px var(--agent-color, rgba(124,140,248, 0.3)); }
 }
 
 .agent-running {
   animation: agentPulse 2s ease-in-out infinite;
+}
+
+/* Voice dictation button pulse */
+@keyframes agbpulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--color-accent-glow); }
+  50%       { box-shadow: 0 0 0 5px transparent; }
 }
 
 /* ─── Glass utilities ─── */
@@ -235,7 +241,7 @@ a {
 
 /* ─── Glow utilities ─── */
 .glow-blue {
-  box-shadow: 0 0 16px rgba(110, 172, 218, 0.22), 0 0 40px rgba(110, 172, 218, 0.08);
+  box-shadow: 0 0 16px rgba(124,140,248, 0.22), 0 0 40px rgba(124,140,248, 0.08);
 }
 
 .glow-green {
@@ -243,8 +249,8 @@ a {
 }
 
 /* ─── Legacy aliases ─── */
-.glow-amber    { box-shadow: 0 0 16px rgba(110, 172, 218, 0.22), 0 0 40px rgba(110, 172, 218, 0.08); }
-.glow-copper   { box-shadow: 0 0 16px rgba(110, 172, 218, 0.22), 0 0 40px rgba(110, 172, 218, 0.08); }
+.glow-amber    { box-shadow: 0 0 16px rgba(124,140,248, 0.22), 0 0 40px rgba(124,140,248, 0.08); }
+.glow-copper   { box-shadow: 0 0 16px rgba(124,140,248, 0.22), 0 0 40px rgba(124,140,248, 0.08); }
 .glow-verdigris { box-shadow: 0 0 16px rgba(109, 181, 138, 0.18), 0 0 40px rgba(109, 181, 138, 0.08); }
 .border-copper { border-color: var(--color-accent); }
 

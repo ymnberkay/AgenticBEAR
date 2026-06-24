@@ -61,7 +61,7 @@ export function ProvidersTab({ onSaved }: { onSaved: (msg: string) => void }) {
   return (
     <div className="flex flex-col gap-3">
       <Section icon={<Key style={{ width: 13, height: 13 }} />} color="#c0a0d8" title="Built-in Provider Keys"
-        action={<button type="button" onClick={save} disabled={updateSettings.isPending} style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#6EACDA', background: 'none', border: 'none', cursor: 'pointer' }}>{updateSettings.isPending ? 'saving…' : 'save'}</button>}>
+        action={<button type="button" onClick={save} disabled={updateSettings.isPending} style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#7c8cf8', background: 'none', border: 'none', cursor: 'pointer' }}>{updateSettings.isPending ? 'saving…' : 'save'}</button>}>
         <div className="flex flex-col gap-5">
           <Field label="Anthropic API Key" helper="Used for Claude models (claude-*). Stored encrypted.">
             <ApiKeyInput value={apiKey} onChange={setApiKey} placeholder="sk-ant-..." />

@@ -12,7 +12,7 @@ interface ProjectCardProps {
 const statusConfig: Record<string, { color: string; label: string }> = {
   active:   { color: '#6db58a', label: 'active' },
   archived: { color: '#9ca8a2', label: 'archived' },
-  draft:    { color: '#6EACDA', label: 'draft' },
+  draft:    { color: '#7c8cf8', label: 'draft' },
 };
 
 function ProjectInitials({ name }: { name: string }) {
@@ -26,15 +26,15 @@ function ProjectInitials({ name }: { name: string }) {
       style={{
         width: 36,
         height: 36,
-        background: 'rgba(110, 172, 218, 0.1)',
-        border: '1px solid rgba(110, 172, 218, 0.22)',
+        background: 'rgba(124,140,248, 0.1)',
+        border: '1px solid rgba(124,140,248, 0.22)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         fontFamily: 'var(--font-mono)',
         fontSize: 13,
         fontWeight: 600,
-        color: '#6EACDA',
+        color: '#7c8cf8',
         flexShrink: 0,
         letterSpacing: '0.04em',
       }}
@@ -58,15 +58,16 @@ export function ProjectCard({ project, agentCount = 0, index = 0 }: ProjectCardP
         animationDelay: `${index * 50}ms`,
         background: 'var(--color-bg-surface)',
         border: '1px solid var(--color-border-subtle)',
-        borderLeft: '3px solid #03346E',
+        borderLeft: '3px solid var(--color-accent-muted)',
+        borderRadius: 'var(--radius-md)',
         padding: '16px 18px',
         minHeight: 130,
       }}
       onMouseEnter={(e) => {
         const el = e.currentTarget;
-        el.style.borderLeftColor = '#6EACDA';
+        el.style.borderLeftColor = '#7c8cf8';
         el.style.borderColor = 'var(--color-border-default)';
-        el.style.borderLeftColor = '#6EACDA';
+        el.style.borderLeftColor = '#7c8cf8';
         el.style.background = 'var(--color-bg-raised)';
         el.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)';
       }}
@@ -134,7 +135,7 @@ export function ProjectCard({ project, agentCount = 0, index = 0 }: ProjectCardP
         </span>
         <span
           className="ml-auto text-[11px] opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-          style={{ color: '#6EACDA', fontFamily: 'var(--font-mono)' }}
+          style={{ color: '#7c8cf8', fontFamily: 'var(--font-mono)' }}
         >
           open →
         </span>

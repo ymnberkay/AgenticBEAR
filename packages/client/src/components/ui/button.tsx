@@ -19,7 +19,7 @@ const sizeStyles: Record<ButtonSize, string> = {
 };
 
 const variantBase: Record<ButtonVariant, React.CSSProperties> = {
-  primary: { background: '#6EACDA', color: '#021526', border: 'none', fontWeight: 600 },
+  primary: { background: '#7c8cf8', color: '#021526', border: 'none', fontWeight: 600 },
   default: { background: 'var(--color-bg-raised)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-default)' },
   ghost:   { background: 'transparent', color: 'var(--color-text-secondary)', border: '1px solid transparent' },
   outline: { background: 'transparent', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-default)' },
@@ -27,7 +27,7 @@ const variantBase: Record<ButtonVariant, React.CSSProperties> = {
 };
 
 const variantHover: Record<ButtonVariant, Partial<React.CSSProperties>> = {
-  primary: { background: '#ffd561' },
+  primary: { background: 'var(--color-accent-hover)' },
   default: { background: 'var(--color-bg-overlay)', borderColor: 'var(--color-border-default)' },
   ghost:   { background: 'var(--color-bg-hover)', color: 'var(--color-text-primary)' },
   outline: { background: 'var(--color-bg-raised)' },
@@ -42,7 +42,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled || loading}
         className={cn(
           'inline-flex items-center justify-center font-medium transition-all duration-150 whitespace-nowrap leading-none select-none',
-          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#6EACDA]',
+          'rounded-[var(--radius-md)]',
+          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#7c8cf8]',
           'disabled:opacity-40 disabled:pointer-events-none',
           sizeStyles[size],
           className,

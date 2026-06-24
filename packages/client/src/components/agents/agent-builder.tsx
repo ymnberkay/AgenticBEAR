@@ -205,7 +205,7 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
                 onChange={(e) =>
                   setPermissions((p) => ({ ...p, [key]: e.target.checked }))
                 }
-                className="rounded accent-[#6EACDA] h-3.5 w-3.5 shrink-0"
+                className="rounded accent-[#7c8cf8] h-3.5 w-3.5 shrink-0"
               />
               <span className="truncate">{label}</span>
             </label>
@@ -281,9 +281,9 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
               }
             }}
             className="flex items-center gap-1.5 text-[12px] transition-colors duration-200"
-            style={{ color: 'rgba(251,73,52,0.55)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', fontFamily: 'var(--font-mono)' }}
+            style={{ color: 'rgba(224,96,96,0.55)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', fontFamily: 'var(--font-mono)' }}
             onMouseEnter={(e) => { e.currentTarget.style.color = '#e06060'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(251,73,52,0.55)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(224,96,96,0.55)'; }}
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>

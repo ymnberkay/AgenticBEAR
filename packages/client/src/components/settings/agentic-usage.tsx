@@ -17,7 +17,7 @@ export function AgenticUsage({ range }: { range: AnalyticsRange }) {
   const layerRows = [
     { label: 'L0 compression', value: data?.savingsByLayer.compression ?? 0, color: '#e2b04a' },
     { label: 'L1 cache', value: data?.savingsByLayer.semanticCache ?? 0, color: '#22c55e' },
-    { label: 'L2 router', value: data?.savingsByLayer.router ?? 0, color: '#6EACDA' },
+    { label: 'L2 router', value: data?.savingsByLayer.router ?? 0, color: '#7c8cf8' },
     { label: 'L3 prompt', value: data?.savingsByLayer.promptCache ?? 0, color: '#c0a0d8' },
   ];
 
@@ -28,7 +28,7 @@ export function AgenticUsage({ range }: { range: AnalyticsRange }) {
 
   return (
     <Section
-      icon={<Bot style={{ width: 13, height: 13 }} />} color="#6EACDA" title="Agentic — Chat & Runs"
+      icon={<Bot style={{ width: 13, height: 13 }} />} color="#7c8cf8" title="Agentic — Chat & Runs"
       action={<FilterSelect value={projectId} onChange={setProjectId} options={projectOptions} />}
     >
       {!data || data.totalRuns === 0 ? (

@@ -25,11 +25,11 @@ export function ModelsTab() {
 
   return (
     <Section
-      icon={<Boxes style={{ width: 13, height: 13 }} />} color="#6EACDA" title={`Reachable Models (${list.length})`}
+      icon={<Boxes style={{ width: 13, height: 13 }} />} color="#7c8cf8" title={`Reachable Models (${list.length})`}
       action={
         <button type="button" onClick={() => refreshCatalog.mutate()} disabled={refreshCatalog.isPending}
           className="flex items-center gap-1.5"
-          style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#6EACDA', background: 'none', border: 'none', cursor: refreshCatalog.isPending ? 'wait' : 'pointer' }}>
+          style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#7c8cf8', background: 'none', border: 'none', cursor: refreshCatalog.isPending ? 'wait' : 'pointer' }}>
           <RefreshCw className={refreshCatalog.isPending ? 'animate-spin' : ''} style={{ width: 12, height: 12 }} />
           {refreshCatalog.isPending ? 'refreshing…' : 'refresh'}
         </button>

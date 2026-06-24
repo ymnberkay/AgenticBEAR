@@ -66,7 +66,7 @@ export function SecurityTab({ onSaved }: { onSaved: (msg: string) => void }) {
             <Plus style={{ width: 12, height: 12 }} /> kural ekle
           </button>
           <button type="button" onClick={save} disabled={updateSettings.isPending}
-            style={{ height: 30, padding: '0 16px', fontSize: 12.5, fontWeight: 600, background: '#6EACDA', color: '#021526', border: 'none', cursor: 'pointer' }}>
+            style={{ height: 30, padding: '0 16px', fontSize: 12.5, fontWeight: 600, background: '#7c8cf8', color: '#021526', border: 'none', cursor: 'pointer' }}>
             {updateSettings.isPending ? 'kaydediliyor…' : 'kaydet'}
           </button>
         </div>

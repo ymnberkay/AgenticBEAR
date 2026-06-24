@@ -42,7 +42,7 @@ export function UsersTab({ onSaved }: { onSaved: (msg: string) => void }) {
   };
 
   return (
-    <Section icon={<UserPlus style={{ width: 13, height: 13 }} />} color="#6EACDA" title="Users">
+    <Section icon={<UserPlus style={{ width: 13, height: 13 }} />} color="#7c8cf8" title="Users">
       {/* Add user */}
       <div className="flex items-center gap-2" style={{ marginBottom: 12 }}>
         <input placeholder="username" value={username} onChange={(e) => setUsername(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
@@ -51,7 +51,7 @@ export function UsersTab({ onSaved }: { onSaved: (msg: string) => void }) {
           {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
         <button type="button" onClick={add} disabled={createUser.isPending || !username || !password} className="flex items-center gap-1.5"
-          style={{ height: 36, padding: '0 14px', background: '#6EACDA', color: '#021526', fontSize: 12.5, fontWeight: 600, border: 'none', cursor: 'pointer', flexShrink: 0 }}>
+          style={{ height: 36, padding: '0 14px', background: '#7c8cf8', color: '#021526', fontSize: 12.5, fontWeight: 600, border: 'none', cursor: 'pointer', flexShrink: 0 }}>
           <UserPlus style={{ width: 13, height: 13 }} /> add
         </button>
       </div>

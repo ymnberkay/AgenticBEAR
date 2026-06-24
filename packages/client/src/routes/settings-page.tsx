@@ -53,7 +53,7 @@ export function SettingsPage() {
             <button key={t.id} type="button" onClick={() => { setTab(t.id); history.replaceState(null, '', `#${t.id}`); }}
               style={{
                 height: 36, padding: '0 14px', fontSize: 12.5, fontFamily: 'var(--font-mono)', cursor: 'pointer',
-                background: 'none', border: 'none', borderBottom: `2px solid ${tab === t.id ? '#6EACDA' : 'transparent'}`,
+                background: 'none', border: 'none', borderBottom: `2px solid ${tab === t.id ? '#7c8cf8' : 'transparent'}`,
                 color: tab === t.id ? 'var(--color-text-primary)' : 'var(--color-text-disabled)',
                 marginBottom: -1,
               }}>

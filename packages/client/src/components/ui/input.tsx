@@ -35,12 +35,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           style={{
             background: 'var(--glass-bg)',
             border: `1px solid ${error ? 'rgba(224, 96, 96, 0.5)' : 'var(--color-border-default)'}`,
+            borderRadius: 'var(--radius-md)',
           }}
           onFocus={(e) => {
-            e.currentTarget.style.borderColor = error ? 'rgba(224, 96, 96, 0.7)' : 'rgba(110, 172, 218, 0.5)';
+            e.currentTarget.style.borderColor = error ? 'rgba(224, 96, 96, 0.7)' : 'rgba(124,140,248, 0.5)';
             e.currentTarget.style.boxShadow = error
               ? '0 0 0 3px rgba(224, 96, 96, 0.1)'
-              : '0 0 0 3px rgba(110, 172, 218, 0.1)';
+              : '0 0 0 3px rgba(124,140,248, 0.1)';
             props.onFocus?.(e);
           }}
           onBlur={(e) => {
