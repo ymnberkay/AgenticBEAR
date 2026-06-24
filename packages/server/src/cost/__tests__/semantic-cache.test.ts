@@ -8,7 +8,7 @@ import type { CachePayload, Embedder, Executor, LlmRequest, VectorStore } from '
 /** Deterministik sahte embedder: aynı metin → aynı vektör. */
 function fakeEmbedder(available = true): Embedder {
   return {
-    available: () => available,
+    available: async () => available,
     embed: async (text: string) => {
       // 8-boyutlu basit hash-vektörü (semantic değil ama exact tekrarda kararlı)
       const v = new Array(8).fill(0);

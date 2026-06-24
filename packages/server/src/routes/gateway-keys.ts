@@ -14,24 +14,30 @@ import type { CreateGatewayKeyInput } from '@subagent/shared';
  */
 export async function gatewayKeyRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/gateway-keys', async (_request, reply) => {
-    return reply.send(gatewayKeyRepo.list());
+    return reply.send(await gatewayKeyRepo.list());
   });
 
   app.post<{ Body: CreateGatewayKeyInput }>('/api/gateway-keys', async (request, reply) => {
     const { name, allowedModels, expiresAt, cacheScope } = request.body ?? {};
-    const created = gatewayKeyRepo.create({ name: name ?? '', allowedModels: allowedModels ?? [], expiresAt: expiresAt ?? null, cacheScope });
+    const created = await gatewayKeyRepo.create({ name: name ?? '', allowedModels: allowedModels ?? [], expiresAt: expiresAt ?? null, cacheScope });
     // Full key returned only here.
     return reply.status(201).send(created);
   });
 
-  app.patch<{ Params: { id: string }; Body: { enabled?: boolean } }>('/api/gateway-keys/:id', async (request, reply) => {
-    const key = gatewayKeyRepo.setEnabled(request.params.id, request.body?.enabled ?? true);
-    if (!key) return reply.status(404).send({ error: true, message: 'Key not found' });
-    return reply.send(key);
-  });
+  app.patch<{ Params: { id: string }; Body: { enabled?: boolean; cacheScope?: 'conversation' | 'lastUser' } }>(
+    '/api/gateway-keys/:id',
+    async (request, reply) => {
+      const { enabled, cacheScope } = request.body ?? {};
+      let key = cacheScope ? await gatewayKeyRepo.setCacheScope(request.params.id, cacheScope) : undefined;
+      if (enabled !== undefined) key = await gatewayKeyRepo.setEnabled(request.params.id, enabled);
+      if (!key && enabled === undefined && !cacheScope) key = await gatewayKeyRepo.setEnabled(request.params.id, true);
+      if (!key) return reply.status(404).send({ error: true, message: 'Key not found' });
+      return reply.send(key);
+    },
+  );
 
   app.delete<{ Params: { id: string } }>('/api/gateway-keys/:id', async (request, reply) => {
-    const removed = gatewayKeyRepo.remove(request.params.id);
+    const removed = await gatewayKeyRepo.remove(request.params.id);
     if (!removed) return reply.status(404).send({ error: true, message: 'Key not found' });
     return reply.status(204).send();
   });
@@ -53,7 +59,7 @@ export async function gatewayKeyRoutes(app: FastifyInstance): Promise<void> {
       let since: string | undefined;
       if (range && range !== 'all') since = new Date(Date.now() - (rangeMs[range] ?? rangeMs['30d'])).toISOString();
       else if (sinceDays && Number.isFinite(parseInt(sinceDays, 10))) since = new Date(Date.now() - parseInt(sinceDays, 10) * 86_400_000).toISOString();
-      return reply.send(gatewayUsageRepo.summary({ since, keyId, model }));
+      return reply.send(await gatewayUsageRepo.summary({ since, keyId, model }));
     },
   );
 }

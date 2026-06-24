@@ -11,16 +11,16 @@ const log = createLogger('context-builder');
  * Builds the execution context for an agent about to run a task.
  * Includes: system prompt context, dependent task outputs, relevant workspace files.
  */
-export function buildAgentContext(
+export async function buildAgentContext(
   agent: Agent,
   task: Task,
   workspacePath: string,
-): AgentContext {
+): Promise<AgentContext> {
   // Gather outputs from dependency tasks
   const dependencyOutputs: AgentContext['dependencyOutputs'] = [];
 
   for (const depId of task.dependencies) {
-    const depTask = taskRepo.findById(depId);
+    const depTask = await taskRepo.findById(depId);
     if (depTask?.output) {
       dependencyOutputs.push({
         taskTitle: depTask.title,
@@ -92,8 +92,8 @@ export function buildProjectContext(workspacePath: string): string {
  * Builds a memory context block for injection into a system prompt.
  * Returns empty string when the agent has no memories.
  */
-export function buildMemoryBlock(agentId: string, limit = 20): string {
-  const memories = memoryRepo.findByAgentId(agentId, limit);
+export async function buildMemoryBlock(agentId: string, limit = 20): Promise<string> {
+  const memories = await memoryRepo.findByAgentId(agentId, limit);
   if (memories.length === 0) return '';
 
   const lines: string[] = [

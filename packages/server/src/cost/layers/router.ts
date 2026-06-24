@@ -57,7 +57,7 @@ function keepRequested(req: LlmRequest, tier: RouterTier | null): RouterDecision
 export async function decide(req: LlmRequest, classify?: Classifier): Promise<RouterDecision> {
   if (!classify) return keepRequested(req, null);
 
-  const pool = poolFor(req.meta.routePool, req.providerId, req.model);
+  const pool = await poolFor(req.meta.routePool, req.providerId, req.model);
   const ceiling = levelOf(pool, req.providerId, req.model);
   // Anything cheaper to route to? (a candidate strictly below the ceiling)
   if (!pool.some((c) => c.level < ceiling)) return keepRequested(req, null);
@@ -81,7 +81,7 @@ export async function decide(req: LlmRequest, classify?: Classifier): Promise<Ro
     });
     complexity = parseComplexity(res.text);
     overheadTokens = res.inputTokens + res.outputTokens;
-    overheadCostUsd = actualCallCost(modelPricing(classifier.providerId, classifier.model), {
+    overheadCostUsd = actualCallCost(await modelPricing(classifier.providerId, classifier.model), {
       inputTokens: res.inputTokens, outputTokens: res.outputTokens, cacheReadInputTokens: 0, cacheCreationInputTokens: 0,
     });
   } catch {

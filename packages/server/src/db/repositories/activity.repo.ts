@@ -29,56 +29,56 @@ function rowToActivity(row: ActivityRow): AgentActivity {
 }
 
 export const activityRepo = {
-  create(input: { projectId: string; agentId: string; type: AgentActivity['type']; query: string }): AgentActivity {
+  async create(input: { projectId: string; agentId: string; type: AgentActivity['type']; query: string }): Promise<AgentActivity> {
     const db = getDb();
     const id = generateId();
     const now = new Date().toISOString();
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO agent_activities (id, project_id, agent_id, type, query, status, started_at, created_at)
       VALUES (?, ?, ?, ?, ?, 'running', ?, ?)
     `).run(id, input.projectId, input.agentId, input.type, input.query, now, now);
 
-    return this.findById(id)!;
+    return (await this.findById(id))!;
   },
 
-  complete(id: string, status: 'completed' | 'failed' = 'completed'): AgentActivity | undefined {
+  async complete(id: string, status: 'completed' | 'failed' = 'completed'): Promise<AgentActivity | undefined> {
     const db = getDb();
     const now = new Date().toISOString();
-    db.prepare('UPDATE agent_activities SET status = ?, completed_at = ? WHERE id = ?')
+    await db.prepare('UPDATE agent_activities SET status = ?, completed_at = ? WHERE id = ?')
       .run(status, now, id);
     return this.findById(id);
   },
 
-  findById(id: string): AgentActivity | undefined {
+  async findById(id: string): Promise<AgentActivity | undefined> {
     const db = getDb();
-    const row = db.prepare('SELECT * FROM agent_activities WHERE id = ?').get(id) as ActivityRow | undefined;
+    const row = await db.prepare('SELECT * FROM agent_activities WHERE id = ?').get<ActivityRow>(id);
     return row ? rowToActivity(row) : undefined;
   },
 
-  findByAgentId(agentId: string, limit = 50): AgentActivity[] {
+  async findByAgentId(agentId: string, limit = 50): Promise<AgentActivity[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM agent_activities WHERE agent_id = ? ORDER BY created_at DESC LIMIT ?')
-      .all(agentId, limit) as ActivityRow[];
+    const rows = await db.prepare('SELECT * FROM agent_activities WHERE agent_id = ? ORDER BY created_at DESC LIMIT ?')
+      .all<ActivityRow>(agentId, limit);
     return rows.map(rowToActivity);
   },
 
-  findByProjectId(projectId: string, limit = 50): AgentActivity[] {
+  async findByProjectId(projectId: string, limit = 50): Promise<AgentActivity[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM agent_activities WHERE project_id = ? ORDER BY created_at DESC LIMIT ?')
-      .all(projectId, limit) as ActivityRow[];
+    const rows = await db.prepare('SELECT * FROM agent_activities WHERE project_id = ? ORDER BY created_at DESC LIMIT ?')
+      .all<ActivityRow>(projectId, limit);
     return rows.map(rowToActivity);
   },
 
-  remove(id: string): boolean {
+  async remove(id: string): Promise<boolean> {
     const db = getDb();
-    const result = db.prepare('DELETE FROM agent_activities WHERE id = ?').run(id);
+    const result = await db.prepare('DELETE FROM agent_activities WHERE id = ?').run(id);
     return result.changes > 0;
   },
 
-  removeByAgentId(agentId: string): number {
+  async removeByAgentId(agentId: string): Promise<number> {
     const db = getDb();
-    const result = db.prepare('DELETE FROM agent_activities WHERE agent_id = ?').run(agentId);
+    const result = await db.prepare('DELETE FROM agent_activities WHERE agent_id = ?').run(agentId);
     return result.changes;
   },
 };

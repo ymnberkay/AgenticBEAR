@@ -41,12 +41,12 @@ function builtinCandidate(model: string): Candidate {
 }
 
 /** Every model the system could route to: built-ins (CLAUDE_MODELS) + enabled custom providers. */
-function universe(): Candidate[] {
+async function universe(): Promise<Candidate[]> {
   const out: Candidate[] = [];
   for (const model of Object.keys(CLAUDE_MODELS)) out.push(builtinCandidate(model));
-  let customProviders: ReturnType<typeof providerRepo.findAll> = [];
+  let customProviders: Awaited<ReturnType<typeof providerRepo.findAll>> = [];
   try {
-    customProviders = providerRepo.findAll();
+    customProviders = await providerRepo.findAll();
   } catch {
     customProviders = []; // DB unavailable → built-ins only (still safe to route)
   }
@@ -71,8 +71,8 @@ function inScope(c: Candidate, scope: string[]): boolean {
 }
 
 /** The candidate models for this request (the requested model is always included). */
-export function poolFor(scope: string[] | undefined, requestedProviderId: string | undefined, requestedModel: string): Candidate[] {
-  const all = universe();
+export async function poolFor(scope: string[] | undefined, requestedProviderId: string | undefined, requestedModel: string): Promise<Candidate[]> {
+  const all = await universe();
   let pool: Candidate[];
   if (scope && scope.length > 0) {
     pool = all.filter((c) => inScope(c, scope));
@@ -85,7 +85,7 @@ export function poolFor(scope: string[] | undefined, requestedProviderId: string
   // Make sure the requested model itself is a candidate (acts as the ceiling + safe fallback).
   if (!pool.some((c) => c.model === requestedModel && c.providerId === requestedProviderId)) {
     pool.push(requestedProviderId && !isBuiltinProviderId(requestedProviderId)
-      ? (universe().find((c) => c.providerId === requestedProviderId && c.model === requestedModel) ?? builtinCandidate(requestedModel))
+      ? (all.find((c) => c.providerId === requestedProviderId && c.model === requestedModel) ?? builtinCandidate(requestedModel))
       : builtinCandidate(requestedModel));
   }
   return pool;

@@ -35,6 +35,15 @@ export function useSetGatewayKeyEnabled() {
   });
 }
 
+export function useSetGatewayKeyCacheScope() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, cacheScope }: { id: string; cacheScope: 'conversation' | 'lastUser' }) =>
+      apiPatch<GatewayKey>(`/api/gateway-keys/${id}`, { cacheScope }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keyKeys.all }),
+  });
+}
+
 export function useDeleteGatewayKey() {
   const qc = useQueryClient();
   return useMutation({

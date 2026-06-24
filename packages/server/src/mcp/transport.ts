@@ -37,7 +37,7 @@ export async function mcpRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const { projectId } = request.params;
 
-      const project = projectRepo.findById(projectId);
+      const project = await projectRepo.findById(projectId);
       if (!project) {
         return reply.status(404).send({ error: true, message: 'Proje bulunamadı' });
       }
@@ -49,7 +49,7 @@ export async function mcpRoutes(app: FastifyInstance): Promise<void> {
 
       let mcpServer;
       try {
-        mcpServer = createMcpServer(projectId);
+        mcpServer = await createMcpServer(projectId);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         reply.raw.writeHead(500, { 'Content-Type': 'application/json' });

@@ -75,7 +75,7 @@ async function pickModelForTask(
   const requested = { model: agent.modelConfig.model, providerId: agent.modelConfig.providerId ?? undefined };
   if (!costConfig.layers.router) return { ...requested, tier: null };
 
-  const pool = poolFor(undefined, requested.providerId, requested.model);
+  const pool = await poolFor(undefined, requested.providerId, requested.model);
   const ceiling = levelOf(pool, requested.providerId, requested.model);
   if (!pool.some((c) => c.level < ceiling)) return { ...requested, tier: null }; // nothing cheaper
   const ceilingPrice = priceOf(pool, requested.providerId, requested.model);
@@ -148,14 +148,14 @@ function delegateToolDef(specialists: Agent[]): ToolDef {
 }
 
 /** Record one tool-use step; actual = served-model cost, baseline = agent's configured-model cost. */
-function recordCost(
+async function recordCost(
   agent: Agent,
   served: { model: string; providerId?: string },
   res: ToolCompletionResult,
   tier: RunTurnResult['routerTier'],
-): { actual: number; baseline: number } {
-  const reqP = modelPricing(agent.modelConfig.providerId, agent.modelConfig.model);
-  const srvP = modelPricing(served.providerId, served.model);
+): Promise<{ actual: number; baseline: number }> {
+  const reqP = await modelPricing(agent.modelConfig.providerId, agent.modelConfig.model);
+  const srvP = await modelPricing(served.providerId, served.model);
   const baseline = (res.inputTokens / 1000) * reqP.costPer1kInput + (res.outputTokens / 1000) * reqP.costPer1kOutput;
   const actual = (res.inputTokens / 1000) * srvP.costPer1kInput + (res.outputTokens / 1000) * srvP.costPer1kOutput;
   costMetrics.record({
@@ -219,7 +219,7 @@ export async function runAgentTurn(opts: RunTurnOpts): Promise<RunTurnResult> {
 
   const canDelegate = agent.role === 'orchestrator' && depth < MAX_DEPTH;
   const specialists = canDelegate
-    ? agentRepo.findByProjectId(projectId).filter((a) => a.role === 'specialist')
+    ? (await agentRepo.findByProjectId(projectId)).filter((a) => a.role === 'specialist')
     : [];
   // A coordinator (orchestrator with specialists to delegate to) ONLY delegates — no file tools,
   // so it must route work to specialists instead of doing it itself. Everyone else gets file tools.
@@ -228,7 +228,7 @@ export async function runAgentTurn(opts: RunTurnOpts): Promise<RunTurnResult> {
 
   // L4 — append the output-minimization directive (off by default) to trim output tokens.
   const minimize = minimizeDirective();
-  const systemPrompt = [withProjectKnowledge(agent.systemPrompt, projectId), toolGuidance(workspacePath, isCoordinator), minimize]
+  const systemPrompt = [await withProjectKnowledge(agent.systemPrompt, projectId), toolGuidance(workspacePath, isCoordinator), minimize]
     .filter(Boolean)
     .join('\n\n');
 
@@ -241,7 +241,7 @@ export async function runAgentTurn(opts: RunTurnOpts): Promise<RunTurnResult> {
     try { hit = await semanticCache.lookup(cacheReq, cacheJudge); } catch { hit = null; }
     if (hit) {
       if (hit.text) onEvent?.({ type: 'text', delta: hit.text });
-      const { costPer1kInput, costPer1kOutput } = modelPricing(agent.modelConfig.providerId, agent.modelConfig.model);
+      const { costPer1kInput, costPer1kOutput } = await modelPricing(agent.modelConfig.providerId, agent.modelConfig.model);
       const baseline = ((hit.baselineInputTokens ?? 0) / 1000) * costPer1kInput + ((hit.baselineOutputTokens ?? 0) / 1000) * costPer1kOutput;
       costMetrics.record({
         ts: new Date().toISOString(), role: agent.role,
@@ -294,7 +294,7 @@ export async function runAgentTurn(opts: RunTurnOpts): Promise<RunTurnResult> {
     totalIn += res.inputTokens;
     totalOut += res.outputTokens;
     totalComp += res.compressionSavedTokens;
-    const c = recordCost(agent, served, res, picked.tier);
+    const c = await recordCost(agent, served, res, picked.tier);
     totalActual += c.actual;
     totalBaseline += c.baseline;
 

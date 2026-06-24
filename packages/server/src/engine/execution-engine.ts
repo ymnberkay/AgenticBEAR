@@ -25,25 +25,25 @@ export const executionEngine = {
     log.info(`Starting run: ${runId}`);
 
     // Get run details
-    const run = runRepo.findById(runId);
+    const run = await runRepo.findById(runId);
     if (!run) throw new Error(`Run not found: ${runId}`);
 
-    const project = projectRepo.findById(run.projectId);
+    const project = await projectRepo.findById(run.projectId);
     if (!project) throw new Error(`Project not found: ${run.projectId}`);
 
     if (!project.orchestratorId) {
       throw new Error('Project has no orchestrator agent configured');
     }
 
-    const orchestrator = agentRepo.findById(project.orchestratorId);
+    const orchestrator = await agentRepo.findById(project.orchestratorId);
     if (!orchestrator) throw new Error('Orchestrator agent not found');
 
-    const agents = agentRepo.findByProjectId(project.id);
+    const agents = await agentRepo.findByProjectId(project.id);
 
     // Provider-agnostic: keys are resolved per-agent by the unified client (built-in
     // Anthropic/OpenAI/Gemini from Settings/env, or a custom provider's own key).
     // No hard Anthropic-key requirement — a call only fails if its own provider lacks a key.
-    const settings = settingsRepo.getSettings();
+    const settings = await settingsRepo.getSettings();
     const claudeService = new ClaudeService();
 
     // Initialize tracking
@@ -51,13 +51,13 @@ export const executionEngine = {
     activeRuns.set(runId, { paused: false, cancelled: false });
 
     // Update run status
-    runRepo.update(runId, { status: 'running', startedAt: new Date().toISOString() });
+    await runRepo.update(runId, { status: 'running', startedAt: new Date().toISOString() });
     eventBus.emitAndCreate('run:started', runId, { projectId: project.id });
 
     try {
       // Step 1: Orchestrator decomposes the objective
       log.info('Decomposing objective...');
-      const projectContext = buildProjectContext(project.workspacePath);
+      const projectContext = await buildProjectContext(project.workspacePath);
 
       const decomposition = await decomposeObjective(
         claudeService,
@@ -69,7 +69,7 @@ export const executionEngine = {
 
       // Track orchestrator token usage
       const orchStepId = `orch-${runId}`;
-      const orchUsage = tokenTracker.recordUsage(
+      const orchUsage = await tokenTracker.recordUsage(
         runId,
         orchStepId,
         orchestrator.modelConfig.model,
@@ -86,7 +86,7 @@ export const executionEngine = {
       // Uses a synthetic taskId ('orchestrator') with no matching tasks row, so the
       // run_steps.task_id FK rejects it — guard so this auxiliary record never fails the run.
       try {
-        taskRepo.createStep({
+        await taskRepo.createStep({
           runId,
           taskId: 'orchestrator',
           agentId: orchestrator.id,
@@ -116,7 +116,7 @@ export const executionEngine = {
           continue;
         }
 
-        const task = taskRepo.createTask({
+        const task = await taskRepo.createTask({
           runId,
           assignedAgentId: agent.id,
           title: dt.title,
@@ -150,7 +150,7 @@ export const executionEngine = {
         if (depIds.length > 0) {
           // Update in DB via direct SQL since we need to set dependencies
           const { getDb } = await import('../db/client.js');
-          getDb().prepare('UPDATE tasks SET dependencies = ? WHERE id = ?')
+          await getDb().prepare('UPDATE tasks SET dependencies = ? WHERE id = ?')
             .run(JSON.stringify(depIds), task.id);
           task.dependencies = depIds;
         }
@@ -168,7 +168,7 @@ export const executionEngine = {
 
         if (state.cancelled) {
           log.info(`Run ${runId} cancelled`);
-          runRepo.update(runId, { status: 'cancelled', completedAt: new Date().toISOString() });
+          await runRepo.update(runId, { status: 'cancelled', completedAt: new Date().toISOString() });
           eventBus.emitAndCreate('run:cancelled', runId, {});
           tokenTracker.cleanupRun(runId);
           activeRuns.delete(runId);
@@ -177,7 +177,7 @@ export const executionEngine = {
 
         if (state.paused) {
           log.info(`Run ${runId} paused, waiting...`);
-          runRepo.update(runId, { status: 'paused' });
+          await runRepo.update(runId, { status: 'paused' });
           eventBus.emitAndCreate('run:paused', runId, {});
           // Wait and check again
           await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -199,7 +199,7 @@ export const executionEngine = {
 
         // Update run totals
         const totals = tokenTracker.getRunTotals(runId);
-        runRepo.update(runId, {
+        await runRepo.update(runId, {
           totalInputTokens: totals.totalInputTokens,
           totalOutputTokens: totals.totalOutputTokens,
           totalCostUsd: totals.totalCostUsd,
@@ -238,7 +238,7 @@ export const executionEngine = {
         const summaryText = agentTasks
           .map((t) => `- ${t.title}: ${(t.output ?? '').slice(0, 200)}`)
           .join('\n');
-        memoryRepo.create({
+        await memoryRepo.create({
           agentId,
           projectId: project.id,
           type: 'summary',
@@ -252,7 +252,7 @@ export const executionEngine = {
       const finalTotals = tokenTracker.getRunTotals(runId);
       const finalStatus = queue.hasFailures() ? 'failed' : 'completed';
 
-      runRepo.update(runId, {
+      await runRepo.update(runId, {
         status: finalStatus,
         completedAt: new Date().toISOString(),
         totalInputTokens: finalTotals.totalInputTokens,
@@ -272,7 +272,7 @@ export const executionEngine = {
       log.error(`Run ${runId} failed with error`, error);
 
       const totals = tokenTracker.getRunTotals(runId);
-      runRepo.update(runId, {
+      await runRepo.update(runId, {
         status: 'failed',
         completedAt: new Date().toISOString(),
         totalInputTokens: totals.totalInputTokens,
@@ -298,16 +298,16 @@ export const executionEngine = {
     workspacePath: string,
     queue: TaskQueue,
   ): Promise<void> {
-    const agent = agentRepo.findById(task.assignedAgentId);
+    const agent = await agentRepo.findById(task.assignedAgentId);
     if (!agent) {
       log.error(`Agent not found for task: ${task.assignedAgentId}`);
       queue.markFailed(task.id);
-      taskRepo.updateTask(task.id, { status: 'failed' });
+      await taskRepo.updateTask(task.id, { status: 'failed' });
       return;
     }
 
     queue.markInProgress(task.id);
-    taskRepo.updateTask(task.id, {
+    await taskRepo.updateTask(task.id, {
       status: 'in_progress',
       startedAt: new Date().toISOString(),
     });
@@ -321,13 +321,13 @@ export const executionEngine = {
 
     try {
       const startTime = Date.now();
-      const context = buildAgentContext(agent, task, workspacePath);
+      const context = await buildAgentContext(agent, task, workspacePath);
       const result = await executeTask(claudeService, agent, task, context, projectId);
       const durationMs = Date.now() - startTime;
 
       // Record token usage
       const stepId = `${task.id}-exec`;
-      const usage = tokenTracker.recordUsage(
+      const usage = await tokenTracker.recordUsage(
         runId,
         stepId,
         agent.modelConfig.model,
@@ -341,7 +341,7 @@ export const executionEngine = {
       );
 
       // Create run step
-      const stepRow = taskRepo.createStep({
+      const stepRow = await taskRepo.createStep({
         runId,
         taskId: task.id,
         agentId: agent.id,
@@ -358,7 +358,7 @@ export const executionEngine = {
 
       // Record every file the agent actually wrote to the workspace (shown in the workspace UI).
       for (const f of result.filesWritten) {
-        taskRepo.createFileChange({
+        await taskRepo.createFileChange({
           runStepId: stepRow.id,
           runId,
           filePath: f.path,
@@ -377,7 +377,7 @@ export const executionEngine = {
 
       // Mark task complete
       queue.markComplete(task.id);
-      taskRepo.updateTask(task.id, {
+      await taskRepo.updateTask(task.id, {
         status: 'completed',
         output: result.output,
         completedAt: new Date().toISOString(),
@@ -396,13 +396,13 @@ export const executionEngine = {
       log.error(`Task "${task.title}" execution failed`, error);
 
       queue.markFailed(task.id);
-      taskRepo.updateTask(task.id, {
+      await taskRepo.updateTask(task.id, {
         status: 'failed',
         completedAt: new Date().toISOString(),
       });
 
       // Record error step
-      taskRepo.createStep({
+      await taskRepo.createStep({
         runId,
         taskId: task.id,
         agentId: agent.id,
@@ -485,7 +485,7 @@ Format it clearly so it can be saved as a .txt file.`;
       const fileContent = `AgenticBEAR Run Report\n${'='.repeat(60)}\nObjective: ${run.objective}\nDate: ${new Date().toISOString()}\nRun ID: ${runId}\n\n${'='.repeat(60)}\n\n${result.text}`;
 
       try {
-        workspaceService.writeFile(workspacePath, fileName, fileContent);
+        await workspaceService.writeFile(workspacePath, fileName, fileContent);
         log.info(`Documentation written to ${workspacePath}/${fileName}`);
       } catch (writeError) {
         log.warn('Could not write documentation file (no workspace?)', writeError);
@@ -493,7 +493,7 @@ Format it clearly so it can be saved as a .txt file.`;
 
       // Track token usage
       const stepId = `doc-${runId}`;
-      const docUsage = tokenTracker.recordUsage(
+      const docUsage = await tokenTracker.recordUsage(
         runId,
         stepId,
         docAgent.modelConfig.model,
@@ -507,7 +507,7 @@ Format it clearly so it can be saved as a .txt file.`;
       );
 
       // Record step
-      taskRepo.createStep({
+      await taskRepo.createStep({
         runId,
         taskId: 'doc-step',
         agentId: docAgent.id,
@@ -545,23 +545,23 @@ Format it clearly so it can be saved as a .txt file.`;
     return true;
   },
 
-  resumeRun(runId: string): boolean {
+  async resumeRun(runId: string): Promise<boolean> {
     const state = activeRuns.get(runId);
     if (!state) return false;
     state.paused = false;
-    runRepo.update(runId, { status: 'running' });
+    await runRepo.update(runId, { status: 'running' });
     eventBus.emitAndCreate('run:started', runId, { resumed: true });
     log.info(`Resume requested for run ${runId}`);
     return true;
   },
 
-  cancelRun(runId: string): boolean {
+  async cancelRun(runId: string): Promise<boolean> {
     const state = activeRuns.get(runId);
     if (!state) {
       // Run might not be active, update DB directly
-      const run = runRepo.findById(runId);
+      const run = await runRepo.findById(runId);
       if (run && (run.status === 'pending' || run.status === 'paused')) {
-        runRepo.update(runId, { status: 'cancelled', completedAt: new Date().toISOString() });
+        await runRepo.update(runId, { status: 'cancelled', completedAt: new Date().toISOString() });
         eventBus.emitAndCreate('run:cancelled', runId, {});
         return true;
       }

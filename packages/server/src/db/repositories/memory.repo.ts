@@ -27,62 +27,63 @@ function rowToMemory(row: MemoryRow): AgentMemory {
 }
 
 export const memoryRepo = {
-  create(input: {
+  async create(input: {
     agentId: string;
     projectId: string;
     type: MemoryType;
     query: string;
     response: string;
     runId?: string | null;
-  }): AgentMemory {
+  }): Promise<AgentMemory> {
     const db = getDb();
     const id = generateId();
     const now = new Date().toISOString();
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO agent_memories (id, agent_id, project_id, type, query, response, run_id, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(id, input.agentId, input.projectId, input.type, input.query, input.response, input.runId ?? null, now);
 
     return rowToMemory(
-      db.prepare('SELECT * FROM agent_memories WHERE id = ?').get(id) as MemoryRow,
+      (await db.prepare('SELECT * FROM agent_memories WHERE id = ?').get<MemoryRow>(id))!,
     );
   },
 
   // For context injection — N most recent, ASC so oldest first in prompt
-  findByAgentId(agentId: string, limit = 20): AgentMemory[] {
+  async findByAgentId(agentId: string, limit = 20): Promise<AgentMemory[]> {
     const db = getDb();
-    const rows = db.prepare(`
+    // Subquery aliased (`t`) — Postgres requires an alias on derived tables.
+    const rows = await db.prepare(`
       SELECT * FROM (
         SELECT * FROM agent_memories WHERE agent_id = ? ORDER BY created_at DESC LIMIT ?
-      ) ORDER BY created_at ASC
-    `).all(agentId, limit) as MemoryRow[];
+      ) AS t ORDER BY created_at ASC
+    `).all<MemoryRow>(agentId, limit);
     return rows.map(rowToMemory);
   },
 
   // For UI display — all entries, newest first
-  findAllByAgentId(agentId: string): AgentMemory[] {
+  async findAllByAgentId(agentId: string): Promise<AgentMemory[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM agent_memories WHERE agent_id = ? ORDER BY created_at DESC')
-      .all(agentId) as MemoryRow[];
+    const rows = await db.prepare('SELECT * FROM agent_memories WHERE agent_id = ? ORDER BY created_at DESC')
+      .all<MemoryRow>(agentId);
     return rows.map(rowToMemory);
   },
 
-  remove(id: string): boolean {
+  async remove(id: string): Promise<boolean> {
     const db = getDb();
-    const result = db.prepare('DELETE FROM agent_memories WHERE id = ?').run(id);
+    const result = await db.prepare('DELETE FROM agent_memories WHERE id = ?').run(id);
     return result.changes > 0;
   },
 
-  removeByAgentId(agentId: string): number {
+  async removeByAgentId(agentId: string): Promise<number> {
     const db = getDb();
-    const result = db.prepare('DELETE FROM agent_memories WHERE agent_id = ?').run(agentId);
+    const result = await db.prepare('DELETE FROM agent_memories WHERE agent_id = ?').run(agentId);
     return result.changes;
   },
 
-  removeByProjectId(projectId: string): number {
+  async removeByProjectId(projectId: string): Promise<number> {
     const db = getDb();
-    const result = db.prepare('DELETE FROM agent_memories WHERE project_id = ?').run(projectId);
+    const result = await db.prepare('DELETE FROM agent_memories WHERE project_id = ?').run(projectId);
     return result.changes;
   },
 };

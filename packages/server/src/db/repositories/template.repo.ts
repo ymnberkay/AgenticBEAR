@@ -35,27 +35,27 @@ function rowToTemplate(row: TemplateRow): PromptTemplate {
 }
 
 export const templateRepo = {
-  findAll(): PromptTemplate[] {
+  async findAll(): Promise<PromptTemplate[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM templates ORDER BY is_built_in DESC, name ASC')
-      .all() as TemplateRow[];
+    const rows = await db.prepare('SELECT * FROM templates ORDER BY is_built_in DESC, name ASC')
+      .all<TemplateRow>();
     return rows.map(rowToTemplate);
   },
 
-  findById(id: string): PromptTemplate | undefined {
+  async findById(id: string): Promise<PromptTemplate | undefined> {
     const db = getDb();
-    const row = db.prepare('SELECT * FROM templates WHERE id = ?').get(id) as TemplateRow | undefined;
+    const row = await db.prepare('SELECT * FROM templates WHERE id = ?').get<TemplateRow>(id);
     return row ? rowToTemplate(row) : undefined;
   },
 
-  findByCategory(category: TemplateCategory): PromptTemplate[] {
+  async findByCategory(category: TemplateCategory): Promise<PromptTemplate[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM templates WHERE category = ? ORDER BY name ASC')
-      .all(category) as TemplateRow[];
+    const rows = await db.prepare('SELECT * FROM templates WHERE category = ? ORDER BY name ASC')
+      .all<TemplateRow>(category);
     return rows.map(rowToTemplate);
   },
 
-  create(input: CreateTemplateInput): PromptTemplate {
+  async create(input: CreateTemplateInput): Promise<PromptTemplate> {
     const db = getDb();
     const id = generateId();
     const now = new Date().toISOString();
@@ -77,7 +77,7 @@ export const templateRepo = {
       ...input.defaultPermissions,
     };
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO templates (id, name, category, description, system_prompt, default_model_config, default_permissions, suggested_icon, suggested_color, is_built_in, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
     `).run(
@@ -94,12 +94,12 @@ export const templateRepo = {
       now,
     );
 
-    return this.findById(id)!;
+    return (await this.findById(id))!;
   },
 
-  update(id: string, input: Partial<CreateTemplateInput>): PromptTemplate | undefined {
+  async update(id: string, input: Partial<CreateTemplateInput>): Promise<PromptTemplate | undefined> {
     const db = getDb();
-    const existing = this.findById(id);
+    const existing = await this.findById(id);
     if (!existing) return undefined;
 
     const now = new Date().toISOString();
@@ -118,7 +118,7 @@ export const templateRepo = {
       ? { ...existing.defaultPermissions, ...input.defaultPermissions }
       : existing.defaultPermissions;
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE templates SET name = ?, category = ?, description = ?, system_prompt = ?, default_model_config = ?, default_permissions = ?, suggested_icon = ?, suggested_color = ?, updated_at = ?
       WHERE id = ?
     `).run(
@@ -127,46 +127,45 @@ export const templateRepo = {
       suggestedIcon, suggestedColor, now, id,
     );
 
-    return this.findById(id)!;
+    return (await this.findById(id))!;
   },
 
-  remove(id: string): boolean {
+  async remove(id: string): Promise<boolean> {
     const db = getDb();
     // Don't allow deleting built-in templates
-    const existing = this.findById(id);
+    const existing = await this.findById(id);
     if (!existing || existing.isBuiltIn) return false;
 
-    const result = db.prepare('DELETE FROM templates WHERE id = ?').run(id);
+    const result = await db.prepare('DELETE FROM templates WHERE id = ?').run(id);
     return result.changes > 0;
   },
 
-  seedBuiltInTemplates(templates: Array<Omit<PromptTemplate, 'createdAt' | 'updatedAt'>>): void {
+  async seedBuiltInTemplates(templates: Array<Omit<PromptTemplate, 'createdAt' | 'updatedAt'>>): Promise<void> {
     const db = getDb();
     const now = new Date().toISOString();
 
-    const insertStmt = db.prepare(`
-      INSERT OR IGNORE INTO templates (id, name, category, description, system_prompt, default_model_config, default_permissions, suggested_icon, suggested_color, is_built_in, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-    `);
+    // Idempotent insert — dialect differs (SQLite `OR IGNORE` vs Postgres `ON CONFLICT`).
+    const insertSql = db.driver === 'postgres'
+      ? `INSERT INTO templates (id, name, category, description, system_prompt, default_model_config, default_permissions, suggested_icon, suggested_color, is_built_in, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?) ON CONFLICT (id) DO NOTHING`
+      : `INSERT OR IGNORE INTO templates (id, name, category, description, system_prompt, default_model_config, default_permissions, suggested_icon, suggested_color, is_built_in, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`;
+    const insertStmt = db.prepare(insertSql);
 
-    const seedTransaction = db.transaction(() => {
-      for (const t of templates) {
-        insertStmt.run(
-          t.id,
-          t.name,
-          t.category,
-          t.description,
-          t.systemPrompt,
-          JSON.stringify(t.defaultModelConfig),
-          JSON.stringify(t.defaultPermissions),
-          t.suggestedIcon,
-          t.suggestedColor,
-          now,
-          now,
-        );
-      }
-    });
-
-    seedTransaction();
+    for (const t of templates) {
+      await insertStmt.run(
+        t.id,
+        t.name,
+        t.category,
+        t.description,
+        t.systemPrompt,
+        JSON.stringify(t.defaultModelConfig),
+        JSON.stringify(t.defaultPermissions),
+        t.suggestedIcon,
+        t.suggestedColor,
+        now,
+        now,
+      );
+    }
   },
 };

@@ -1,10 +1,11 @@
-import Database from 'better-sqlite3';
 import { config } from '../config.js';
 import { createLogger } from '../utils/logger.js';
+import { createSqliteDb, createPostgresDb, type Db } from './adapter.js';
 
 const log = createLogger('db');
 
-// SQL migrations inlined for bundler compatibility
+// SQL migrations inlined for bundler compatibility. Authored in SQLite dialect;
+// `toDialect()` rewrites the few non-portable bits for Postgres at apply time.
 const MIGRATIONS: Record<string, string> = {
   '001_initial.sql': `-- Projects table
 CREATE TABLE IF NOT EXISTS projects (
@@ -265,53 +266,83 @@ ALTER TABLE gateway_keys ADD COLUMN expires_at TEXT;`,
 
   '013_gateway_key_cache_scope.sql': `-- Per-key L1 cache scope: 'conversation' (default) or 'lastUser' (FAQ mode).
 ALTER TABLE gateway_keys ADD COLUMN cache_scope TEXT;`,
+
+  '014_settings_dlp_rules.sql': `-- Org-defined DLP regex rules (JSON array of {label, pattern}).
+ALTER TABLE settings ADD COLUMN dlp_custom_rules TEXT NOT NULL DEFAULT '[]';`,
+
+  '015_users.sql': `-- Login + RBAC: users (salted hash) and permission groups (role + project access).
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  salt TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'contributor',
+  group_ids TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS permission_groups (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'contributor',
+  project_ids TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);`,
+
+  '016_settings_dlp_disabled_models.sql': `-- Models for which the DLP egress guard is skipped.
+ALTER TABLE settings ADD COLUMN dlp_disabled_models TEXT NOT NULL DEFAULT '[]';`,
 };
 
-let db: Database.Database;
+/** Rewrite the SQLite-authored DDL for the target driver. */
+function toDialect(sql: string, driver: 'sqlite' | 'postgres'): string {
+  if (driver === 'sqlite') return sql;
+  // Postgres: TEXT timestamp columns default to a text-ISO value from now().
+  return sql.replace(/datetime\('now'\)/g, "now()::text");
+}
 
-export function getDb(): Database.Database {
+const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql', '007_gateway.sql', '008_gateway_key_scope.sql', '009_agent_canvas_and_knowledge.sql', '010_run_step_breakdown.sql', '011_run_step_compression.sql', '012_gateway_key_expiry.sql', '013_gateway_key_cache_scope.sql', '014_settings_dlp_rules.sql', '015_users.sql', '016_settings_dlp_disabled_models.sql'];
+
+let db: Db | undefined;
+
+export function getDb(): Db {
   if (!db) {
     throw new Error('Database not initialized. Call initDb() first.');
   }
   return db;
 }
 
-export function initDb(): Database.Database {
-  log.info(`Initializing database at: ${config.dbPath}`);
+export async function initDb(): Promise<Db> {
+  if (config.dbDriver === 'postgres') {
+    if (!config.databaseUrl) throw new Error('DB_DRIVER=postgres requires DATABASE_URL');
+    log.info('Initializing database (postgres)');
+    db = await createPostgresDb(config.databaseUrl);
+  } else {
+    log.info(`Initializing database (sqlite) at: ${config.dbPath}`);
+    db = createSqliteDb(config.dbPath);
+  }
 
-  db = new Database(config.dbPath);
-
-  // Enable WAL mode for better concurrent read performance
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-  db.pragma('busy_timeout = 5000');
-
-  // Run migrations
-  runMigrations();
-
+  await runMigrations(db);
   log.info('Database initialized successfully');
   return db;
 }
 
-function runMigrations(): void {
+async function runMigrations(database: Db): Promise<void> {
   log.info('Running migrations...');
 
-  // Create a migrations tracking table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS _migrations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+  // Migration-tracking table (auto-increment id differs by dialect).
+  const idCol = database.driver === 'postgres' ? 'id SERIAL PRIMARY KEY' : 'id INTEGER PRIMARY KEY AUTOINCREMENT';
+  await database.exec(
+    `CREATE TABLE IF NOT EXISTS _migrations (
+      ${idCol},
       name TEXT NOT NULL UNIQUE,
-      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  `);
+      applied_at TEXT NOT NULL DEFAULT (${database.driver === 'postgres' ? "now()::text" : "datetime('now')"})
+    )`,
+  );
 
-  const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql', '007_gateway.sql', '008_gateway_key_scope.sql', '009_agent_canvas_and_knowledge.sql', '010_run_step_breakdown.sql', '011_run_step_compression.sql', '012_gateway_key_expiry.sql', '013_gateway_key_cache_scope.sql'];
-
-  const appliedStmt = db.prepare('SELECT name FROM _migrations WHERE name = ?');
-  const insertStmt = db.prepare('INSERT INTO _migrations (name) VALUES (?)');
+  const appliedStmt = database.prepare('SELECT name FROM _migrations WHERE name = ?');
+  const insertStmt = database.prepare('INSERT INTO _migrations (name) VALUES (?)');
 
   for (const file of migrationFiles) {
-    const existing = appliedStmt.get(file);
+    const existing = await appliedStmt.get(file);
     if (existing) {
       log.info(`Migration ${file} already applied, skipping`);
       continue;
@@ -322,8 +353,8 @@ function runMigrations(): void {
       throw new Error(`Migration file not found: ${file}`);
     }
 
-    db.exec(sql);
-    insertStmt.run(file);
+    await database.exec(toDialect(sql, database.driver));
+    await insertStmt.run(file);
     log.info(`Applied migration: ${file}`);
   }
 }

@@ -35,23 +35,23 @@ function rowToProvider(row: ProviderRow): LLMProvider {
 }
 
 export const providerRepo = {
-  findAll(): LLMProvider[] {
+  async findAll(): Promise<LLMProvider[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM llm_providers ORDER BY created_at ASC').all() as ProviderRow[];
+    const rows = await db.prepare('SELECT * FROM llm_providers ORDER BY created_at ASC').all<ProviderRow>();
     return rows.map(rowToProvider);
   },
 
-  findById(id: string): LLMProvider | undefined {
+  async findById(id: string): Promise<LLMProvider | undefined> {
     const db = getDb();
-    const row = db.prepare('SELECT * FROM llm_providers WHERE id = ?').get(id) as ProviderRow | undefined;
+    const row = await db.prepare('SELECT * FROM llm_providers WHERE id = ?').get<ProviderRow>(id);
     return row ? rowToProvider(row) : undefined;
   },
 
-  create(input: CreateProviderInput): LLMProvider {
+  async create(input: CreateProviderInput): Promise<LLMProvider> {
     const db = getDb();
     const id = generateId();
     const now = new Date().toISOString();
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO llm_providers (id, label, kind, base_url, api_key, models_json, enabled, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -65,12 +65,12 @@ export const providerRepo = {
       now,
       now,
     );
-    return this.findById(id)!;
+    return (await this.findById(id))!;
   },
 
-  update(id: string, input: UpdateProviderInput): LLMProvider | undefined {
+  async update(id: string, input: UpdateProviderInput): Promise<LLMProvider | undefined> {
     const db = getDb();
-    const current = this.findById(id);
+    const current = await this.findById(id);
     if (!current) return undefined;
 
     const label = input.label ?? current.label;
@@ -82,7 +82,7 @@ export const providerRepo = {
     const enabled = input.enabled ?? current.enabled;
     const now = new Date().toISOString();
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE llm_providers
       SET label = ?, kind = ?, base_url = ?, api_key = ?, models_json = ?, enabled = ?, updated_at = ?
       WHERE id = ?
@@ -91,9 +91,9 @@ export const providerRepo = {
     return this.findById(id);
   },
 
-  remove(id: string): boolean {
+  async remove(id: string): Promise<boolean> {
     const db = getDb();
-    const result = db.prepare('DELETE FROM llm_providers WHERE id = ?').run(id);
+    const result = await db.prepare('DELETE FROM llm_providers WHERE id = ?').run(id);
     return result.changes > 0;
   },
 };

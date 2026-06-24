@@ -57,6 +57,7 @@ export type {
 export type {
   Settings,
   UpdateSettingsInput,
+  DlpRule,
 } from './settings.js';
 
 export type {
@@ -73,6 +74,15 @@ export type {
   AgentMemory,
   MemoryType,
 } from './memory.js';
+
+export type {
+  UserRole,
+  User,
+  CreateUserInput,
+  PermissionGroup,
+  LoginInput,
+  AuthResult,
+} from './auth.js';
 
 export type {
   ProjectDocument,

@@ -47,7 +47,7 @@ export async function complete(
   req: UnifiedRequest,
   onChunk?: (chunk: string) => void,
 ): Promise<UnifiedResult> {
-  const provider = resolveProvider(req.providerId, req.model);
+  const provider = await resolveProvider(req.providerId, req.model);
   log.info(`LLM call — model: ${req.model}, provider: ${provider.label} (${provider.kind})`);
 
   switch (provider.kind) {

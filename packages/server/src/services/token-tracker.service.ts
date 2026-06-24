@@ -42,7 +42,7 @@ export const tokenTracker = {
     });
   },
 
-  recordUsage(
+  async recordUsage(
     runId: string,
     stepId: string,
     model: ClaudeModel,
@@ -50,7 +50,7 @@ export const tokenTracker = {
     outputTokens: number,
     providerId?: string | null,
     override?: CostOverride,
-  ): TokenUsage {
+  ): Promise<TokenUsage> {
     let state = runStates.get(runId);
     if (!state) {
       this.initRun(runId);
@@ -58,7 +58,7 @@ export const tokenTracker = {
     }
 
     // Cost-layer'dan geldiyse onu kullan; yoksa istenen-model fiyatı × token sayısı.
-    const { costPer1kInput, costPer1kOutput } = modelPricing(providerId, model);
+    const { costPer1kInput, costPer1kOutput } = await modelPricing(providerId, model);
     const approxCost = (inputTokens / 1000) * costPer1kInput + (outputTokens / 1000) * costPer1kOutput;
     const costUsd = override?.actualCostUsd ?? approxCost;
     const baselineCostUsd = override?.baselineCostUsd ?? approxCost;

@@ -116,7 +116,7 @@ describe('L0 — compress(req)', () => {
 // ── Middleware composition: L0 + flags + L1 ──
 function fakeEmbedder(): Embedder {
   return {
-    available: () => true,
+    available: async () => true,
     embed: async (text: string) => {
       const v = new Array(8).fill(0);
       for (let i = 0; i < text.length; i++) v[i % 8] += text.charCodeAt(i);

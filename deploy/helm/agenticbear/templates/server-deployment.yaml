@@ -1,0 +1,114 @@
+{{- if and .Values.server.workspace.persist (gt (int .Values.server.replicaCount) 0) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "agenticbear.serverName" . }}-workspace
+  labels:
+    {{- include "agenticbear.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.server.workspace.size }}
+  {{- if .Values.server.workspace.storageClass }}
+  storageClassName: {{ .Values.server.workspace.storageClass | quote }}
+  {{- end }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "agenticbear.serverName" . }}
+  labels:
+    {{- include "agenticbear.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  replicas: {{ .Values.server.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "agenticbear.selectorLabels" (dict "ctx" . "component" "server") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "agenticbear.selectorLabels" (dict "ctx" . "component" "server") | nindent 8 }}
+      annotations:
+        # Roll pods when config/secret change.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.server.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.postgres.enabled }}
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for Postgres at {{ include "agenticbear.postgresName" . }}:{{ .Values.postgres.port }} ..."
+              until nc -z {{ include "agenticbear.postgresName" . }} {{ .Values.postgres.port }}; do sleep 2; done
+              echo "Postgres is up."
+      {{- end }}
+      containers:
+        - name: server
+          image: {{ include "agenticbear.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.server.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "agenticbear.configName" . }}
+            - secretRef:
+                name: {{ include "agenticbear.secretName" . }}
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.server.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: workspace
+              mountPath: /workspace
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: workspace
+          {{- if .Values.server.workspace.persist }}
+          persistentVolumeClaim:
+            claimName: {{ include "agenticbear.serverName" . }}-workspace
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.server.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.server.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.server.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

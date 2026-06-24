@@ -1,0 +1,102 @@
+# Default values for AgenticBEAR.
+# A single `helm install` brings up the app + Postgres + Qdrant, ready to use.
+
+# -- Override the generated resource name prefix.
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  # IMPORTANT: build & push this image first (see chart NOTES / repo Dockerfile),
+  # then set repository/tag here. e.g. `docker build -t <repo>/agenticbear:0.1.0 . && docker push ...`
+  repository: agenticbear
+  tag: ""              # defaults to .Chart.appVersion when empty
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# ── Application server (API + OpenAI-compatible gateway + static UI, one port) ──
+server:
+  replicaCount: 1
+  port: 3001
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: "1",  memory: 1Gi }
+  # /data (HOME) is just bookkeeping (port file / unused sqlite dir in PG mode) → ephemeral emptyDir.
+  # /workspace holds the files agents write during runs; persist it with a PVC.
+  workspace:
+    persist: true
+    size: 5Gi
+    storageClass: ""          # "" = cluster default
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  # Extra raw env vars (e.g. COST_* tuning flags) merged into the server container.
+  extraEnv: {}
+  #  COST_LAYER_SEMANTIC_CACHE: "true"
+  #  COST_SEMANTIC_THRESHOLD: "0.90"
+
+# ── Auth / bootstrap (the first admin is seeded on first boot) ──
+auth:
+  adminUsername: admin
+  adminPassword: admin           # CHANGE ME for anything real
+  tokenTtlHours: 168
+  # HMAC secret for session tokens. Leave empty to auto-generate a random one on install
+  # (persisted in the chart's Secret; rotating it logs everyone out).
+  secret: ""
+
+# ── LLM provider keys (optional — can also be set later in the UI → Settings).
+# Any left empty are simply not injected.
+providerKeys:
+  anthropic: ""        # ANTHROPIC_API_KEY
+  openai: ""           # OPENAI_API_KEY
+  gemini: ""           # GEMINI_API_KEY
+  voyage: ""           # VOYAGE_API_KEY (embeddings for L1 cache)
+
+# ── Bundled Postgres ──
+postgres:
+  enabled: true                # false → use external DB via `externalDatabase.url`
+  image: postgres:16-alpine
+  database: agenticbear
+  username: agb
+  password: agb                # CHANGE ME
+  port: 5432
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: "1",  memory: 1Gi }
+  persistence:
+    size: 10Gi
+    storageClass: ""
+
+# When postgres.enabled=false, point the app at an existing database.
+externalDatabase:
+  url: ""                      # postgres://user:pass@host:5432/db
+
+# ── Bundled Qdrant (L1 semantic-cache vector store) ──
+qdrant:
+  enabled: true                # false → use external Qdrant via qdrant.externalUrl
+  image: qdrant/qdrant:v1.12.4
+  httpPort: 6333
+  collection: agenticbear_llm_cache
+  externalUrl: ""              # used only when enabled=false (e.g. http://qdrant:6333)
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: "1",  memory: 2Gi }
+  persistence:
+    size: 10Gi
+    storageClass: ""
+
+# ── Networking ──
+service:
+  type: ClusterIP
+  port: 80                     # external port → server.port
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: agenticbear.local
+  tls: []                      # [{ secretName: agb-tls, hosts: [agenticbear.local] }]
+
+# Pod-level security context (volumes are chowned to this group).
+podSecurityContext:
+  fsGroup: 1000

@@ -15,24 +15,24 @@ function rowToDoc(row: DocRow): ProjectDocument {
 }
 
 export const documentRepo = {
-  findByProjectId(projectId: string): ProjectDocument[] {
+  async findByProjectId(projectId: string): Promise<ProjectDocument[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM project_documents WHERE project_id = ? ORDER BY created_at ASC')
-      .all(projectId) as DocRow[];
+    const rows = await db.prepare('SELECT * FROM project_documents WHERE project_id = ? ORDER BY created_at ASC')
+      .all<DocRow>(projectId);
     return rows.map(rowToDoc);
   },
 
-  create(projectId: string, input: CreateProjectDocumentInput): ProjectDocument {
+  async create(projectId: string, input: CreateProjectDocumentInput): Promise<ProjectDocument> {
     const db = getDb();
     const id = generateId();
     const now = new Date().toISOString();
-    db.prepare('INSERT INTO project_documents (id, project_id, name, content, created_at) VALUES (?, ?, ?, ?, ?)')
+    await db.prepare('INSERT INTO project_documents (id, project_id, name, content, created_at) VALUES (?, ?, ?, ?, ?)')
       .run(id, projectId, input.name, input.content, now);
     return { id, projectId, name: input.name, content: input.content, createdAt: now };
   },
 
-  remove(id: string): boolean {
+  async remove(id: string): Promise<boolean> {
     const db = getDb();
-    return db.prepare('DELETE FROM project_documents WHERE id = ?').run(id).changes > 0;
+    return (await db.prepare('DELETE FROM project_documents WHERE id = ?').run(id)).changes > 0;
   },
 };

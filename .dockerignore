@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.github
+*.log
+.env
+.env.*
+docs
+deploy
+**/__tests__
+**/*.test.ts
+.DS_Store
+.vscode
+.idea

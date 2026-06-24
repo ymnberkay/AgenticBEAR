@@ -162,7 +162,7 @@ export interface CachePayload {
 
 /** Embedding sağlayıcısı soyutlaması (Voyage / yerel). */
 export interface Embedder {
-  available(): boolean;
+  available(): Promise<boolean>;
   /** Erişilemezse hata fırlatır; semantic-cache yakalar ve L2'ye düşer. */
   embed(text: string): Promise<number[]>;
 }

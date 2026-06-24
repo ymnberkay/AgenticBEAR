@@ -29,9 +29,10 @@ export async function streamChat(
 ): Promise<void> {
   let res: Response;
   try {
+    const token = localStorage.getItem('agb_token');
     res = await fetch(`/api/projects/${projectId}/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ agentId, messages }),
     });
   } catch (e) {

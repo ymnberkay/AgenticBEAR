@@ -172,32 +172,32 @@ export interface CreateFileChangeInput {
 export const taskRepo = {
   // ── Tasks ──────────────────────────────────────────────────────
 
-  findByRunId(runId: string): Task[] {
+  async findByRunId(runId: string): Promise<Task[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM tasks WHERE run_id = ? ORDER BY "order" ASC')
-      .all(runId) as TaskRow[];
+    const rows = await db.prepare('SELECT * FROM tasks WHERE run_id = ? ORDER BY "order" ASC')
+      .all<TaskRow>(runId);
     return rows.map(rowToTask);
   },
 
-  findByAgentId(agentId: string): Task[] {
+  async findByAgentId(agentId: string): Promise<Task[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM tasks WHERE assigned_agent_id = ? ORDER BY created_at DESC')
-      .all(agentId) as TaskRow[];
+    const rows = await db.prepare('SELECT * FROM tasks WHERE assigned_agent_id = ? ORDER BY created_at DESC')
+      .all<TaskRow>(agentId);
     return rows.map(rowToTask);
   },
 
-  findById(id: string): Task | undefined {
+  async findById(id: string): Promise<Task | undefined> {
     const db = getDb();
-    const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as TaskRow | undefined;
+    const row = await db.prepare('SELECT * FROM tasks WHERE id = ?').get<TaskRow>(id);
     return row ? rowToTask(row) : undefined;
   },
 
-  createTask(input: CreateTaskInput): Task {
+  async createTask(input: CreateTaskInput): Promise<Task> {
     const db = getDb();
     const id = generateId();
     const now = new Date().toISOString();
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO tasks (id, run_id, parent_task_id, assigned_agent_id, title, description, status, priority, dependencies, "order", created_at)
       VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?)
     `).run(
@@ -213,12 +213,12 @@ export const taskRepo = {
       now,
     );
 
-    return this.findById(id)!;
+    return (await this.findById(id))!;
   },
 
-  updateTask(id: string, input: UpdateTaskInput): Task | undefined {
+  async updateTask(id: string, input: UpdateTaskInput): Promise<Task | undefined> {
     const db = getDb();
-    const existing = this.findById(id);
+    const existing = await this.findById(id);
     if (!existing) return undefined;
 
     const status = input.status ?? existing.status;
@@ -226,29 +226,29 @@ export const taskRepo = {
     const startedAt = input.startedAt ?? existing.startedAt;
     const completedAt = input.completedAt ?? existing.completedAt;
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE tasks SET status = ?, output = ?, started_at = ?, completed_at = ?
       WHERE id = ?
     `).run(status, output, startedAt, completedAt, id);
 
-    return this.findById(id)!;
+    return (await this.findById(id))!;
   },
 
   // ── Run Steps ──────────────────────────────────────────────────
 
-  findStepsByRunId(runId: string): RunStep[] {
+  async findStepsByRunId(runId: string): Promise<RunStep[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM run_steps WHERE run_id = ? ORDER BY created_at ASC')
-      .all(runId) as RunStepRow[];
+    const rows = await db.prepare('SELECT * FROM run_steps WHERE run_id = ? ORDER BY created_at ASC')
+      .all<RunStepRow>(runId);
     return rows.map(rowToRunStep);
   },
 
-  createStep(input: CreateRunStepInput): RunStep {
+  async createStep(input: CreateRunStepInput): Promise<RunStep> {
     const db = getDb();
     const id = generateId();
     const now = new Date().toISOString();
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO run_steps (id, run_id, task_id, agent_id, type, input, output, input_tokens, output_tokens, cost_usd, baseline_cost_usd, duration_ms, model, provider_id, cache_hit, router_tier, cache_read_tokens, cache_creation_tokens, compression_saved_tokens, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -274,25 +274,25 @@ export const taskRepo = {
       now,
     );
 
-    const row = db.prepare('SELECT * FROM run_steps WHERE id = ?').get(id) as RunStepRow;
+    const row = (await db.prepare('SELECT * FROM run_steps WHERE id = ?').get<RunStepRow>(id))!;
     return rowToRunStep(row);
   },
 
   // ── File Changes ───────────────────────────────────────────────
 
-  findFileChangesByRunId(runId: string): FileChange[] {
+  async findFileChangesByRunId(runId: string): Promise<FileChange[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM file_changes WHERE run_id = ? ORDER BY created_at ASC')
-      .all(runId) as FileChangeRow[];
+    const rows = await db.prepare('SELECT * FROM file_changes WHERE run_id = ? ORDER BY created_at ASC')
+      .all<FileChangeRow>(runId);
     return rows.map(rowToFileChange);
   },
 
-  createFileChange(input: CreateFileChangeInput): FileChange {
+  async createFileChange(input: CreateFileChangeInput): Promise<FileChange> {
     const db = getDb();
     const id = generateId();
     const now = new Date().toISOString();
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO file_changes (id, run_step_id, run_id, file_path, operation, previous_content, new_content, agent_id, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -307,7 +307,7 @@ export const taskRepo = {
       now,
     );
 
-    const row = db.prepare('SELECT * FROM file_changes WHERE id = ?').get(id) as FileChangeRow;
+    const row = (await db.prepare('SELECT * FROM file_changes WHERE id = ?').get<FileChangeRow>(id))!;
     return rowToFileChange(row);
   },
 };

@@ -14,7 +14,7 @@ function maskProvider(p: LLMProvider): LLMProvider & { hasApiKey: boolean } {
 
 export async function providerRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/providers', async (_request, reply) => {
-    return reply.send(providerRepo.findAll().map(maskProvider));
+    return reply.send((await providerRepo.findAll()).map(maskProvider));
   });
 
   app.post<{ Body: CreateProviderInput }>('/api/providers', async (request, reply) => {
@@ -22,12 +22,12 @@ export async function providerRoutes(app: FastifyInstance): Promise<void> {
     if (!label || !kind) {
       return reply.status(400).send({ error: true, message: 'label and kind are required' });
     }
-    const provider = providerRepo.create(request.body);
+    const provider = await providerRepo.create(request.body);
     return reply.status(201).send(maskProvider(provider));
   });
 
   app.patch<{ Params: { id: string }; Body: UpdateProviderInput }>('/api/providers/:id', async (request, reply) => {
-    const provider = providerRepo.update(request.params.id, request.body);
+    const provider = await providerRepo.update(request.params.id, request.body);
     if (!provider) {
       return reply.status(404).send({ error: true, message: 'Provider not found' });
     }
@@ -35,7 +35,7 @@ export async function providerRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.delete<{ Params: { id: string } }>('/api/providers/:id', async (request, reply) => {
-    const removed = providerRepo.remove(request.params.id);
+    const removed = await providerRepo.remove(request.params.id);
     if (!removed) {
       return reply.status(404).send({ error: true, message: 'Provider not found' });
     }

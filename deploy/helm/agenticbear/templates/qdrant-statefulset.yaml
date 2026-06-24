@@ -1,0 +1,71 @@
+{{- if .Values.qdrant.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "agenticbear.qdrantName" . }}
+  labels:
+    {{- include "agenticbear.labels" . | nindent 4 }}
+    app.kubernetes.io/component: qdrant
+spec:
+  selector:
+    {{- include "agenticbear.selectorLabels" (dict "ctx" . "component" "qdrant") | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.qdrant.httpPort }}
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "agenticbear.qdrantName" . }}
+  labels:
+    {{- include "agenticbear.labels" . | nindent 4 }}
+    app.kubernetes.io/component: qdrant
+spec:
+  serviceName: {{ include "agenticbear.qdrantName" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "agenticbear.selectorLabels" (dict "ctx" . "component" "qdrant") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "agenticbear.selectorLabels" (dict "ctx" . "component" "qdrant") | nindent 8 }}
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: qdrant
+          image: {{ .Values.qdrant.image }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.qdrant.httpPort }}
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.qdrant.resources | nindent 12 }}
+          volumeMounts:
+            - name: storage
+              mountPath: /qdrant/storage
+  volumeClaimTemplates:
+    - metadata:
+        name: storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.qdrant.persistence.size }}
+        {{- if .Values.qdrant.persistence.storageClass }}
+        storageClassName: {{ .Values.qdrant.persistence.storageClass | quote }}
+        {{- end }}
+{{- end }}

@@ -18,7 +18,7 @@ function unauthorized(reply: FastifyReply, message: string) {
 
 export async function requireGatewayKey(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   // Open until the admin issues the first key.
-  if (gatewayKeyRepo.count() === 0) return;
+  if ((await gatewayKeyRepo.count()) === 0) return;
 
   const header = request.headers['authorization'];
   const token = header && header.startsWith('Bearer ') ? header.slice(7).trim() : undefined;
@@ -26,7 +26,7 @@ export async function requireGatewayKey(request: FastifyRequest, reply: FastifyR
     return unauthorized(reply, 'Missing API key. Pass `Authorization: Bearer <key>`.');
   }
 
-  const key = gatewayKeyRepo.findByHash(hashKey(token));
+  const key = await gatewayKeyRepo.findByHash(hashKey(token));
   if (!key || !key.enabled) {
     return unauthorized(reply, 'Invalid or disabled API key.');
   }
@@ -34,7 +34,7 @@ export async function requireGatewayKey(request: FastifyRequest, reply: FastifyR
     return unauthorized(reply, 'API key has expired.');
   }
 
-  gatewayKeyRepo.touchLastUsed(key.id);
+  await gatewayKeyRepo.touchLastUsed(key.id);
   const r = request as AuthedRequest;
   r.gatewayKeyId = key.id;
   r.gatewayKey = key;

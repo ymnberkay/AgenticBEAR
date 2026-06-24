@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createRouter,
@@ -7,6 +8,9 @@ import {
   Outlet,
   redirect,
 } from '@tanstack/react-router';
+import { getToken } from './api/client';
+import { useMe } from './api/hooks/use-auth';
+import { LoginPage } from './routes/login-page';
 import { AppShell } from './components/layout/app-shell';
 import { DashboardPage } from './routes/dashboard';
 import { ProjectDetailPage } from './routes/projects/project-detail';
@@ -143,10 +147,29 @@ declare module '@tanstack/react-router' {
   }
 }
 
+/** Gate the whole app behind login; verifies the stored token via /api/auth/me. */
+function AuthGate() {
+  const [authed, setAuthed] = useState(!!getToken());
+  const me = useMe();
+
+  useEffect(() => {
+    const onUnauth = () => setAuthed(false);
+    window.addEventListener('auth:unauthorized', onUnauth);
+    return () => window.removeEventListener('auth:unauthorized', onUnauth);
+  }, []);
+
+  if (!authed || !getToken()) return <LoginPage onSuccess={() => setAuthed(true)} />;
+  if (me.isError) return <LoginPage onSuccess={() => { setAuthed(true); me.refetch(); }} />;
+  if (me.isLoading) {
+    return <div className="h-screen flex items-center justify-center" style={{ background: 'var(--color-bg-base)', color: 'var(--color-text-disabled)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>loading…</div>;
+  }
+  return <RouterProvider router={router} />;
+}
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <AuthGate />
     </QueryClientProvider>
   );
 }

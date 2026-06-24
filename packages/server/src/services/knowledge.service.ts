@@ -9,8 +9,8 @@ import { documentRepo } from '../db/repositories/document.repo.js';
 const MAX_CHARS = 60_000;
 
 /** Returns a "## Project Knowledge" block for the project, or '' if there are no documents. */
-export function projectKnowledgeBlock(projectId: string): string {
-  const docs = documentRepo.findByProjectId(projectId);
+export async function projectKnowledgeBlock(projectId: string): Promise<string> {
+  const docs = await documentRepo.findByProjectId(projectId);
   if (docs.length === 0) return '';
 
   let block = '## Project Knowledge\nReference documents attached to this project:\n';
@@ -25,7 +25,7 @@ export function projectKnowledgeBlock(projectId: string): string {
 }
 
 /** Append the knowledge block to a system prompt (no-op when there are no documents). */
-export function withProjectKnowledge(systemPrompt: string, projectId: string): string {
-  const block = projectKnowledgeBlock(projectId);
+export async function withProjectKnowledge(systemPrompt: string, projectId: string): Promise<string> {
+  const block = await projectKnowledgeBlock(projectId);
   return block ? `${systemPrompt}\n\n${block}` : systemPrompt;
 }

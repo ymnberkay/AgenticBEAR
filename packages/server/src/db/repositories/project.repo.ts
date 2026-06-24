@@ -27,34 +27,34 @@ function rowToProject(row: ProjectRow): Project {
 }
 
 export const projectRepo = {
-  findAll(): Project[] {
+  async findAll(): Promise<Project[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM projects ORDER BY updated_at DESC').all() as ProjectRow[];
+    const rows = await db.prepare('SELECT * FROM projects ORDER BY updated_at DESC').all<ProjectRow>();
     return rows.map(rowToProject);
   },
 
-  findById(id: string): Project | undefined {
+  async findById(id: string): Promise<Project | undefined> {
     const db = getDb();
-    const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as ProjectRow | undefined;
+    const row = await db.prepare('SELECT * FROM projects WHERE id = ?').get<ProjectRow>(id);
     return row ? rowToProject(row) : undefined;
   },
 
-  create(input: CreateProjectInput): Project {
+  async create(input: CreateProjectInput): Promise<Project> {
     const db = getDb();
     const id = generateId();
     const now = new Date().toISOString();
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO projects (id, name, description, workspace_path, status, created_at, updated_at)
       VALUES (?, ?, ?, ?, 'active', ?, ?)
     `).run(id, input.name, input.description ?? '', input.workspacePath, now, now);
 
-    return this.findById(id)!;
+    return (await this.findById(id))!;
   },
 
-  update(id: string, input: UpdateProjectInput): Project | undefined {
+  async update(id: string, input: UpdateProjectInput): Promise<Project | undefined> {
     const db = getDb();
-    const existing = this.findById(id);
+    const existing = await this.findById(id);
     if (!existing) return undefined;
 
     const now = new Date().toISOString();
@@ -63,23 +63,23 @@ export const projectRepo = {
     const workspacePath = input.workspacePath ?? existing.workspacePath;
     const status = input.status ?? existing.status;
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE projects SET name = ?, description = ?, workspace_path = ?, status = ?, updated_at = ?
       WHERE id = ?
     `).run(name, description, workspacePath, status, now, id);
 
-    return this.findById(id)!;
+    return (await this.findById(id))!;
   },
 
-  remove(id: string): boolean {
+  async remove(id: string): Promise<boolean> {
     const db = getDb();
-    const result = db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+    const result = await db.prepare('DELETE FROM projects WHERE id = ?').run(id);
     return result.changes > 0;
   },
 
-  setOrchestrator(projectId: string, agentId: string | null): void {
+  async setOrchestrator(projectId: string, agentId: string | null): Promise<void> {
     const db = getDb();
-    db.prepare('UPDATE projects SET orchestrator_id = ?, updated_at = ? WHERE id = ?')
+    await db.prepare('UPDATE projects SET orchestrator_id = ?, updated_at = ? WHERE id = ?')
       .run(agentId, new Date().toISOString(), projectId);
   },
 };

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Zap, KeyRound, Plus, Trash2, Copy, Check, X } from 'lucide-react';
 import { PROVIDER_SCOPE_PREFIX } from '@subagent/shared';
 import {
-  useGatewayKeys, useCreateGatewayKey, useDeleteGatewayKey, useModelCatalog,
+  useGatewayKeys, useCreateGatewayKey, useDeleteGatewayKey, useModelCatalog, useSetGatewayKeyCacheScope,
 } from '../../api/hooks/use-gateway';
 import { ModelScopePicker } from './model-scope-picker';
 import { Section, inputStyle } from './ui';
@@ -38,6 +38,7 @@ export function ApiKeysTab() {
   const { data: keys } = useGatewayKeys();
   const createKey = useCreateGatewayKey();
   const deleteKey = useDeleteGatewayKey();
+  const setCacheScope = useSetGatewayKeyCacheScope();
   const { data: catalog } = useModelCatalog();
 
   const [copied, setCopied] = useState<string | null>(null);
@@ -189,12 +190,23 @@ print(resp.choices[0].message.content)`;
                 <div style={{ minWidth: 0 }}>
                   <span style={{ fontSize: 12.5, color: 'var(--color-text-primary)' }}>{k.name || '(unnamed)'}</span>
                   <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
-                    {k.keyPrefix}… · {scopeLabel(k.allowedModels)} · <span style={{ color: exp.expired ? '#d88a8a' : 'var(--color-text-disabled)' }}>{exp.text}</span>{k.cacheScope === 'lastUser' ? ' · FAQ' : ''}{k.lastUsedAt ? ' · used' : ' · never used'}
+                    {k.keyPrefix}… · {scopeLabel(k.allowedModels)} · <span style={{ color: exp.expired ? '#d88a8a' : 'var(--color-text-disabled)' }}>{exp.text}</span>{k.lastUsedAt ? ' · used' : ' · never used'}
                   </div>
                 </div>
-                <button type="button" onClick={() => deleteKey.mutate(k.id)} title="Revoke" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d88a8a', flexShrink: 0 }}>
-                  <Trash2 style={{ width: 13, height: 13 }} />
-                </button>
+                <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
+                  <button type="button"
+                    onClick={() => setCacheScope.mutate({ id: k.id, cacheScope: k.cacheScope === 'lastUser' ? 'conversation' : 'lastUser' })}
+                    title="FAQ mode: cache by question only (ignore history)"
+                    style={{ height: 24, padding: '0 8px', fontSize: 10.5, fontFamily: 'var(--font-mono)', cursor: 'pointer',
+                      background: k.cacheScope === 'lastUser' ? 'rgba(109,181,138,0.15)' : 'none',
+                      border: `1px solid ${k.cacheScope === 'lastUser' ? 'rgba(109,181,138,0.5)' : 'var(--color-border-subtle)'}`,
+                      color: k.cacheScope === 'lastUser' ? '#6db58a' : 'var(--color-text-disabled)' }}>
+                    FAQ {k.cacheScope === 'lastUser' ? 'on' : 'off'}
+                  </button>
+                  <button type="button" onClick={() => deleteKey.mutate(k.id)} title="Revoke" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d88a8a' }}>
+                    <Trash2 style={{ width: 13, height: 13 }} />
+                  </button>
+                </div>
               </div>
             );
           })}

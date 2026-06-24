@@ -18,6 +18,8 @@ import { settingsRepo } from '../db/repositories/settings.repo.js';
 import { gatewayUsageRepo } from '../db/repositories/gateway-usage.repo.js';
 import { discoverModels } from '../llm/model-discovery.js';
 import { requireGatewayKey, type AuthedRequest } from '../middleware/require-gateway-key.js';
+import { scanAndRedact, dlpActiveForModel } from '../security/dlp.js';
+import { costConfig } from '../cost/config.js';
 import { createLogger } from '../utils/logger.js';
 import type { FastifyRequest } from 'fastify';
 
@@ -38,12 +40,12 @@ interface OpenAIChatRequest {
 const DEFAULT_MAX_TOKENS = 4096;
 
 /** `providerId/model` → { providerId, model } (split on first '/', only if first segment is a known provider). */
-export function parseModelRef(model: string): { providerId?: string; model: string } {
+export async function parseModelRef(model: string): Promise<{ providerId?: string; model: string }> {
   const slash = model.indexOf('/');
   if (slash === -1) return { model };
   const first = model.slice(0, slash);
   const rest = model.slice(slash + 1);
-  if (rest && (isBuiltinProviderId(first) || providerRepo.findById(first))) {
+  if (rest && (isBuiltinProviderId(first) || (await providerRepo.findById(first)))) {
     return { providerId: first, model: rest };
   }
   return { model };
@@ -54,20 +56,20 @@ export function parseModelRef(model: string): { providerId?: string; model: stri
  * scope (`owner:<provider>`) can be checked from the model id alone, without rebuilding the
  * (discovery-backed) catalog on every request.
  */
-function modelOwner(modelId: string): string {
-  const { providerId, model } = parseModelRef(modelId);
+async function modelOwner(modelId: string): Promise<string> {
+  const { providerId, model } = await parseModelRef(modelId);
   if (providerId) {
     if (isBuiltinProviderId(providerId)) return providerId;
-    return providerRepo.findById(providerId)?.label ?? providerId;
+    return (await providerRepo.findById(providerId))?.label ?? providerId;
   }
   return detectBuiltinProvider(model);
 }
 
 /** Whether a key may call a model: empty scope = all; else exact id OR a parent `owner:` wildcard. */
-function keyAllowsModel(key: GatewayKey, modelId: string): boolean {
+async function keyAllowsModel(key: GatewayKey, modelId: string): Promise<boolean> {
   if (key.allowedModels.length === 0) return true;
   if (key.allowedModels.includes(modelId)) return true;
-  return key.allowedModels.includes(`${PROVIDER_SCOPE_PREFIX}${modelOwner(modelId)}`);
+  return key.allowedModels.includes(`${PROVIDER_SCOPE_PREFIX}${await modelOwner(modelId)}`);
 }
 
 function partText(c: string | OpenAIContentPart[]): string {
@@ -122,7 +124,7 @@ function staticBuiltinModels(provider: 'anthropic' | 'openai'): string[] {
  * listed as `<providerId>/<modelId>`.
  */
 export async function buildModelCatalog(force = false): Promise<CatalogModel[]> {
-  const settings = settingsRepo.getSettings();
+  const settings = await settingsRepo.getSettings();
   const anthropicKey = settings.apiKey || process.env.ANTHROPIC_API_KEY || '';
   const openaiKey = settings.openAiApiKey || process.env.OPENAI_API_KEY || '';
   const geminiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY || '';
@@ -142,7 +144,7 @@ export async function buildModelCatalog(force = false): Promise<CatalogModel[]> 
   if (openaiKey) pushAll(openaiIds.length ? openaiIds : staticBuiltinModels('openai'), 'openai');
   if (geminiKey) pushAll(geminiIds, 'gemini');
 
-  for (const p of providerRepo.findAll()) {
+  for (const p of await providerRepo.findAll()) {
     if (!p.enabled) continue;
     for (const m of p.models) {
       data.push({ id: `${p.id}/${m.id}`, object: 'model', owned_by: p.label });
@@ -156,9 +158,9 @@ function gatewayKeyId(request: FastifyRequest): string | null {
 }
 
 /** Persist a per-call usage row for cost attribution (best-effort). */
-function recordUsage(request: FastifyRequest, model: string, providerId: string | undefined, result: ClaudeCallResult): void {
+async function recordUsage(request: FastifyRequest, model: string, providerId: string | undefined, result: ClaudeCallResult): Promise<void> {
   try {
-    gatewayUsageRepo.record({
+    await gatewayUsageRepo.record({
       keyId: gatewayKeyId(request),
       model,
       providerId: providerId ?? null,
@@ -199,14 +201,37 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
 
     // Per-key model scope: exact id or a parent-provider (`owner:<provider>`) wildcard.
     const authedKey = (request as AuthedRequest).gatewayKey;
-    if (authedKey && !keyAllowsModel(authedKey, body.model)) {
+    if (authedKey && !(await keyAllowsModel(authedKey, body.model))) {
       return reply.status(403).send(oaiError(`Model '${body.model}' is not allowed for this API key.`, 'permission_error', 'model_not_allowed'));
     }
 
-    const { providerId, model } = parseModelRef(body.model);
-    const { systemPrompt, turns } = splitMessages(body.messages);
+    const { providerId, model } = await parseModelRef(body.model);
+    const split = splitMessages(body.messages);
+    let systemPrompt = split.systemPrompt;
+    const turns = split.turns;
     if (turns.length === 0) {
       return reply.status(400).send(oaiError('at least one user/assistant message is required'));
+    }
+
+    // ── DLP egress guard — redact (or block) secrets/PII before the prompt leaves to the provider ──
+    if (await dlpActiveForModel(body.model)) {
+      const types = new Set<string>();
+      let redacted = 0;
+      const guard = async (s: string | undefined): Promise<string | undefined> => {
+        if (!s) return s;
+        const r = await scanAndRedact(s);
+        if (r.total > 0) { redacted += r.total; Object.keys(r.findings).forEach((t) => types.add(t)); }
+        return r.text;
+      };
+      systemPrompt = await guard(systemPrompt);
+      for (const t of turns) t.content = (await guard(t.content)) ?? t.content;
+      if (redacted > 0) {
+        if (costConfig.dlp.block) {
+          return reply.status(422).send(oaiError(`Request blocked: sensitive data detected (${[...types].join(', ')})`, 'invalid_request_error', 'sensitive_data_blocked'));
+        }
+        reply.header('x-agb-dlp-redacted', String(redacted));
+        log.info(`DLP redacted ${redacted} item(s) [${[...types].join(', ')}] before egress`);
+      }
     }
 
     const maxTokens = body.max_completion_tokens ?? body.max_tokens ?? DEFAULT_MAX_TOKENS;
@@ -247,7 +272,7 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
         send({ ...base, model: result.servedModel, choices: [{ index: 0, delta: {}, finish_reason: finishReason(result.stopReason) }] });
         raw.write('data: [DONE]\n\n');
         raw.end();
-        recordUsage(request, body.model, providerId, result);
+        await recordUsage(request, body.model, providerId, result);
         log.info(`gateway stream ${body.model} → ${result.servedModel} ($${result.actualCostUsd.toFixed(6)})`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -270,7 +295,7 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
         'x-agb-baseline-usd': String(result.baselineCostUsd),
         'x-agb-cache-hit': String(result.cacheHit),
       });
-      recordUsage(request, body.model, providerId, result);
+      await recordUsage(request, body.model, providerId, result);
 
       return reply.send({
         id,

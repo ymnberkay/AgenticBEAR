@@ -28,7 +28,7 @@ export async function workspaceRoutes(app: FastifyInstance): Promise<void> {
 
   // Get file tree for project workspace
   app.get<{ Params: { projectId: string } }>('/api/workspace/:projectId/tree', async (request, reply) => {
-    const project = projectRepo.findById(request.params.projectId);
+    const project = await projectRepo.findById(request.params.projectId);
     if (!project) {
       return reply.status(404).send({ error: true, message: 'Project not found' });
     }
@@ -48,7 +48,7 @@ export async function workspaceRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { projectId: string }; Querystring: { path: string } }>(
     '/api/workspace/:projectId/file',
     async (request, reply) => {
-      const project = projectRepo.findById(request.params.projectId);
+      const project = await projectRepo.findById(request.params.projectId);
       if (!project) {
         return reply.status(404).send({ error: true, message: 'Project not found' });
       }
@@ -75,7 +75,7 @@ export async function workspaceRoutes(app: FastifyInstance): Promise<void> {
   app.put<{ Params: { projectId: string }; Querystring: { path: string }; Body: { content: string } }>(
     '/api/workspace/:projectId/file',
     async (request, reply) => {
-      const project = projectRepo.findById(request.params.projectId);
+      const project = await projectRepo.findById(request.params.projectId);
       if (!project) {
         return reply.status(404).send({ error: true, message: 'Project not found' });
       }

@@ -83,8 +83,8 @@ export class ClaudeService {
     stream: boolean,
     onChunk?: (chunk: string) => void,
   ): Promise<ClaudeCallResult> {
-    const resolved = resolveProvider(params.providerId, params.model);
-    const pricing = modelPricing(params.providerId, params.model);
+    const resolved = await resolveProvider(params.providerId, params.model);
+    const pricing = await modelPricing(params.providerId, params.model);
 
     const result = await costMiddleware.complete(
       {

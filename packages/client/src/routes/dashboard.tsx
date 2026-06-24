@@ -1,4 +1,5 @@
-import { Plus, Settings, Search } from 'lucide-react';
+import { Plus, Settings, Search, LogOut } from 'lucide-react';
+import { logout } from '../api/hooks/use-auth';
 import { useNavigate } from '@tanstack/react-router';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRef, useEffect, useMemo } from 'react';
@@ -395,6 +396,20 @@ export function DashboardPage() {
         >
           <Settings style={{ width: 13, height: 13 }} />
           <span>Settings</span>
+        </button>
+        <button
+          onClick={logout}
+          className="flex items-center gap-2 transition-all duration-150"
+          style={{
+            height: 32, padding: '0 14px',
+            background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)',
+            color: 'var(--color-text-disabled)', fontSize: 12, fontFamily: 'var(--font-sans)',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; e.currentTarget.style.color = 'var(--color-text-secondary)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
+        >
+          <LogOut style={{ width: 13, height: 13 }} />
+          <span>Logout</span>
         </button>
       </div>
 

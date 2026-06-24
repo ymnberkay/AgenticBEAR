@@ -18,16 +18,16 @@ describe('provider-registry — pure helpers', () => {
     expect(isAnthropicKind('gemini')).toBe(false);
   });
 
-  it('modelPricing: known built-in models resolve from CLAUDE_MODELS (no DB)', () => {
+  it('modelPricing: known built-in models resolve from CLAUDE_MODELS (no DB)', async () => {
     const sonnet = CLAUDE_MODELS['claude-sonnet-4-20250514'];
-    expect(modelPricing(undefined, 'claude-sonnet-4-20250514')).toEqual({
+    expect(await modelPricing(undefined, 'claude-sonnet-4-20250514')).toEqual({
       costPer1kInput: sonnet.costPer1kInput,
       costPer1kOutput: sonnet.costPer1kOutput,
     });
   });
 
-  it('modelPricing: unknown model with no/builtin provider → zero (no DB)', () => {
-    expect(modelPricing(undefined, 'totally-unknown')).toEqual({ costPer1kInput: 0, costPer1kOutput: 0 });
-    expect(modelPricing('anthropic', 'totally-unknown')).toEqual({ costPer1kInput: 0, costPer1kOutput: 0 });
+  it('modelPricing: unknown model with no/builtin provider → zero (no DB)', async () => {
+    expect(await modelPricing(undefined, 'totally-unknown')).toEqual({ costPer1kInput: 0, costPer1kOutput: 0 });
+    expect(await modelPricing('anthropic', 'totally-unknown')).toEqual({ costPer1kInput: 0, costPer1kOutput: 0 });
   });
 });

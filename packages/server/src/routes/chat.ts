@@ -25,16 +25,16 @@ interface ChatBody {
 }
 
 /** Persist a chat turn (+ any file writes) as a synthetic run so it shows in Analytics + workspace. */
-function recordChatStep(projectId: string, agent: Agent, lastUser: string, result: RunTurnResult): void {
+async function recordChatStep(projectId: string, agent: Agent, lastUser: string, result: RunTurnResult): Promise<void> {
   try {
     // L2 level-routing may have served a cheaper model than configured → record both for savings.
     const cost = result.costUsd;
     const baseline = result.baselineCostUsd;
     const objective = `Chat: ${lastUser.length > 60 ? `${lastUser.slice(0, 57)}…` : lastUser}`;
-    const run = runRepo.create({ projectId, objective });
+    const run = await runRepo.create({ projectId, objective });
     const now = new Date().toISOString();
-    const task = taskRepo.createTask({ runId: run.id, assignedAgentId: agent.id, title: 'Chat', description: lastUser });
-    const stepRow = taskRepo.createStep({
+    const task = await taskRepo.createTask({ runId: run.id, assignedAgentId: agent.id, title: 'Chat', description: lastUser });
+    const stepRow = await taskRepo.createStep({
       runId: run.id, taskId: task.id, agentId: agent.id, type: 'api_call',
       input: lastUser, output: result.text,
       inputTokens: result.inputTokens, outputTokens: result.outputTokens,
@@ -43,13 +43,13 @@ function recordChatStep(projectId: string, agent: Agent, lastUser: string, resul
       routerTier: result.routerTier, compressionSavedTokens: result.compressionSavedTokens,
     });
     for (const f of result.filesWritten) {
-      taskRepo.createFileChange({
+      await taskRepo.createFileChange({
         runStepId: stepRow.id, runId: run.id, filePath: f.path, operation: f.operation,
         previousContent: f.previousContent, newContent: f.content, agentId: f.agentId,
       });
     }
-    taskRepo.updateTask(task.id, { status: 'completed', output: result.text, completedAt: now });
-    runRepo.update(run.id, {
+    await taskRepo.updateTask(task.id, { status: 'completed', output: result.text, completedAt: now });
+    await runRepo.update(run.id, {
       status: 'completed', startedAt: now, completedAt: now,
       totalInputTokens: result.inputTokens, totalOutputTokens: result.outputTokens,
       totalCostUsd: cost, totalBaselineCostUsd: baseline,
@@ -69,11 +69,11 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (!agentId || !Array.isArray(messages) || messages.length === 0) {
         return reply.status(400).send({ error: true, message: 'agentId and a non-empty messages array are required' });
       }
-      const agent = agentRepo.findById(agentId);
+      const agent = await agentRepo.findById(agentId);
       if (!agent || agent.projectId !== projectId) {
         return reply.status(404).send({ error: true, message: 'Agent not found in this project' });
       }
-      const project = projectRepo.findById(projectId);
+      const project = await projectRepo.findById(projectId);
       if (!project) return reply.status(404).send({ error: true, message: 'Project not found' });
 
       const turns: ChatTurn[] = messages.map((m) => ({ role: m.role, content: m.content }));
@@ -95,7 +95,7 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
             else if (e.type === 'text') send({ delta: e.delta });
           },
         });
-        recordChatStep(projectId, agent, lastUser, result);
+        await recordChatStep(projectId, agent, lastUser, result);
         send({ done: true, servedModel: result.servedModel, filesWritten: result.filesWritten.length });
         raw.write('data: [DONE]\n\n');
         raw.end();

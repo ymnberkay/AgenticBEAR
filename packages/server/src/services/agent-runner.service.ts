@@ -48,7 +48,7 @@ export async function executeTask(
 
   // Preserve agent memory by folding it into the system prompt; the loop adds project
   // knowledge + tool guidance on top of whatever systemPrompt the agent carries.
-  const memoryBlock = buildMemoryBlock(agent.id);
+  const memoryBlock = await buildMemoryBlock(agent.id);
   const basePrompt = memoryBlock ? `${agent.systemPrompt}\n\n${memoryBlock}` : agent.systemPrompt;
 
   const turn = await runAgentTurn({
@@ -79,7 +79,7 @@ export async function executeTask(
       `${turn.filesWritten.length} file(s) written`,
   );
 
-  memoryRepo.create({
+  await memoryRepo.create({
     agentId: agent.id,
     projectId,
     type: 'interaction',

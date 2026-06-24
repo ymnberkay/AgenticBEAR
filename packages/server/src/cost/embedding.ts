@@ -20,9 +20,9 @@ const log = createLogger('cost:embed');
  * Kullanıcı top-level settings.{provider}ApiKey set etmemişse buradan yakalanır
  * (örn. Gemini'i custom 'openai-compatible' provider olarak eklemişse).
  */
-function findKeyFromCustomProviders(modelPrefixes: string[]): string {
+async function findKeyFromCustomProviders(modelPrefixes: string[]): Promise<string> {
   try {
-    for (const p of providerRepo.findAll()) {
+    for (const p of await providerRepo.findAll()) {
       if (p.enabled === false) continue;
       if (!p.apiKey) continue;
       if (p.models.some((m) => modelPrefixes.some((pref) => m.id.startsWith(pref)))) {
@@ -37,9 +37,9 @@ function findKeyFromCustomProviders(modelPrefixes: string[]): string {
 
 /** Gemini text-embedding-004 — settings/env/custom-provider sırasıyla key'i bulur. */
 class GeminiEmbedder implements Embedder {
-  private getKey(): string {
+  private async getKey(): Promise<string> {
     try {
-      const k = settingsRepo.getSettings().geminiApiKey;
+      const k = (await settingsRepo.getSettings()).geminiApiKey;
       if (k) return k;
     } catch {
       // DB henüz başlatılmadıysa atla
@@ -48,12 +48,12 @@ class GeminiEmbedder implements Embedder {
     return findKeyFromCustomProviders(['gemini-']);
   }
 
-  available(): boolean {
-    return !!this.getKey();
+  async available(): Promise<boolean> {
+    return !!(await this.getKey());
   }
 
   async embed(text: string): Promise<number[]> {
-    const apiKey = this.getKey();
+    const apiKey = await this.getKey();
     if (!apiKey) throw new Error('GEMINI_API_KEY tanımlı değil (settings veya env)');
 
     const model = costConfig.semanticCache.geminiModel;
@@ -79,7 +79,7 @@ class GeminiEmbedder implements Embedder {
 }
 
 class VoyageEmbedder implements Embedder {
-  available(): boolean {
+  async available(): Promise<boolean> {
     return !!process.env.VOYAGE_API_KEY;
   }
 
@@ -109,9 +109,9 @@ class VoyageEmbedder implements Embedder {
 
 /** OpenAI text-embedding-3-small — settings/env/custom-provider sırasıyla key'i bulur. */
 class OpenAiEmbedder implements Embedder {
-  private getKey(): string {
+  private async getKey(): Promise<string> {
     try {
-      const k = settingsRepo.getSettings().openAiApiKey;
+      const k = (await settingsRepo.getSettings()).openAiApiKey;
       if (k) return k;
     } catch {
       // DB henüz başlatılmadıysa atla
@@ -120,12 +120,12 @@ class OpenAiEmbedder implements Embedder {
     return findKeyFromCustomProviders(['gpt-', 'o1-', 'o3-']);
   }
 
-  available(): boolean {
-    return !!this.getKey();
+  async available(): Promise<boolean> {
+    return !!(await this.getKey());
   }
 
   async embed(text: string): Promise<number[]> {
-    const apiKey = this.getKey();
+    const apiKey = await this.getKey();
     if (!apiKey) throw new Error('OPENAI_API_KEY tanımlı değil (settings veya env)');
 
     const res = await fetch('https://api.openai.com/v1/embeddings', {
@@ -151,7 +151,7 @@ class OpenAiEmbedder implements Embedder {
  */
 class LocalEmbedder implements Embedder {
   private warned = false;
-  available(): boolean {
+  async available(): Promise<boolean> {
     if (!this.warned) {
       log.warn('Yerel embedding sağlayıcısı kurulu değil; L1 semantic cache devre dışı.');
       this.warned = true;

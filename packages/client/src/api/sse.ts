@@ -1,4 +1,5 @@
 import type { SSEEvent, SSEEventType } from '@subagent/shared';
+import { getToken } from './client';
 
 type SSEEventHandler = (event: SSEEvent) => void;
 
@@ -9,7 +10,7 @@ export interface SSEConnection {
 }
 
 export function createSSEConnection(runId: string): SSEConnection {
-  const eventSource = new EventSource(`/api/events/${runId}`);
+  const eventSource = new EventSource(`/api/events/${runId}?token=${encodeURIComponent(getToken() ?? '')}`);
   const handlers = new Map<string, Set<SSEEventHandler>>();
 
   eventSource.onmessage = (event) => {

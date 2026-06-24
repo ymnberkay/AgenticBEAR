@@ -7,7 +7,7 @@ import type { CreateRunInput } from '@subagent/shared';
 export async function runRoutes(app: FastifyInstance): Promise<void> {
   // List runs by project
   app.get<{ Params: { projectId: string } }>('/api/projects/:projectId/runs', async (request, reply) => {
-    const runs = runRepo.findByProjectId(request.params.projectId);
+    const runs = await runRepo.findByProjectId(request.params.projectId);
     return reply.send(runs);
   });
 
@@ -22,14 +22,14 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: true, message: 'objective is required' });
       }
 
-      const run = runRepo.create({ projectId, objective });
+      const run = await runRepo.create({ projectId, objective });
       return reply.status(201).send(run);
     },
   );
 
   // Get run by ID
   app.get<{ Params: { id: string } }>('/api/runs/:id', async (request, reply) => {
-    const run = runRepo.findById(request.params.id);
+    const run = await runRepo.findById(request.params.id);
     if (!run) {
       return reply.status(404).send({ error: true, message: 'Run not found' });
     }
@@ -38,7 +38,7 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
 
   // Update run
   app.patch<{ Params: { id: string }; Body: Record<string, unknown> }>('/api/runs/:id', async (request, reply) => {
-    const run = runRepo.update(request.params.id, request.body as any);
+    const run = await runRepo.update(request.params.id, request.body as any);
     if (!run) {
       return reply.status(404).send({ error: true, message: 'Run not found' });
     }
@@ -47,7 +47,7 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
 
   // Start run execution
   app.post<{ Params: { id: string } }>('/api/runs/:id/start', async (request, reply) => {
-    const run = runRepo.findById(request.params.id);
+    const run = await runRepo.findById(request.params.id);
     if (!run) {
       return reply.status(404).send({ error: true, message: 'Run not found' });
     }
@@ -57,7 +57,7 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
     }
 
     if (run.status === 'paused') {
-      executionEngine.resumeRun(run.id);
+      await executionEngine.resumeRun(run.id);
       return reply.send({ message: 'Run resumed', runId: run.id });
     }
 
@@ -80,7 +80,7 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
 
   // Cancel run
   app.post<{ Params: { id: string } }>('/api/runs/:id/cancel', async (request, reply) => {
-    const success = executionEngine.cancelRun(request.params.id);
+    const success = await executionEngine.cancelRun(request.params.id);
     if (!success) {
       return reply.status(400).send({ error: true, message: 'Run is not active or cannot be cancelled' });
     }
@@ -89,19 +89,19 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
 
   // Get tasks for a run
   app.get<{ Params: { id: string } }>('/api/runs/:id/tasks', async (request, reply) => {
-    const tasks = taskRepo.findByRunId(request.params.id);
+    const tasks = await taskRepo.findByRunId(request.params.id);
     return reply.send(tasks);
   });
 
   // Get steps for a run
   app.get<{ Params: { id: string } }>('/api/runs/:id/steps', async (request, reply) => {
-    const steps = taskRepo.findStepsByRunId(request.params.id);
+    const steps = await taskRepo.findStepsByRunId(request.params.id);
     return reply.send(steps);
   });
 
   // Get file changes for a run
   app.get<{ Params: { id: string } }>('/api/runs/:id/file-changes', async (request, reply) => {
-    const changes = taskRepo.findFileChangesByRunId(request.params.id);
+    const changes = await taskRepo.findFileChangesByRunId(request.params.id);
     return reply.send(changes);
   });
 }

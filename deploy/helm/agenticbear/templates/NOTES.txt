@@ -1,0 +1,39 @@
+AgenticBEAR is installed 🐻
+
+Release:   {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Components:
+  • server   ({{ .Values.server.replicaCount }} replica) — API + OpenAI-compatible gateway + UI on one port
+  • postgres {{ if .Values.postgres.enabled }}(bundled){{ else }}(external){{ end }}
+  • qdrant   {{ if .Values.qdrant.enabled }}(bundled){{ else }}(external){{ end }}
+
+The first run auto-applies DB migrations and seeds an admin user.
+  Login:   {{ .Values.auth.adminUsername }} / (auth.adminPassword)
+  ⚠ Change auth.adminPassword and postgres.password before any real use.
+
+──────────────────────────────────────────────────────────────────────────
+1) The container image
+   This chart expects the image "{{ include "agenticbear.image" . }}".
+   Build & push it from the repo root, then set image.repository/image.tag:
+
+     docker build -t <registry>/agenticbear:{{ .Chart.AppVersion }} .
+     docker push    <registry>/agenticbear:{{ .Chart.AppVersion }}
+     helm upgrade --install {{ .Release.Name }} deploy/helm/agenticbear \
+       --set image.repository=<registry>/agenticbear
+
+2) Reach the app
+{{- if .Values.ingress.enabled }}
+   http://{{ .Values.ingress.host }}/   (Ingress)
+{{- else if eq .Values.service.type "LoadBalancer" }}
+   Wait for the external IP:
+     kubectl get svc {{ include "agenticbear.serverName" . }} -n {{ .Release.Namespace }} -w
+{{- else }}
+   Port-forward:
+     kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "agenticbear.serverName" . }} 8080:{{ .Values.service.port }}
+   then open http://localhost:8080/
+{{- end }}
+
+3) Gateway (OpenAI-compatible) base URL once port-forwarded:
+     http://localhost:8080/v1
+   Create a gateway key in Settings → API Keys, then point any OpenAI SDK at it.
+──────────────────────────────────────────────────────────────────────────

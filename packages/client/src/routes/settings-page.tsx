@@ -7,12 +7,18 @@ import { ProvidersTab } from '../components/settings/providers-tab';
 import { ApiKeysTab } from '../components/settings/api-keys-tab';
 import { ModelsTab } from '../components/settings/models-tab';
 import { UsageTab } from '../components/settings/usage-tab';
+import { SecurityTab } from '../components/settings/security-tab';
+import { UsersTab } from '../components/settings/users-tab';
+import { GroupsTab } from '../components/settings/groups-tab';
 
 const TABS = [
   { id: 'general', label: 'General' },
   { id: 'providers', label: 'Providers' },
   { id: 'apikeys', label: 'API Keys' },
   { id: 'models', label: 'Models' },
+  { id: 'security', label: 'Security' },
+  { id: 'users', label: 'Users' },
+  { id: 'groups', label: 'Groups' },
   { id: 'usage', label: 'Usage' },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
@@ -60,6 +66,9 @@ export function SettingsPage() {
         {tab === 'providers' && <ProvidersTab onSaved={showToast} />}
         {tab === 'apikeys' && <ApiKeysTab />}
         {tab === 'models' && <ModelsTab />}
+        {tab === 'security' && <SecurityTab onSaved={showToast} />}
+        {tab === 'users' && <UsersTab onSaved={showToast} />}
+        {tab === 'groups' && <GroupsTab onSaved={showToast} />}
         {tab === 'usage' && <UsageTab />}
       </div>
       <Toast toast={toast} />

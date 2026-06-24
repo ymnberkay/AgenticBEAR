@@ -28,12 +28,12 @@ const log = createLogger('mcp:server');
 const agentCache = new Map<string, { agents: Agent[]; timestamp: number }>();
 const CACHE_TTL_MS = 30_000;
 
-function getCachedAgents(projectId: string): Agent[] {
+async function getCachedAgents(projectId: string): Promise<Agent[]> {
   const cached = agentCache.get(projectId);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.agents;
   }
-  const agents = agentRepo.findByProjectId(projectId);
+  const agents = await agentRepo.findByProjectId(projectId);
   agentCache.set(projectId, { agents, timestamp: Date.now() });
   return agents;
 }
@@ -75,8 +75,8 @@ function routeByKeyword(specialists: Agent[], query: string): Agent {
 
 
 /** Belirtilen proje için MCP server oluştur */
-export function createMcpServer(projectId: string): McpServer {
-  const project = projectRepo.findById(projectId);
+export async function createMcpServer(projectId: string): Promise<McpServer> {
+  const project = await projectRepo.findById(projectId);
   if (!project) throw new Error(`Proje bulunamadı: ${projectId}`);
 
   const server = new McpServer({
@@ -93,7 +93,7 @@ export function createMcpServer(projectId: string): McpServer {
       context: z.string().optional().describe('Ek bağlam, mevcut kod, dosya içerikleri (isteğe bağlı)'),
     },
     async ({ query, context }) => {
-      const agents = getCachedAgents(projectId);
+      const agents = await getCachedAgents(projectId);
       const orchestrator = agents.find((a) => a.role === 'orchestrator');
       const specialists = agents.filter((a) => a.role === 'specialist');
 
@@ -110,10 +110,10 @@ export function createMcpServer(projectId: string): McpServer {
       }
 
       // Log orchestrator activity
-      const activity = activityRepo.create({ projectId, agentId: orchestrator.id, type: 'mcp_call', query });
+      const activity = await activityRepo.create({ projectId, agentId: orchestrator.id, type: 'mcp_call', query });
       eventBus.emitProjectEvent(projectId, { type: 'agent:started', agentId: orchestrator.id, activityId: activity.id, query });
       setTimeout(() => {
-        activityRepo.complete(activity.id, 'completed');
+        void activityRepo.complete(activity.id, 'completed');
         eventBus.emitProjectEvent(projectId, { type: 'agent:completed', agentId: orchestrator.id, activityId: activity.id });
       }, 3000);
 
@@ -157,7 +157,7 @@ export function createMcpServer(projectId: string): McpServer {
       context: z.string().optional().describe('Ek bağlam, kod parçası veya dosya içeriği (isteğe bağlı)'),
     },
     async ({ agent_id, query, context }) => {
-      const agents = getCachedAgents(projectId);
+      const agents = await getCachedAgents(projectId);
       const agent = agents.find((a) => a.id === agent_id);
 
       if (!agent) {
@@ -174,13 +174,13 @@ export function createMcpServer(projectId: string): McpServer {
       }
 
       // Log activity
-      const activity = activityRepo.create({ projectId, agentId: agent.id, type: 'mcp_call', query });
+      const activity = await activityRepo.create({ projectId, agentId: agent.id, type: 'mcp_call', query });
       eventBus.emitProjectEvent(projectId, { type: 'agent:started', agentId: agent.id, activityId: activity.id, query });
 
-      const memoryBlock = buildMemoryBlock(agent.id);
+      const memoryBlock = await buildMemoryBlock(agent.id);
       const userMessage = context ? `${context}\n\n${query}` : query;
       const basePrompt = memoryBlock ? `${agent.systemPrompt}\n\n${memoryBlock}` : agent.systemPrompt;
-      const systemPromptWithMemory = withProjectKnowledge(basePrompt, projectId);
+      const systemPromptWithMemory = await withProjectKnowledge(basePrompt, projectId);
 
       try {
         // Server-side LLM çağrısı — cost middleware'den geçer (L1 cache + L2 router + L3 prompt cache).
@@ -208,16 +208,16 @@ export function createMcpServer(projectId: string): McpServer {
         // Hata olursa MCP yanıtını kesme — analytics best-effort.
         try {
           const objective = `MCP: ${query.length > 80 ? query.slice(0, 77) + '…' : query}`;
-          const synthRun = runRepo.create({ projectId, objective });
+          const synthRun = await runRepo.create({ projectId, objective });
           const startedAt = new Date().toISOString();
-          const synthTask = taskRepo.createTask({
+          const synthTask = await taskRepo.createTask({
             runId: synthRun.id,
             assignedAgentId: agent.id,
             title: 'MCP ask_agent',
             description: query,
           });
-          taskRepo.updateTask(synthTask.id, { status: 'in_progress', startedAt });
-          taskRepo.createStep({
+          await taskRepo.updateTask(synthTask.id, { status: 'in_progress', startedAt });
+          await taskRepo.createStep({
             runId: synthRun.id,
             taskId: synthTask.id,
             agentId: agent.id,
@@ -231,12 +231,12 @@ export function createMcpServer(projectId: string): McpServer {
             durationMs,
             ...stepBreakdownFields(apiResult, agent.modelConfig.providerId),
           });
-          taskRepo.updateTask(synthTask.id, {
+          await taskRepo.updateTask(synthTask.id, {
             status: 'completed',
             output: response,
             completedAt: new Date().toISOString(),
           });
-          runRepo.update(synthRun.id, {
+          await runRepo.update(synthRun.id, {
             status: 'completed',
             startedAt,
             completedAt: new Date().toISOString(),
@@ -249,7 +249,7 @@ export function createMcpServer(projectId: string): McpServer {
           log.warn('Could not persist MCP ask_agent to analytics (non-fatal)', analyticsErr);
         }
 
-        memoryRepo.create({
+        await memoryRepo.create({
           agentId: agent.id,
           projectId,
           type: 'interaction',
@@ -258,14 +258,14 @@ export function createMcpServer(projectId: string): McpServer {
           runId: null,
         });
 
-        activityRepo.complete(activity.id, 'completed');
+        await activityRepo.complete(activity.id, 'completed');
         eventBus.emitProjectEvent(projectId, { type: 'agent:completed', agentId: agent.id, activityId: activity.id });
 
         return { content: [{ type: 'text', text: response }] };
 
       } catch {
         // No API key or call failed — fall back to returning the context block (Claude Code CLI handles it)
-        memoryRepo.create({
+        await memoryRepo.create({
           agentId: agent.id,
           projectId,
           type: 'interaction',
@@ -274,7 +274,7 @@ export function createMcpServer(projectId: string): McpServer {
           runId: null,
         });
 
-        activityRepo.complete(activity.id, 'completed');
+        await activityRepo.complete(activity.id, 'completed');
         eventBus.emitProjectEvent(projectId, { type: 'agent:completed', agentId: agent.id, activityId: activity.id });
 
         return {
@@ -293,7 +293,7 @@ export function createMcpServer(projectId: string): McpServer {
     'Projedeki tüm agentları, rollerini ve açıklamalarını listele.',
     {},
     async () => {
-      const agents = getCachedAgents(projectId);
+      const agents = await getCachedAgents(projectId);
 
       if (agents.length === 0) {
         return {
@@ -326,7 +326,7 @@ export function createMcpServer(projectId: string): McpServer {
       topic: z.string().describe('Tüm agentların tartışacağı konu veya soru'),
     },
     async ({ agent_ids, topic }) => {
-      const agents = getCachedAgents(projectId);
+      const agents = await getCachedAgents(projectId);
 
       const sections: string[] = [];
 

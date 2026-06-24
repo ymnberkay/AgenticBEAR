@@ -8,6 +8,8 @@ import type { ProviderKind } from '@subagent/shared';
 import { createLogger } from '../utils/logger.js';
 import { resolveProvider, type ResolvedProvider } from './provider-registry.js';
 import { compressLossless } from '../cost/layers/compression.js';
+import { costConfig } from '../cost/config.js';
+import { scanAndRedact, dlpActiveForModel } from '../security/dlp.js';
 
 const log = createLogger('llm:tools');
 
@@ -68,17 +70,39 @@ function compressTurns(turns: ChatTurn[]): { turns: ChatTurn[]; savedTokens: num
 }
 
 export async function completeWithTools(req: ToolCompletionRequest, tools: ToolDef[]): Promise<ToolCompletionResult> {
-  const provider = resolveProvider(req.providerId, req.model);
+  const provider = await resolveProvider(req.providerId, req.model);
   log.info(`tool call — model: ${req.model}, provider: ${provider.label} (${provider.kind}), tools: ${tools.length}`);
 
   // L0 — tool-use bypasses the cost middleware (side effects), but lossless compression is safe.
   const { turns, savedTokens } = compressTurns(req.messages);
-  const cReq = savedTokens > 0 ? { ...req, messages: turns } : req;
+  // DLP — redact (or block) secrets/PII in system + messages before they leave to the provider.
+  const guarded = await applyDlp(req.systemPrompt, turns, req.model);
+  const cReq = { ...req, systemPrompt: guarded.systemPrompt, messages: guarded.turns };
 
   const result = provider.kind === 'anthropic' || provider.kind === 'anthropic-compatible'
     ? await callAnthropicTools(cReq, provider, tools)
     : await callOpenAITools(cReq, provider, tools);
   return { ...result, compressionSavedTokens: savedTokens };
+}
+
+/** DLP egress guard for the agentic path — same scanner/policy as the gateway. */
+async function applyDlp(systemPrompt: string | undefined, turns: ChatTurn[], model: string): Promise<{ systemPrompt?: string; turns: ChatTurn[] }> {
+  if (!(await dlpActiveForModel(model))) return { systemPrompt, turns };
+  const types = new Set<string>();
+  let redacted = 0;
+  const guard = async (s: string | undefined): Promise<string | undefined> => {
+    if (!s) return s;
+    const r = await scanAndRedact(s);
+    if (r.total > 0) { redacted += r.total; Object.keys(r.findings).forEach((t) => types.add(t)); }
+    return r.text;
+  };
+  const sp = await guard(systemPrompt);
+  const out = await Promise.all(turns.map(async (t) => (t.content ? { ...t, content: (await guard(t.content)) ?? t.content } : t)));
+  if (redacted > 0) {
+    if (costConfig.dlp.block) throw new Error(`DLP: sensitive data blocked (${[...types].join(', ')})`);
+    log.info(`DLP redacted ${redacted} item(s) [${[...types].join(', ')}] in agentic egress`);
+  }
+  return { systemPrompt: sp, turns: out };
 }
 
 // ── Anthropic ──────────────────────────────────────────────────────────────────

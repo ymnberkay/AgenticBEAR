@@ -27,8 +27,8 @@ export function detectBuiltinProvider(model: string): 'anthropic' | 'openai' | '
   return 'openai';
 }
 
-function resolveBuiltinKey(provider: 'anthropic' | 'openai' | 'gemini'): string {
-  const settings = settingsRepo.getSettings();
+async function resolveBuiltinKey(provider: 'anthropic' | 'openai' | 'gemini'): Promise<string> {
+  const settings = await settingsRepo.getSettings();
   if (provider === 'anthropic') return settings.apiKey || process.env.ANTHROPIC_API_KEY || '';
   if (provider === 'openai') return settings.openAiApiKey || process.env.OPENAI_API_KEY || '';
   return settings.geminiApiKey || process.env.GEMINI_API_KEY || '';
@@ -36,7 +36,7 @@ function resolveBuiltinKey(provider: 'anthropic' | 'openai' | 'gemini'): string 
 
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1';
 
-export function resolveProvider(providerId: string | null | undefined, model: string): ResolvedProvider {
+export async function resolveProvider(providerId: string | null | undefined, model: string): Promise<ResolvedProvider> {
   // Built-in (explicit id) or legacy heuristic. null = explicitly built-in (cleared custom provider).
   if (!providerId || isBuiltinProviderId(providerId)) {
     const builtin = providerId && isBuiltinProviderId(providerId) ? providerId : detectBuiltinProvider(model);
@@ -46,12 +46,12 @@ export function resolveProvider(providerId: string | null | undefined, model: st
       label: builtin,
       kind,
       baseUrl: builtin === 'openai' ? OPENAI_DEFAULT_BASE : undefined,
-      apiKey: resolveBuiltinKey(builtin),
+      apiKey: await resolveBuiltinKey(builtin),
     };
   }
 
   // Custom provider from DB.
-  const custom = providerRepo.findById(providerId);
+  const custom = await providerRepo.findById(providerId);
   if (!custom) {
     throw new Error(`Provider bulunamadı: ${providerId}`);
   }
@@ -73,15 +73,15 @@ export function isAnthropicKind(kind: ProviderKind): boolean {
 }
 
 /** Per-model pricing ($/1K). Known built-ins → CLAUDE_MODELS; custom → provider model def; else 0. */
-export function modelPricing(
+export async function modelPricing(
   providerId: string | null | undefined,
   model: string,
-): { costPer1kInput: number; costPer1kOutput: number } {
+): Promise<{ costPer1kInput: number; costPer1kOutput: number }> {
   const known = CLAUDE_MODELS[model];
   if (known) return { costPer1kInput: known.costPer1kInput, costPer1kOutput: known.costPer1kOutput };
 
   if (providerId && !isBuiltinProviderId(providerId)) {
-    const custom = providerRepo.findById(providerId);
+    const custom = await providerRepo.findById(providerId);
     const def = custom?.models.find((m) => m.id === model);
     if (def) return { costPer1kInput: def.costPer1kInput ?? 0, costPer1kOutput: def.costPer1kOutput ?? 0 };
   }

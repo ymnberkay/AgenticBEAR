@@ -23,7 +23,11 @@ import { documentRoutes } from './routes/documents.js';
 import { chatRoutes } from './routes/chat.js';
 import { mcpRoutes } from './mcp/transport.js';
 import { analyticsRoutes } from './routes/analytics.js';
+import { authRoutes } from './routes/auth.js';
+import { authHook } from './middleware/require-auth.js';
+import { rbacHook } from './middleware/rbac.js';
 import { templateRepo } from './db/repositories/template.repo.js';
+import { userRepo } from './db/repositories/user.repo.js';
 import { BUILT_IN_TEMPLATES } from './seed-templates.js';
 import { logger } from './utils/logger.js';
 
@@ -31,11 +35,17 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function main() {
   // Initialize database
-  initDb();
+  await initDb();
 
   // Seed built-in templates
-  templateRepo.seedBuiltInTemplates(BUILT_IN_TEMPLATES);
+  await templateRepo.seedBuiltInTemplates(BUILT_IN_TEMPLATES);
   logger.info('Built-in templates seeded');
+
+  // Seed the first admin user if none exist (login gate bootstrap).
+  if ((await userRepo.count()) === 0) {
+    await userRepo.create({ username: config.auth.adminUsername, password: config.auth.adminPassword, role: 'admin' });
+    logger.info(`Seeded admin user "${config.auth.adminUsername}" (change AUTH_ADMIN_PASSWORD in production)`);
+  }
 
   // Resolve client dist path for production static serving
   // Candidates ordered by likelihood:
@@ -66,7 +76,13 @@ async function main() {
   // Register plugins
   await registerCors(app);
 
+  // Gate the app API (/api/*) behind a user session (gateway /v1 keeps its own API-key auth),
+  // then enforce per-project RBAC for non-admins.
+  app.addHook('onRequest', authHook);
+  app.addHook('preHandler', rbacHook);
+
   // Register routes
+  await app.register(authRoutes);
   await app.register(projectRoutes);
   await app.register(agentRoutes);
   await app.register(runRoutes);

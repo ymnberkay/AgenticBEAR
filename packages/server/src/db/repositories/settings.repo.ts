@@ -1,6 +1,6 @@
 import { getDb } from '../client.js';
 import { DEFAULT_SETTINGS } from '@subagent/shared';
-import type { Settings, UpdateSettingsInput } from '@subagent/shared';
+import type { Settings, UpdateSettingsInput, DlpRule } from '@subagent/shared';
 
 interface SettingsRow {
   id: number;
@@ -13,6 +13,26 @@ interface SettingsRow {
   default_workspace_path: string;
   max_concurrent_agents: number;
   auto_save_interval: number;
+  dlp_custom_rules: string | null;
+  dlp_disabled_models: string | null;
+}
+
+function parseStrArray(json: string | null): string[] {
+  try {
+    const v = JSON.parse(json ?? '[]') as string[];
+    return Array.isArray(v) ? v.filter((s) => typeof s === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseRules(json: string | null): DlpRule[] {
+  try {
+    const v = JSON.parse(json ?? '[]') as DlpRule[];
+    return Array.isArray(v) ? v.filter((r) => r && typeof r.pattern === 'string') : [];
+  } catch {
+    return [];
+  }
 }
 
 function rowToSettings(row: SettingsRow): Settings {
@@ -26,16 +46,18 @@ function rowToSettings(row: SettingsRow): Settings {
     defaultWorkspacePath: row.default_workspace_path,
     maxConcurrentAgents: row.max_concurrent_agents,
     autoSaveInterval: row.auto_save_interval,
+    dlpCustomRules: parseRules(row.dlp_custom_rules),
+    dlpDisabledModels: parseStrArray(row.dlp_disabled_models),
   };
 }
 
 export const settingsRepo = {
-  getSettings(): Settings {
+  async getSettings(): Promise<Settings> {
     const db = getDb();
-    const row = db.prepare('SELECT * FROM settings WHERE id = 1').get() as SettingsRow | undefined;
+    const row = await db.prepare('SELECT * FROM settings WHERE id = 1').get<SettingsRow>();
 
     if (!row) {
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO settings (id, api_key, openai_api_key, gemini_api_key, default_model, default_max_tokens, theme, default_workspace_path, max_concurrent_agents, auto_save_interval)
         VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
@@ -56,9 +78,9 @@ export const settingsRepo = {
     return rowToSettings(row);
   },
 
-  updateSettings(input: UpdateSettingsInput): Settings {
+  async updateSettings(input: UpdateSettingsInput): Promise<Settings> {
     const db = getDb();
-    const current = this.getSettings();
+    const current = await this.getSettings();
 
     const apiKey = input.apiKey ?? current.apiKey;
     const openAiApiKey = input.openAiApiKey ?? current.openAiApiKey;
@@ -69,17 +91,21 @@ export const settingsRepo = {
     const defaultWorkspacePath = input.defaultWorkspacePath ?? current.defaultWorkspacePath;
     const maxConcurrentAgents = input.maxConcurrentAgents ?? current.maxConcurrentAgents;
     const autoSaveInterval = input.autoSaveInterval ?? current.autoSaveInterval;
+    const dlpCustomRules = input.dlpCustomRules ?? current.dlpCustomRules;
+    const dlpDisabledModels = input.dlpDisabledModels ?? current.dlpDisabledModels;
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE settings
       SET api_key = ?, openai_api_key = ?, gemini_api_key = ?,
           default_model = ?, default_max_tokens = ?, theme = ?,
-          default_workspace_path = ?, max_concurrent_agents = ?, auto_save_interval = ?
+          default_workspace_path = ?, max_concurrent_agents = ?, auto_save_interval = ?,
+          dlp_custom_rules = ?, dlp_disabled_models = ?
       WHERE id = 1
     `).run(
       apiKey, openAiApiKey, geminiApiKey,
       defaultModel, defaultMaxTokens, theme,
       defaultWorkspacePath, maxConcurrentAgents, autoSaveInterval,
+      JSON.stringify(dlpCustomRules ?? []), JSON.stringify(dlpDisabledModels ?? []),
     );
 
     return this.getSettings();

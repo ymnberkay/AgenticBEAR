@@ -43,35 +43,35 @@ export interface UpdateRunInput {
 }
 
 export const runRepo = {
-  findByProjectId(projectId: string): Run[] {
+  async findByProjectId(projectId: string): Promise<Run[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM runs WHERE project_id = ? ORDER BY created_at DESC')
-      .all(projectId) as RunRow[];
+    const rows = await db.prepare('SELECT * FROM runs WHERE project_id = ? ORDER BY created_at DESC')
+      .all<RunRow>(projectId);
     return rows.map(rowToRun);
   },
 
-  findById(id: string): Run | undefined {
+  async findById(id: string): Promise<Run | undefined> {
     const db = getDb();
-    const row = db.prepare('SELECT * FROM runs WHERE id = ?').get(id) as RunRow | undefined;
+    const row = await db.prepare('SELECT * FROM runs WHERE id = ?').get<RunRow>(id);
     return row ? rowToRun(row) : undefined;
   },
 
-  create(input: CreateRunInput): Run {
+  async create(input: CreateRunInput): Promise<Run> {
     const db = getDb();
     const id = generateId();
     const now = new Date().toISOString();
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO runs (id, project_id, objective, status, created_at)
       VALUES (?, ?, ?, 'pending', ?)
     `).run(id, input.projectId, input.objective, now);
 
-    return this.findById(id)!;
+    return (await this.findById(id))!;
   },
 
-  update(id: string, input: UpdateRunInput): Run | undefined {
+  async update(id: string, input: UpdateRunInput): Promise<Run | undefined> {
     const db = getDb();
-    const existing = this.findById(id);
+    const existing = await this.findById(id);
     if (!existing) return undefined;
 
     const status = input.status ?? existing.status;
@@ -82,11 +82,11 @@ export const runRepo = {
     const totalCostUsd = input.totalCostUsd ?? existing.totalCostUsd;
     const totalBaselineCostUsd = input.totalBaselineCostUsd ?? existing.totalBaselineCostUsd;
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE runs SET status = ?, started_at = ?, completed_at = ?, total_input_tokens = ?, total_output_tokens = ?, total_cost_usd = ?, total_baseline_cost_usd = ?
       WHERE id = ?
     `).run(status, startedAt, completedAt, totalInputTokens, totalOutputTokens, totalCostUsd, totalBaselineCostUsd, id);
 
-    return this.findById(id)!;
+    return (await this.findById(id))!;
   },
 };

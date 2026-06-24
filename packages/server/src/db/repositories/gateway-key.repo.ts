@@ -42,13 +42,13 @@ export function hashKey(rawKey: string): string {
 
 export const gatewayKeyRepo = {
   /** Number of keys — when 0, the gateway runs open (bootstrap) until the first key exists. */
-  count(): number {
+  async count(): Promise<number> {
     const db = getDb();
-    const row = db.prepare('SELECT COUNT(*) AS n FROM gateway_keys').get() as { n: number };
+    const row = (await db.prepare('SELECT COUNT(*) AS n FROM gateway_keys').get<{ n: number }>())!;
     return row.n;
   },
 
-  create(input: { name?: string; allowedModels?: string[]; expiresAt?: string | null; cacheScope?: 'conversation' | 'lastUser' } = {}): GatewayKeyCreated {
+  async create(input: { name?: string; allowedModels?: string[]; expiresAt?: string | null; cacheScope?: 'conversation' | 'lastUser' } = {}): Promise<GatewayKeyCreated> {
     const db = getDb();
     const id = generateId();
     // 32-hex secret.
@@ -59,39 +59,47 @@ export const gatewayKeyRepo = {
     const allowedModels = input.allowedModels ?? [];
     const expiresAt = input.expiresAt ?? null;
     const cacheScope = input.cacheScope === 'lastUser' ? 'lastUser' : 'conversation';
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO gateway_keys (id, name, key_prefix, key_hash, allowed_models, enabled, created_at, expires_at, cache_scope)
       VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)
     `).run(id, name, keyPrefix, hashKey(rawKey), JSON.stringify(allowedModels), now, expiresAt, cacheScope);
     return { id, name, keyPrefix, allowedModels, enabled: true, createdAt: now, expiresAt, cacheScope, lastUsedAt: null, key: rawKey };
   },
 
-  list(): GatewayKey[] {
+  async list(): Promise<GatewayKey[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM gateway_keys ORDER BY created_at DESC').all() as GatewayKeyRow[];
+    const rows = await db.prepare('SELECT * FROM gateway_keys ORDER BY created_at DESC').all<GatewayKeyRow>();
     return rows.map(rowToKey);
   },
 
-  findByHash(keyHash: string): GatewayKey | undefined {
+  async findByHash(keyHash: string): Promise<GatewayKey | undefined> {
     const db = getDb();
-    const row = db.prepare('SELECT * FROM gateway_keys WHERE key_hash = ?').get(keyHash) as GatewayKeyRow | undefined;
+    const row = await db.prepare('SELECT * FROM gateway_keys WHERE key_hash = ?').get<GatewayKeyRow>(keyHash);
     return row ? rowToKey(row) : undefined;
   },
 
-  setEnabled(id: string, enabled: boolean): GatewayKey | undefined {
+  async setEnabled(id: string, enabled: boolean): Promise<GatewayKey | undefined> {
     const db = getDb();
-    db.prepare('UPDATE gateway_keys SET enabled = ? WHERE id = ?').run(enabled ? 1 : 0, id);
-    const row = db.prepare('SELECT * FROM gateway_keys WHERE id = ?').get(id) as GatewayKeyRow | undefined;
+    await db.prepare('UPDATE gateway_keys SET enabled = ? WHERE id = ?').run(enabled ? 1 : 0, id);
+    const row = await db.prepare('SELECT * FROM gateway_keys WHERE id = ?').get<GatewayKeyRow>(id);
     return row ? rowToKey(row) : undefined;
   },
 
-  touchLastUsed(id: string): void {
+  /** Flip an existing key's L1 cache scope (e.g. turn on FAQ mode without regenerating the key). */
+  async setCacheScope(id: string, scope: 'conversation' | 'lastUser'): Promise<GatewayKey | undefined> {
     const db = getDb();
-    db.prepare('UPDATE gateway_keys SET last_used_at = ? WHERE id = ?').run(new Date().toISOString(), id);
+    await db.prepare('UPDATE gateway_keys SET cache_scope = ? WHERE id = ?').run(scope, id);
+    const row = await db.prepare('SELECT * FROM gateway_keys WHERE id = ?').get<GatewayKeyRow>(id);
+    return row ? rowToKey(row) : undefined;
   },
 
-  remove(id: string): boolean {
+  async touchLastUsed(id: string): Promise<void> {
     const db = getDb();
-    return db.prepare('DELETE FROM gateway_keys WHERE id = ?').run(id).changes > 0;
+    await db.prepare('UPDATE gateway_keys SET last_used_at = ? WHERE id = ?').run(new Date().toISOString(), id);
+  },
+
+  async remove(id: string): Promise<boolean> {
+    const db = getDb();
+    return (await db.prepare('DELETE FROM gateway_keys WHERE id = ?').run(id)).changes > 0;
   },
 };

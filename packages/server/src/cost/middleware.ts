@@ -42,16 +42,16 @@ function knownPricing(model: string): Pricing | undefined {
  *   3) Aynı provider'ın diğer modeli → modelPricing(providerId, servedModel)
  *   4) Bilinmiyor → requestedPricing fallback
  */
-function resolveServedPricing(
+async function resolveServedPricing(
   servedModel: string,
   requestedModel: string,
   requestedPricing: Pricing,
   providerId: string | undefined,
-): Pricing {
+): Promise<Pricing> {
   if (servedModel === requestedModel) return requestedPricing;
   const builtin = knownPricing(servedModel);
   if (builtin) return builtin;
-  const lookup = modelPricing(providerId, servedModel);
+  const lookup = await modelPricing(providerId, servedModel);
   if (lookup.costPer1kInput > 0 || lookup.costPer1kOutput > 0) return lookup;
   return requestedPricing;
 }
@@ -156,7 +156,7 @@ export async function complete(
 
   // ── Maliyet hesabı ──────────────────────────────────────────────────
   // Served model, requested'dan farklıysa (router downgrade) o modelin gerçek pricing'i.
-  const servedPricing = resolveServedPricing(servedModel, requestedModel, requestedPricing, servedProviderId);
+  const servedPricing = await resolveServedPricing(servedModel, requestedModel, requestedPricing, servedProviderId);
   // OpenAI/Azure bill cached prompt tokens at ~50%; Anthropic at ~10% (config default).
   const cacheReadMultiplier = isAnthropicFamily(req) ? costConfig.pricing.cacheReadMultiplier : 0.5;
   const actualCostUsd = actualCallCost(servedPricing, exec, cacheReadMultiplier) + routerOverheadCostUsd;

@@ -1,17 +1,22 @@
 import type { FastifyInstance } from 'fastify';
 import { projectRepo } from '../db/repositories/project.repo.js';
 import type { CreateProjectInput, UpdateProjectInput } from '@subagent/shared';
+import { type AuthedRequest } from '../middleware/require-auth.js';
+import { accessibleProjectIds } from '../middleware/rbac.js';
 
 export async function projectRoutes(app: FastifyInstance): Promise<void> {
-  // List all projects
-  app.get('/api/projects', async (_request, reply) => {
-    const projects = projectRepo.findAll();
-    return reply.send(projects);
+  // List projects — admins see all; others only those granted via their permission groups.
+  app.get('/api/projects', async (request, reply) => {
+    const projects = await projectRepo.findAll();
+    const user = (request as AuthedRequest).authUser;
+    if (!user || user.role === 'admin') return reply.send(projects);
+    const allowed = new Set(await accessibleProjectIds(user));
+    return reply.send(projects.filter((p) => allowed.has(p.id)));
   });
 
   // Get project by ID
   app.get<{ Params: { id: string } }>('/api/projects/:id', async (request, reply) => {
-    const project = projectRepo.findById(request.params.id);
+    const project = await projectRepo.findById(request.params.id);
     if (!project) {
       return reply.status(404).send({ error: true, message: 'Project not found' });
     }
@@ -27,13 +32,13 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const resolvedPath = workspacePath || `/workspace/${name.trim().toLowerCase().replace(/\s+/g, '-')}`;
-    const project = projectRepo.create({ name, description, workspacePath: resolvedPath });
+    const project = await projectRepo.create({ name, description, workspacePath: resolvedPath });
     return reply.status(201).send(project);
   });
 
   // Update project
   app.patch<{ Params: { id: string }; Body: UpdateProjectInput }>('/api/projects/:id', async (request, reply) => {
-    const project = projectRepo.update(request.params.id, request.body);
+    const project = await projectRepo.update(request.params.id, request.body);
     if (!project) {
       return reply.status(404).send({ error: true, message: 'Project not found' });
     }
@@ -42,7 +47,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
 
   // Delete project
   app.delete<{ Params: { id: string } }>('/api/projects/:id', async (request, reply) => {
-    const removed = projectRepo.remove(request.params.id);
+    const removed = await projectRepo.remove(request.params.id);
     if (!removed) {
       return reply.status(404).send({ error: true, message: 'Project not found' });
     }

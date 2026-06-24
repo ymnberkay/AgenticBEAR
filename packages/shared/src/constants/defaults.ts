@@ -20,6 +20,8 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultWorkspacePath: '',
   maxConcurrentAgents: 3,
   autoSaveInterval: 30000,
+  dlpCustomRules: [],
+  dlpDisabledModels: [],
 };
 
 export const AGENT_COLORS: Record<string, string> = {

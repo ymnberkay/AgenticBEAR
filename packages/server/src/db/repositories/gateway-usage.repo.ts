@@ -24,9 +24,9 @@ interface AggRow {
 }
 
 export const gatewayUsageRepo = {
-  record(input: RecordUsageInput): void {
+  async record(input: RecordUsageInput): Promise<void> {
     const db = getDb();
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO gateway_usage
         (id, key_id, model, provider_id, input_tokens, output_tokens, cost_usd, baseline_usd, cache_hit, router_tier, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -45,7 +45,7 @@ export const gatewayUsageRepo = {
     );
   },
 
-  summary(opts: { since?: string; keyId?: string; model?: string } = {}): GatewayUsageSummary {
+  async summary(opts: { since?: string; keyId?: string; model?: string } = {}): Promise<GatewayUsageSummary> {
     const db = getDb();
     const clauses: string[] = [];
     const args: string[] = [];
@@ -54,17 +54,17 @@ export const gatewayUsageRepo = {
     if (opts.model) { clauses.push('model = ?'); args.push(opts.model); }
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
 
-    const totals = db.prepare(`
+    const totals = (await db.prepare(`
       SELECT COUNT(*) AS requests,
              COALESCE(SUM(input_tokens),0)  AS input_tokens,
              COALESCE(SUM(output_tokens),0) AS output_tokens,
              COALESCE(SUM(cost_usd),0)      AS cost_usd,
              COALESCE(SUM(baseline_usd),0)  AS baseline_usd
       FROM gateway_usage ${where}
-    `).get(...args) as Omit<AggRow, 'k'>;
+    `).get<Omit<AggRow, 'k'>>(...args))!;
 
-    const groupBy = (col: string): GatewayUsageBucket[] => {
-      const rows = db.prepare(`
+    const groupBy = async (col: string): Promise<GatewayUsageBucket[]> => {
+      const rows = await db.prepare(`
         SELECT ${col} AS k, COUNT(*) AS requests,
                COALESCE(SUM(input_tokens),0)  AS input_tokens,
                COALESCE(SUM(output_tokens),0) AS output_tokens,
@@ -72,7 +72,7 @@ export const gatewayUsageRepo = {
                COALESCE(SUM(baseline_usd),0)  AS baseline_usd
         FROM gateway_usage ${where}
         GROUP BY ${col} ORDER BY cost_usd DESC
-      `).all(...args) as AggRow[];
+      `).all<AggRow>(...args);
       return rows.map((r) => ({
         key: r.k ?? '(none)',
         label: r.k ?? '(open / no key)',
@@ -91,8 +91,8 @@ export const gatewayUsageRepo = {
       totalCostUsd: totals.cost_usd,
       totalBaselineUsd: totals.baseline_usd,
       savedUsd: totals.baseline_usd - totals.cost_usd,
-      byKey: groupBy('key_id'),
-      byModel: groupBy('model'),
+      byKey: await groupBy('key_id'),
+      byModel: await groupBy('model'),
     };
   },
 };

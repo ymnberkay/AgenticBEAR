@@ -81,6 +81,17 @@ export const costConfig = {
   toolOutputCompress: envBool('COST_TOOL_OUTPUT_COMPRESS', true),
   toolOutputMaxLines: envNum('COST_TOOL_OUTPUT_MAX_LINES', 200),
 
+  /**
+   * DLP egress guard — scan gateway prompts for secrets/PII before they leave to the provider.
+   * `block=false` (default) → redact matches with [REDACTED:type] and continue; `block=true` → reject (422).
+   */
+  dlp: {
+    enabled: envBool('COST_DLP', true),
+    block: envBool('COST_DLP_BLOCK', false),
+    secrets: envBool('COST_DLP_SECRETS', true),
+    pii: envBool('COST_DLP_PII', true),
+  },
+
   /** L0 compression — deterministic & conservative (no neural/AST in v1). */
   compression: {
     /** Mesaj içeriği bu karakterin altındaysa dokunma (küçük promptta fayda yok). */

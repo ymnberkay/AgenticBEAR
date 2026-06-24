@@ -1,0 +1,15 @@
+apiVersion: v2
+name: agenticbear
+description: AgenticBEAR — multi-agent orchestration platform with a built-in Postgres + Qdrant (self-contained).
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - agents
+  - llm
+  - gateway
+  - postgres
+  - qdrant
+home: https://github.com/ymnberkay/AgenticBEAR
+maintainers:
+  - name: AgenticBEAR

@@ -5,7 +5,7 @@ import type { UpdateSettingsInput } from '@subagent/shared';
 export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   // Get settings
   app.get('/api/settings', async (_request, reply) => {
-    const settings = settingsRepo.getSettings();
+    const settings = await settingsRepo.getSettings();
     // Mask the API key for security
     return reply.send({
       ...settings,
@@ -16,7 +16,7 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
 
   // Update settings
   app.patch<{ Body: UpdateSettingsInput }>('/api/settings', async (request, reply) => {
-    const settings = settingsRepo.updateSettings(request.body);
+    const settings = await settingsRepo.updateSettings(request.body);
     return reply.send({
       ...settings,
       apiKey: settings.apiKey ? `${settings.apiKey.slice(0, 10)}...${settings.apiKey.slice(-4)}` : '',

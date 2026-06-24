@@ -2,22 +2,22 @@ import { describe, it, expect } from 'vitest';
 import { parseModelRef } from '../gateway.js';
 
 describe('gateway — parseModelRef', () => {
-  it('bare built-in model id → no providerId (registry heuristic resolves it)', () => {
-    expect(parseModelRef('claude-sonnet-4-20250514')).toEqual({ model: 'claude-sonnet-4-20250514' });
-    expect(parseModelRef('gpt-4o')).toEqual({ model: 'gpt-4o' });
+  it('bare built-in model id → no providerId (registry heuristic resolves it)', async () => {
+    expect(await parseModelRef('claude-sonnet-4-20250514')).toEqual({ model: 'claude-sonnet-4-20250514' });
+    expect(await parseModelRef('gpt-4o')).toEqual({ model: 'gpt-4o' });
   });
 
-  it('builtin-provider prefix → split into providerId + model', () => {
-    expect(parseModelRef('anthropic/claude-sonnet-4-20250514')).toEqual({
+  it('builtin-provider prefix → split into providerId + model', async () => {
+    expect(await parseModelRef('anthropic/claude-sonnet-4-20250514')).toEqual({
       providerId: 'anthropic',
       model: 'claude-sonnet-4-20250514',
     });
-    expect(parseModelRef('openai/gpt-4o')).toEqual({ providerId: 'openai', model: 'gpt-4o' });
-    expect(parseModelRef('gemini/gemini-2.5-flash')).toEqual({ providerId: 'gemini', model: 'gemini-2.5-flash' });
+    expect(await parseModelRef('openai/gpt-4o')).toEqual({ providerId: 'openai', model: 'gpt-4o' });
+    expect(await parseModelRef('gemini/gemini-2.5-flash')).toEqual({ providerId: 'gemini', model: 'gemini-2.5-flash' });
   });
 
-  it('unknown first segment (no DB match) → treated as a bare model id', () => {
+  it('unknown first segment (no DB match) → treated as a bare model id', async () => {
     // 'meta-llama' is not a builtin provider id and no DB in unit test → whole string is the model
-    expect(parseModelRef('meta-llama-3.1-8b')).toEqual({ model: 'meta-llama-3.1-8b' });
+    expect(await parseModelRef('meta-llama-3.1-8b')).toEqual({ model: 'meta-llama-3.1-8b' });
   });
 });

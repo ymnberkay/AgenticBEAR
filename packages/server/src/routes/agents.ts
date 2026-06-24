@@ -10,7 +10,7 @@ import type { CreateAgentInput, UpdateAgentInput } from '@subagent/shared';
 export async function agentRoutes(app: FastifyInstance): Promise<void> {
   // List agents by project
   app.get<{ Params: { projectId: string } }>('/api/projects/:projectId/agents', async (request, reply) => {
-    const agents = agentRepo.findByProjectId(request.params.projectId);
+    const agents = await agentRepo.findByProjectId(request.params.projectId);
     return reply.send(agents);
   });
 
@@ -25,7 +25,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: true, message: 'name, role, and systemPrompt are required' });
       }
 
-      const agent = agentRepo.create({
+      const agent = await agentRepo.create({
         projectId,
         role,
         name,
@@ -41,7 +41,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
 
   // Get agent by ID
   app.get<{ Params: { id: string } }>('/api/agents/:id', async (request, reply) => {
-    const agent = agentRepo.findById(request.params.id);
+    const agent = await agentRepo.findById(request.params.id);
     if (!agent) {
       return reply.status(404).send({ error: true, message: 'Agent not found' });
     }
@@ -50,7 +50,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
 
   // Update agent
   app.patch<{ Params: { id: string }; Body: UpdateAgentInput }>('/api/agents/:id', async (request, reply) => {
-    const agent = agentRepo.update(request.params.id, request.body);
+    const agent = await agentRepo.update(request.params.id, request.body);
     if (!agent) {
       return reply.status(404).send({ error: true, message: 'Agent not found' });
     }
@@ -64,19 +64,19 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
 
   // Get tasks for an agent
   app.get<{ Params: { id: string } }>('/api/agents/:id/tasks', async (request, reply) => {
-    const tasks = taskRepo.findByAgentId(request.params.id);
+    const tasks = await taskRepo.findByAgentId(request.params.id);
     return reply.send(tasks);
   });
 
   // Get activities for an agent
   app.get<{ Params: { id: string } }>('/api/agents/:id/activities', async (request, reply) => {
-    const activities = activityRepo.findByAgentId(request.params.id);
+    const activities = await activityRepo.findByAgentId(request.params.id);
     return reply.send(activities);
   });
 
   // Delete a single activity
   app.delete<{ Params: { id: string } }>('/api/activities/:id', async (request, reply) => {
-    const removed = activityRepo.remove(request.params.id);
+    const removed = await activityRepo.remove(request.params.id);
     if (!removed) {
       return reply.status(404).send({ error: true, message: 'Activity not found' });
     }
@@ -85,7 +85,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
 
   // Clear all activities for an agent
   app.delete<{ Params: { id: string } }>('/api/agents/:id/activities', async (request, reply) => {
-    const count = activityRepo.removeByAgentId(request.params.id);
+    const count = await activityRepo.removeByAgentId(request.params.id);
     return reply.send({ deleted: count });
   });
 
@@ -93,13 +93,13 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
 
   // Get all memories for an agent
   app.get<{ Params: { id: string } }>('/api/agents/:id/memories', async (request, reply) => {
-    const memories = memoryRepo.findAllByAgentId(request.params.id);
+    const memories = await memoryRepo.findAllByAgentId(request.params.id);
     return reply.send(memories);
   });
 
   // Delete a single memory
   app.delete<{ Params: { id: string } }>('/api/memories/:id', async (request, reply) => {
-    const removed = memoryRepo.remove(request.params.id);
+    const removed = await memoryRepo.remove(request.params.id);
     if (!removed) {
       return reply.status(404).send({ error: true, message: 'Memory not found' });
     }
@@ -108,20 +108,20 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
 
   // Clear all memories for an agent
   app.delete<{ Params: { id: string } }>('/api/agents/:id/memories', async (request, reply) => {
-    const count = memoryRepo.removeByAgentId(request.params.id);
+    const count = await memoryRepo.removeByAgentId(request.params.id);
     return reply.send({ deleted: count });
   });
 
   // Clear all memories for a project
   app.delete<{ Params: { projectId: string } }>('/api/projects/:projectId/memories', async (request, reply) => {
-    const count = memoryRepo.removeByProjectId(request.params.projectId);
+    const count = await memoryRepo.removeByProjectId(request.params.projectId);
     return reply.send({ deleted: count });
   });
 
   // Delete agent
   app.delete<{ Params: { id: string } }>('/api/agents/:id', async (request, reply) => {
-    const existing = agentRepo.findById(request.params.id);
-    const removed = agentRepo.remove(request.params.id);
+    const existing = await agentRepo.findById(request.params.id);
+    const removed = await agentRepo.remove(request.params.id);
     if (!removed) {
       return reply.status(404).send({ error: true, message: 'Agent not found' });
     }

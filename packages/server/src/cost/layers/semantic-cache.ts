@@ -25,7 +25,7 @@ const JUDGE_SYSTEM =
 
 /** Confirm a borderline semantic match with a cheap model before serving it from cache. */
 async function judgeEquivalent(judge: Classifier, req: LlmRequest, newText: string, cachedPrompt: string): Promise<boolean> {
-  const cheap = cheapest(poolFor(req.meta.routePool, req.providerId, req.model)) ?? { model: req.model, providerId: req.providerId };
+  const cheap = cheapest(await poolFor(req.meta.routePool, req.providerId, req.model)) ?? { model: req.model, providerId: req.providerId };
   try {
     const res = await judge({
       model: cheap.model, providerId: cheap.providerId, maxTokens: 3,
@@ -125,7 +125,7 @@ export async function lookup(req: LlmRequest, judge?: Classifier): Promise<LlmRe
 
   // 2) Semantic arama
   const emb = resolveEmbedder();
-  if (!emb.available()) return null;
+  if (!(await emb.available())) return null;
 
   try {
     const vector = await emb.embed(text);
@@ -155,7 +155,7 @@ export async function lookup(req: LlmRequest, judge?: Classifier): Promise<LlmRe
 export async function store(req: LlmRequest, result: LlmResult): Promise<void> {
   if (!result.text) return;
   const emb = resolveEmbedder();
-  if (!emb.available()) return;
+  if (!(await emb.available())) return;
 
   const ns = namespaceOf(req);
   const text = canonicalText(req);

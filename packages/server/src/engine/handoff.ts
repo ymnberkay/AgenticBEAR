@@ -19,13 +19,13 @@ export interface HandoffRequest {
  * Creates a handoff RunStep recording the transfer and
  * passes relevant context from the source agent to the target agent.
  */
-export function performHandoff(request: HandoffRequest): void {
+export async function performHandoff(request: HandoffRequest): Promise<void> {
   const { fromAgent, toAgent, task, reason, context } = request;
 
   log.info(`Handoff: "${fromAgent.name}" -> "${toAgent.name}" for task "${task.title}". Reason: ${reason}`);
 
   // Record the handoff as a run step
-  const step = taskRepo.createStep({
+  const step = await taskRepo.createStep({
     runId: task.runId,
     taskId: task.id,
     agentId: fromAgent.id,
@@ -57,16 +57,16 @@ export function performHandoff(request: HandoffRequest): void {
  * Creates a new follow-up task assigned to a different agent,
  * typically when the orchestrator decides mid-run that additional work is needed.
  */
-export function createHandoffTask(
+export async function createHandoffTask(
   runId: string,
   fromTask: Task,
   targetAgent: Agent,
   title: string,
   description: string,
-): Task {
+): Promise<Task> {
   log.info(`Creating handoff task "${title}" for agent "${targetAgent.name}"`);
 
-  const newTask = taskRepo.createTask({
+  const newTask = await taskRepo.createTask({
     runId,
     parentTaskId: fromTask.id,
     assignedAgentId: targetAgent.id,

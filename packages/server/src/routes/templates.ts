@@ -5,7 +5,7 @@ import type { CreateTemplateInput } from '@subagent/shared';
 export async function templateRoutes(app: FastifyInstance): Promise<void> {
   // List all templates
   app.get('/api/templates', async (_request, reply) => {
-    const templates = templateRepo.findAll();
+    const templates = await templateRepo.findAll();
     return reply.send(templates);
   });
 
@@ -17,13 +17,13 @@ export async function templateRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: true, message: 'name, category, and systemPrompt are required' });
     }
 
-    const template = templateRepo.create(request.body);
+    const template = await templateRepo.create(request.body);
     return reply.status(201).send(template);
   });
 
   // Update template
   app.patch<{ Params: { id: string }; Body: Partial<CreateTemplateInput> }>('/api/templates/:id', async (request, reply) => {
-    const template = templateRepo.update(request.params.id, request.body);
+    const template = await templateRepo.update(request.params.id, request.body);
     if (!template) {
       return reply.status(404).send({ error: true, message: 'Template not found' });
     }
@@ -32,7 +32,7 @@ export async function templateRoutes(app: FastifyInstance): Promise<void> {
 
   // Delete template
   app.delete<{ Params: { id: string } }>('/api/templates/:id', async (request, reply) => {
-    const removed = templateRepo.remove(request.params.id);
+    const removed = await templateRepo.remove(request.params.id);
     if (!removed) {
       return reply.status(404).send({ error: true, message: 'Template not found or is built-in' });
     }

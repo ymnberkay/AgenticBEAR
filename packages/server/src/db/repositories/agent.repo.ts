@@ -50,20 +50,20 @@ function rowToAgent(row: AgentRow): Agent {
 }
 
 export const agentRepo = {
-  findByProjectId(projectId: string): Agent[] {
+  async findByProjectId(projectId: string): Promise<Agent[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM agents WHERE project_id = ? ORDER BY created_at ASC')
-      .all(projectId) as AgentRow[];
+    const rows = await db.prepare('SELECT * FROM agents WHERE project_id = ? ORDER BY created_at ASC')
+      .all<AgentRow>(projectId);
     return rows.map(rowToAgent);
   },
 
-  findById(id: string): Agent | undefined {
+  async findById(id: string): Promise<Agent | undefined> {
     const db = getDb();
-    const row = db.prepare('SELECT * FROM agents WHERE id = ?').get(id) as AgentRow | undefined;
+    const row = await db.prepare('SELECT * FROM agents WHERE id = ?').get<AgentRow>(id);
     return row ? rowToAgent(row) : undefined;
   },
 
-  create(input: CreateAgentInput): Agent {
+  async create(input: CreateAgentInput): Promise<Agent> {
     const db = getDb();
     const id = generateId();
     const now = new Date().toISOString();
@@ -79,7 +79,7 @@ export const agentRepo = {
       ...input.permissions,
     };
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO agents (id, project_id, role, name, slug, description, system_prompt, model_config, permissions, template_id, color, icon, x_axis, y_axis, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -103,16 +103,16 @@ export const agentRepo = {
 
     // If this is an orchestrator, set it on the project
     if (input.role === 'orchestrator') {
-      db.prepare('UPDATE projects SET orchestrator_id = ?, updated_at = ? WHERE id = ?')
+      await db.prepare('UPDATE projects SET orchestrator_id = ?, updated_at = ? WHERE id = ?')
         .run(id, now, input.projectId);
     }
 
-    return this.findById(id)!;
+    return (await this.findById(id))!;
   },
 
-  update(id: string, input: UpdateAgentInput): Agent | undefined {
+  async update(id: string, input: UpdateAgentInput): Promise<Agent | undefined> {
     const db = getDb();
-    const existing = this.findById(id);
+    const existing = await this.findById(id);
     if (!existing) return undefined;
 
     const now = new Date().toISOString();
@@ -133,7 +133,7 @@ export const agentRepo = {
       ? { ...existing.permissions, ...input.permissions }
       : existing.permissions;
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE agents SET name = ?, slug = ?, description = ?, system_prompt = ?, model_config = ?, permissions = ?, color = ?, icon = ?, x_axis = ?, y_axis = ?, updated_at = ?
       WHERE id = ?
     `).run(
@@ -142,21 +142,21 @@ export const agentRepo = {
       color, icon, xAxis, yAxis, now, id,
     );
 
-    return this.findById(id)!;
+    return (await this.findById(id))!;
   },
 
-  remove(id: string): boolean {
+  async remove(id: string): Promise<boolean> {
     const db = getDb();
-    const agent = this.findById(id);
+    const agent = await this.findById(id);
     if (!agent) return false;
 
     // If this was the project's orchestrator, clear it
     if (agent.role === 'orchestrator') {
-      db.prepare('UPDATE projects SET orchestrator_id = NULL, updated_at = ? WHERE orchestrator_id = ?')
+      await db.prepare('UPDATE projects SET orchestrator_id = NULL, updated_at = ? WHERE orchestrator_id = ?')
         .run(new Date().toISOString(), id);
     }
 
-    const result = db.prepare('DELETE FROM agents WHERE id = ?').run(id);
+    const result = await db.prepare('DELETE FROM agents WHERE id = ?').run(id);
     return result.changes > 0;
   },
 };
