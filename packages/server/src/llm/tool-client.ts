@@ -12,6 +12,8 @@ import {
   applyOpenAiAuthHeaders,
   type ResolvedProvider,
 } from './provider-registry.js';
+import { acquire, modelTimeoutMs } from '../services/rate-limiter.service.js';
+import { limiterKey } from './client.js';
 import { compressLossless } from '../cost/layers/compression.js';
 import { costConfig } from '../cost/config.js';
 import { scanAndRedact, dlpActiveForModel } from '../security/dlp.js';
@@ -84,10 +86,18 @@ export async function completeWithTools(req: ToolCompletionRequest, tools: ToolD
   const guarded = await applyDlp(req.systemPrompt, turns, req.model);
   const cReq = { ...req, systemPrompt: guarded.systemPrompt, messages: guarded.turns };
 
-  const result = provider.kind === 'anthropic' || provider.kind === 'anthropic-compatible'
-    ? await callAnthropicTools(cReq, provider, tools)
-    : await callOpenAITools(cReq, provider, tools);
-  return { ...result, compressionSavedTokens: savedTokens };
+  // Per-model rate limit + send timeout (same limits as the non-tool path).
+  const key = limiterKey(req.providerId, req.model);
+  const release = await acquire(key);
+  const timeoutMs = await modelTimeoutMs(key);
+  try {
+    const result = provider.kind === 'anthropic' || provider.kind === 'anthropic-compatible'
+      ? await callAnthropicTools(cReq, provider, tools, timeoutMs)
+      : await callOpenAITools(cReq, provider, tools, timeoutMs);
+    return { ...result, compressionSavedTokens: savedTokens };
+  } finally {
+    release();
+  }
 }
 
 /** DLP egress guard for the agentic path — same scanner/policy as the gateway. */
@@ -140,7 +150,7 @@ function toAnthropicMessages(turns: ChatTurn[]): Anthropic.MessageParam[] {
 
 type ProviderToolResult = Omit<ToolCompletionResult, 'compressionSavedTokens'>;
 
-async function callAnthropicTools(req: ToolCompletionRequest, provider: ResolvedProvider, tools: ToolDef[]): Promise<ProviderToolResult> {
+async function callAnthropicTools(req: ToolCompletionRequest, provider: ResolvedProvider, tools: ToolDef[], timeoutMs?: number): Promise<ProviderToolResult> {
   if (!provider.apiKey) throw new Error(`Anthropic API key yok (${provider.label})`);
   const client = new Anthropic(anthropicClientOptions(provider));
 
@@ -151,7 +161,7 @@ async function callAnthropicTools(req: ToolCompletionRequest, provider: Resolved
     system: req.systemPrompt,
     messages: toAnthropicMessages(req.messages),
     tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters as Anthropic.Tool.InputSchema })),
-  });
+  }, timeoutMs ? { timeout: timeoutMs } : undefined);
 
   let text = '';
   const toolCalls: ToolCall[] = [];
@@ -208,7 +218,7 @@ function toOpenAIMessages(systemPrompt: string | undefined, turns: ChatTurn[]): 
   return out;
 }
 
-async function callOpenAITools(req: ToolCompletionRequest, provider: ResolvedProvider, tools: ToolDef[]): Promise<ProviderToolResult> {
+async function callOpenAITools(req: ToolCompletionRequest, provider: ResolvedProvider, tools: ToolDef[], timeoutMs?: number): Promise<ProviderToolResult> {
   const url = chatCompletionsUrl(provider.baseUrl || 'https://api.openai.com/v1');
   const body: Record<string, unknown> = {
     model: req.model,
@@ -222,7 +232,7 @@ async function callOpenAITools(req: ToolCompletionRequest, provider: ResolvedPro
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   applyOpenAiAuthHeaders(provider, headers);
 
-  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}) });
   if (!res.ok) throw new Error(`${provider.label} API hatası (${res.status}): ${await res.text()}`);
 
   const data = (await res.json()) as {

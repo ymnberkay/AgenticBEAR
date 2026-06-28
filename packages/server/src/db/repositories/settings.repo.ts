@@ -1,6 +1,6 @@
 import { getDb } from '../client.js';
 import { DEFAULT_SETTINGS } from '@subagent/shared';
-import type { Settings, UpdateSettingsInput, DlpRule } from '@subagent/shared';
+import type { Settings, UpdateSettingsInput, DlpRule, ModelLimit } from '@subagent/shared';
 
 interface SettingsRow {
   id: number;
@@ -15,6 +15,7 @@ interface SettingsRow {
   auto_save_interval: number;
   dlp_custom_rules: string | null;
   dlp_disabled_models: string | null;
+  model_limits_json: string | null;
 }
 
 function parseStrArray(json: string | null): string[] {
@@ -35,6 +36,15 @@ function parseRules(json: string | null): DlpRule[] {
   }
 }
 
+function parseModelLimits(json: string | null): Record<string, ModelLimit> {
+  try {
+    const v = JSON.parse(json ?? '{}') as Record<string, ModelLimit>;
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  } catch {
+    return {};
+  }
+}
+
 function rowToSettings(row: SettingsRow): Settings {
   return {
     apiKey: row.api_key,
@@ -48,6 +58,7 @@ function rowToSettings(row: SettingsRow): Settings {
     autoSaveInterval: row.auto_save_interval,
     dlpCustomRules: parseRules(row.dlp_custom_rules),
     dlpDisabledModels: parseStrArray(row.dlp_disabled_models),
+    modelLimits: parseModelLimits(row.model_limits_json),
   };
 }
 
@@ -93,19 +104,21 @@ export const settingsRepo = {
     const autoSaveInterval = input.autoSaveInterval ?? current.autoSaveInterval;
     const dlpCustomRules = input.dlpCustomRules ?? current.dlpCustomRules;
     const dlpDisabledModels = input.dlpDisabledModels ?? current.dlpDisabledModels;
+    const modelLimits = input.modelLimits ?? current.modelLimits;
 
     await db.prepare(`
       UPDATE settings
       SET api_key = ?, openai_api_key = ?, gemini_api_key = ?,
           default_model = ?, default_max_tokens = ?, theme = ?,
           default_workspace_path = ?, max_concurrent_agents = ?, auto_save_interval = ?,
-          dlp_custom_rules = ?, dlp_disabled_models = ?
+          dlp_custom_rules = ?, dlp_disabled_models = ?, model_limits_json = ?
       WHERE id = 1
     `).run(
       apiKey, openAiApiKey, geminiApiKey,
       defaultModel, defaultMaxTokens, theme,
       defaultWorkspacePath, maxConcurrentAgents, autoSaveInterval,
       JSON.stringify(dlpCustomRules ?? []), JSON.stringify(dlpDisabledModels ?? []),
+      JSON.stringify(modelLimits ?? {}),
     );
 
     return this.getSettings();

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { UsageByPrincipal } from '@subagent/shared';
 import { apiGet } from '../client';
 
 export interface AgentUsage {
@@ -120,5 +121,15 @@ export function useGlobalAnalytics(filter: AnalyticsFilter = {}) {
     queryKey: ['analytics', 'global', filter],
     queryFn: () => apiGet<GlobalAnalytics>(`/api/analytics${analyticsQuery(filter)}`),
     refetchInterval: 30_000,
+  });
+}
+
+/** Usage attributed per user (app) / per gateway key — admin only. */
+export function useUsageByUser(filter: AnalyticsFilter = {}) {
+  return useQuery({
+    queryKey: ['analytics', 'by-user', filter],
+    queryFn: () => apiGet<UsageByPrincipal[]>(`/api/usage/by-user${analyticsQuery(filter)}`),
+    refetchInterval: 60_000,
+    retry: false,
   });
 }

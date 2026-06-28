@@ -10,7 +10,9 @@ import { runRepo } from '../db/repositories/run.repo.js';
 import { taskRepo } from '../db/repositories/task.repo.js';
 import { memoryRepo } from '../db/repositories/memory.repo.js';
 import { settingsRepo } from '../db/repositories/settings.repo.js';
+import { activityLogRepo } from '../db/repositories/activity-log.repo.js';
 import { workspaceService } from '../services/workspace.service.js';
+import { recordQuotaUsage } from '../services/quota.service.js';
 import { eventBus } from '../utils/event-bus.js';
 import { createLogger } from '../utils/logger.js';
 import type { Run, Task, Agent } from '@subagent/shared';
@@ -53,6 +55,12 @@ export const executionEngine = {
     // Update run status
     await runRepo.update(runId, { status: 'running', startedAt: new Date().toISOString() });
     eventBus.emitAndCreate('run:started', runId, { projectId: project.id });
+
+    const attribution = await runRepo.getAttribution(runId);
+    await activityLogRepo.record({
+      projectId: project.id, userId: attribution.userId, username: attribution.username ?? '',
+      action: 'run.start', target: run.objective.slice(0, 120),
+    });
 
     try {
       // Step 1: Orchestrator decomposes the objective
@@ -264,6 +272,14 @@ export const executionEngine = {
       eventBus.emitAndCreate(finalStatus === 'completed' ? 'run:completed' : 'run:failed', runId, {
         ...finalTotals,
         stats: queue.getStats(),
+      });
+
+      // Record the run's tokens against its group's monthly quota pool + audit log.
+      await recordQuotaUsage(attribution.groupId ?? null, finalTotals.totalInputTokens, finalTotals.totalOutputTokens, finalTotals.totalCostUsd);
+      await activityLogRepo.record({
+        projectId: project.id, userId: attribution.userId, username: attribution.username ?? '',
+        action: 'run.complete', target: run.objective.slice(0, 120),
+        detail: `${finalStatus} · ${finalTotals.totalInputTokens + finalTotals.totalOutputTokens} tokens`,
       });
 
       log.info(`Run ${runId} ${finalStatus}. Tokens: ${finalTotals.totalInputTokens} in / ${finalTotals.totalOutputTokens} out / $${finalTotals.totalCostUsd.toFixed(4)}`);

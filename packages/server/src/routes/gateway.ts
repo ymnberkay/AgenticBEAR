@@ -18,6 +18,7 @@ import { settingsRepo } from '../db/repositories/settings.repo.js';
 import { gatewayUsageRepo } from '../db/repositories/gateway-usage.repo.js';
 import { discoverModels } from '../llm/model-discovery.js';
 import { requireGatewayKey, type AuthedRequest } from '../middleware/require-gateway-key.js';
+import { resolveGroupForKey, checkQuota, recordQuotaUsage } from '../services/quota.service.js';
 import { scanAndRedact, dlpActiveForModel } from '../security/dlp.js';
 import { costConfig } from '../cost/config.js';
 import { createLogger } from '../utils/logger.js';
@@ -157,11 +158,12 @@ function gatewayKeyId(request: FastifyRequest): string | null {
   return (request as FastifyRequest & { gatewayKeyId?: string }).gatewayKeyId ?? null;
 }
 
-/** Persist a per-call usage row for cost attribution (best-effort). */
-async function recordUsage(request: FastifyRequest, model: string, providerId: string | undefined, result: ClaudeCallResult): Promise<void> {
+/** Persist a per-call usage row for cost attribution (best-effort) + group quota pool. */
+async function recordUsage(request: FastifyRequest, model: string, providerId: string | undefined, result: ClaudeCallResult, groupId: string | null): Promise<void> {
   try {
     await gatewayUsageRepo.record({
       keyId: gatewayKeyId(request),
+      groupId,
       model,
       providerId: providerId ?? null,
       inputTokens: result.inputTokens,
@@ -171,6 +173,7 @@ async function recordUsage(request: FastifyRequest, model: string, providerId: s
       cacheHit: result.cacheHit,
       routerTier: result.routerTier,
     });
+    await recordQuotaUsage(groupId, result.inputTokens, result.outputTokens, result.actualCostUsd);
   } catch (err) {
     log.warn('gateway usage record failed', err);
   }
@@ -203,6 +206,16 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
     const authedKey = (request as AuthedRequest).gatewayKey;
     if (authedKey && !(await keyAllowsModel(authedKey, body.model))) {
       return reply.status(403).send(oaiError(`Model '${body.model}' is not allowed for this API key.`, 'permission_error', 'model_not_allowed'));
+    }
+
+    // Group token quota (shared monthly pool) — the key's linked group, if any.
+    const groupId = resolveGroupForKey(authedKey);
+    const quota = await checkQuota(groupId);
+    if (!quota.allowed) {
+      return reply.status(429).send(oaiError(
+        `Monthly token quota exceeded for this key's group (${quota.used}/${quota.quota}).`,
+        'insufficient_quota', 'quota_exceeded',
+      ));
     }
 
     const { providerId, model } = await parseModelRef(body.model);
@@ -272,7 +285,7 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
         send({ ...base, model: result.servedModel, choices: [{ index: 0, delta: {}, finish_reason: finishReason(result.stopReason) }] });
         raw.write('data: [DONE]\n\n');
         raw.end();
-        await recordUsage(request, body.model, providerId, result);
+        await recordUsage(request, body.model, providerId, result, groupId);
         log.info(`gateway stream ${body.model} → ${result.servedModel} ($${result.actualCostUsd.toFixed(6)})`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -295,7 +308,7 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
         'x-agb-baseline-usd': String(result.baselineCostUsd),
         'x-agb-cache-hit': String(result.cacheHit),
       });
-      await recordUsage(request, body.model, providerId, result);
+      await recordUsage(request, body.model, providerId, result, groupId);
 
       return reply.send({
         id,

@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { getDb } from '../db/client.js';
 import type { Db } from '../db/adapter.js';
 import { modelPricing } from '../llm/provider-registry.js';
+import { requireAdmin } from '../middleware/require-auth.js';
+import type { UsageByPrincipal } from '@subagent/shared';
 
 interface AgentAnalyticsRow {
   agent_id: string;
@@ -321,6 +323,52 @@ async function queryByProject(db: Db, window: Window) {
   }));
 }
 
+/**
+ * Usage attributed to each "principal": app requests by the initiating username, gateway
+ * requests by their key name (`key:<name>`). Powers the admin usage-by-user dashboard.
+ */
+async function queryUsageByPrincipal(db: Db, window: Window): Promise<UsageByPrincipal[]> {
+  const d = dialect(db.driver);
+  const appTime = timeClause(d, 'created_at', window);
+  const gwTime = timeClause(d, 'gu.created_at', window);
+
+  const appRows = await db.prepare(`
+    SELECT COALESCE(username, '(system)') AS k,
+      COUNT(*) AS requests,
+      COALESCE(SUM(total_input_tokens), 0)  AS in_tok,
+      COALESCE(SUM(total_output_tokens), 0) AS out_tok,
+      COALESCE(SUM(total_cost_usd), 0)      AS cost
+    FROM runs
+    WHERE 1=1${appTime.sql}
+    GROUP BY COALESCE(username, '(system)')
+  `).all<{ k: string; requests: number; in_tok: number; out_tok: number; cost: number }>(...appTime.params);
+
+  const gwRows = await db.prepare(`
+    SELECT COALESCE(gk.name, gu.key_id, '(open)') AS k,
+      COUNT(*) AS requests,
+      COALESCE(SUM(gu.input_tokens), 0)  AS in_tok,
+      COALESCE(SUM(gu.output_tokens), 0) AS out_tok,
+      COALESCE(SUM(gu.cost_usd), 0)      AS cost
+    FROM gateway_usage gu
+    LEFT JOIN gateway_keys gk ON gk.id = gu.key_id
+    WHERE 1=1${gwTime.sql}
+    GROUP BY COALESCE(gk.name, gu.key_id, '(open)')
+  `).all<{ k: string; requests: number; in_tok: number; out_tok: number; cost: number }>(...gwTime.params);
+
+  const toRow = (r: { k: string; requests: number; in_tok: number; out_tok: number; cost: number }, prefix: string): UsageByPrincipal => ({
+    key: prefix + r.k,
+    label: prefix === 'gw:' ? `key: ${r.k}` : r.k,
+    requestCount: r.requests,
+    inputTokens: r.in_tok,
+    outputTokens: r.out_tok,
+    totalTokens: r.in_tok + r.out_tok,
+    costUsd: r.cost,
+  });
+
+  return [...appRows.map((r) => toRow(r, 'app:')), ...gwRows.map((r) => toRow(r, 'gw:'))]
+    .sort((a, b) => b.totalTokens - a.totalTokens);
+}
+
 export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { projectId: string }; Querystring: { range?: string; from?: string; to?: string } }>(
     '/api/projects/:projectId/analytics',
@@ -338,6 +386,16 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
       const db = getDb();
       const window = computeWindow(request.query);
       return reply.send({ ...(await queryAnalytics(db, window, null)), byProject: await queryByProject(db, window) });
+    },
+  );
+
+  // Usage attributed per user / per gateway key (admin only).
+  app.get<{ Querystring: { range?: string; from?: string; to?: string } }>(
+    '/api/usage/by-user',
+    async (request, reply) => {
+      if (!requireAdmin(request, reply)) return;
+      const window = computeWindow(request.query);
+      return reply.send(await queryUsageByPrincipal(getDb(), window));
     },
   );
 }

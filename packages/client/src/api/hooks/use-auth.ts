@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { User, AuthResult, CreateUserInput, UserRole, PermissionGroup } from '@subagent/shared';
+import type { User, AuthResult, CreateUserInput, UserRole, PermissionGroup, GroupUsage } from '@subagent/shared';
 import { apiGet, apiPost, apiPatch, apiDelete, setToken, clearToken, getToken } from '../client';
 
 export function useMe() {
@@ -59,17 +59,24 @@ export function useDeleteUser() {
 export function useGroups() {
   return useQuery({ queryKey: ['auth', 'groups'], queryFn: () => apiGet<PermissionGroup[]>('/api/auth/groups') });
 }
+export function useGroupUsage() {
+  return useQuery({
+    queryKey: ['auth', 'groups', 'usage'],
+    queryFn: () => apiGet<GroupUsage[]>('/api/auth/groups/usage'),
+    staleTime: 30_000,
+  });
+}
 export function useCreateGroup() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { name: string; role?: UserRole; projectIds?: string[] }) => apiPost<PermissionGroup>('/api/auth/groups', input),
+    mutationFn: (input: { name: string; role?: UserRole; projectIds?: string[]; tokenQuota?: number | null }) => apiPost<PermissionGroup>('/api/auth/groups', input),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['auth', 'groups'] }),
   });
 }
 export function useUpdateGroup() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...fields }: { id: string; name?: string; role?: UserRole; projectIds?: string[] }) =>
+    mutationFn: ({ id, ...fields }: { id: string; name?: string; role?: UserRole; projectIds?: string[]; tokenQuota?: number | null }) =>
       apiPatch<PermissionGroup>(`/api/auth/groups/${id}`, fields),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['auth', 'groups'] }),
   });

@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { resolve, dirname, sep } from 'node:path';
 import { buildFileTree, type TreeNode } from '../utils/file-tree.js';
 
@@ -31,5 +31,10 @@ export const workspaceService = {
     const absPath = assertWithinWorkspace(workspacePath, relativePath);
     mkdirSync(dirname(absPath), { recursive: true });
     writeFileSync(absPath, content, 'utf-8');
+  },
+
+  deleteFile(workspacePath: string, relativePath: string): void {
+    const absPath = assertWithinWorkspace(workspacePath, relativePath);
+    if (existsSync(absPath)) rmSync(absPath, { recursive: false });
   },
 };

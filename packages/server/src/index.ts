@@ -21,6 +21,8 @@ import { gatewayRoutes } from './routes/gateway.js';
 import { gatewayKeyRoutes } from './routes/gateway-keys.js';
 import { documentRoutes } from './routes/documents.js';
 import { chatRoutes } from './routes/chat.js';
+import { fileChangeRoutes } from './routes/file-changes.js';
+import { activityRoutes } from './routes/activity.js';
 import { mcpRoutes } from './mcp/transport.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { authRoutes } from './routes/auth.js';
@@ -96,6 +98,8 @@ async function main() {
   await app.register(gatewayKeyRoutes);
   await app.register(documentRoutes);
   await app.register(chatRoutes);
+  await app.register(fileChangeRoutes);
+  await app.register(activityRoutes);
   await app.register(mcpRoutes);
   await app.register(analyticsRoutes);
 

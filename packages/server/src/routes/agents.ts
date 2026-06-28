@@ -2,10 +2,12 @@ import type { FastifyInstance } from 'fastify';
 import { agentRepo } from '../db/repositories/agent.repo.js';
 import { taskRepo } from '../db/repositories/task.repo.js';
 import { activityRepo } from '../db/repositories/activity.repo.js';
+import { activityLogRepo } from '../db/repositories/activity-log.repo.js';
 import { memoryRepo } from '../db/repositories/memory.repo.js';
 import { invalidateMcpCache } from '../mcp/server.js';
 import { invalidateNamespace, namespaceFor } from '../cost/layers/semantic-cache.js';
-import type { CreateAgentInput, UpdateAgentInput } from '@subagent/shared';
+import type { AuthedRequest } from '../middleware/require-auth.js';
+import type { CreateAgentInput, UpdateAgentInput, User } from '@subagent/shared';
 
 export async function agentRoutes(app: FastifyInstance): Promise<void> {
   // List agents by project
@@ -35,6 +37,8 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       });
 
       invalidateMcpCache(projectId);
+      const user = (request as AuthedRequest).authUser as User | undefined;
+      await activityLogRepo.record({ projectId, userId: user?.id, username: user?.username, action: 'agent.create', target: agent.name, detail: agent.role });
       return reply.status(201).send(agent);
     },
   );
@@ -59,6 +63,8 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     if (request.body.systemPrompt !== undefined || request.body.modelConfig !== undefined) {
       void invalidateNamespace(namespaceFor(agent.role, agent.slug));
     }
+    const user = (request as AuthedRequest).authUser as User | undefined;
+    await activityLogRepo.record({ projectId: agent.projectId, userId: user?.id, username: user?.username, action: 'agent.update', target: agent.name });
     return reply.send(agent);
   });
 
@@ -128,6 +134,8 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     if (existing) {
       invalidateMcpCache(existing.projectId);
       void invalidateNamespace(namespaceFor(existing.role, existing.slug));
+      const user = (request as AuthedRequest).authUser as User | undefined;
+      await activityLogRepo.record({ projectId: existing.projectId, userId: user?.id, username: user?.username, action: 'agent.delete', target: existing.name });
     }
     return reply.status(204).send();
   });

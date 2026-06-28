@@ -28,10 +28,14 @@ const MAX_ITERS = 10;
 const MAX_DEPTH = 1;
 const DELEGATE = 'delegate_to_agent';
 
+type FileOp = 'create' | 'modify' | 'delete';
+interface FileWrite { path: string; previousContent: string | null; content: string; operation: FileOp; agentId: string }
+
 export type LoopEvent =
   | { type: 'tool'; name: string; args: Record<string, unknown> }
   | { type: 'toolResult'; name: string; summary: string }
-  | { type: 'write'; path: string; previousContent: string | null; content: string; operation: 'create' | 'modify'; agentId: string }
+  | { type: 'write'; path: string; previousContent: string | null; content: string; operation: FileOp; agentId: string }
+  | { type: 'pendingWrite'; path: string; operation: FileOp; agentId: string }
   | { type: 'delegate'; agent: string; task: string }
   | { type: 'text'; delta: string };
 
@@ -47,6 +51,8 @@ export interface RunTurnOpts {
   label?: string;
   /** Run id to attach to the recorded memory (null/undefined for chat). */
   runId?: string | null;
+  /** Chat mode: stage file writes/deletes for user approval instead of applying them to disk. */
+  requireApproval?: boolean;
 }
 
 export interface RunTurnResult {
@@ -56,7 +62,9 @@ export interface RunTurnResult {
   /** L0 input tokens saved by lossless compression across the whole turn (for analytics). */
   compressionSavedTokens: number;
   iterations: number;
-  filesWritten: Array<{ path: string; previousContent: string | null; content: string; operation: 'create' | 'modify'; agentId: string }>;
+  filesWritten: FileWrite[];
+  /** Chat-staged file ops awaiting user approval (not yet on disk). Empty unless requireApproval. */
+  pendingWrites: FileWrite[];
   /** Model actually used after L2 level-routing (may be cheaper than the agent's configured model). */
   servedModel: string;
   servedProviderId?: string;
@@ -299,7 +307,7 @@ async function runTurnInner(opts: RunTurnOpts): Promise<RunTurnResult> {
       log.info(`Agent "${agent.name}" L1 answer-cache hit`);
       return {
         text: hit.text, inputTokens: 0, outputTokens: 0, compressionSavedTokens: 0, iterations: 0,
-        filesWritten: [], servedModel: hit.servedModel, servedProviderId: agent.modelConfig.providerId ?? undefined,
+        filesWritten: [], pendingWrites: [], servedModel: hit.servedModel, servedProviderId: agent.modelConfig.providerId ?? undefined,
         routerTier: null, costUsd: 0, baselineCostUsd: baseline, cacheHit: true,
       };
     }
@@ -317,10 +325,11 @@ async function runTurnInner(opts: RunTurnOpts): Promise<RunTurnResult> {
   let totalComp = 0;
   let totalActual = 0;
   let totalBaseline = 0;
-  const filesWritten: RunTurnResult['filesWritten'] = [];
+  const filesWritten: FileWrite[] = [];
+  const pendingWrites: FileWrite[] = [];
   let toolUsed = false;
   const base = (): Omit<RunTurnResult, 'text' | 'iterations'> => ({
-    inputTokens: totalIn, outputTokens: totalOut, compressionSavedTokens: totalComp, filesWritten,
+    inputTokens: totalIn, outputTokens: totalOut, compressionSavedTokens: totalComp, filesWritten, pendingWrites,
     servedModel: served.model, servedProviderId: served.providerId, routerTier: picked.tier,
     costUsd: totalActual, baselineCostUsd: totalBaseline, cacheHit: false,
   });
@@ -374,8 +383,9 @@ async function runTurnInner(opts: RunTurnOpts): Promise<RunTurnResult> {
         } else {
           const task = String(tc.args.task ?? '');
           onEvent?.({ type: 'delegate', agent: spec.name, task });
-          const sub = await runAgentTurn({ agent: spec, projectId, workspacePath, messages: [{ role: 'user', content: task }], depth: depth + 1, onEvent });
+          const sub = await runAgentTurn({ agent: spec, projectId, workspacePath, messages: [{ role: 'user', content: task }], depth: depth + 1, onEvent, requireApproval: opts.requireApproval });
           filesWritten.push(...sub.filesWritten);
+          pendingWrites.push(...sub.pendingWrites);
           totalIn += sub.inputTokens;
           totalOut += sub.outputTokens;
           totalComp += sub.compressionSavedTokens;
@@ -388,12 +398,17 @@ async function runTurnInner(opts: RunTurnOpts): Promise<RunTurnResult> {
           // A coordinator has no file tools — never let it touch the workspace itself; force delegation.
           resultStr = `You are a coordinator and cannot use ${tc.name}. Delegate this to a specialist with delegate_to_agent instead.`;
         } else {
-          const exec = executeFileTool(workspacePath, tc.name, tc.args);
+          const exec = executeFileTool(workspacePath, tc.name, tc.args, { stageOnly: opts.requireApproval });
           resultStr = exec.result;
           if (exec.write) {
-            const w = { ...exec.write, agentId: agent.id };
-            filesWritten.push(w);
-            onEvent?.({ type: 'write', ...w });
+            const w: FileWrite = { ...exec.write, agentId: agent.id };
+            if (opts.requireApproval) {
+              pendingWrites.push(w);
+              onEvent?.({ type: 'pendingWrite', path: w.path, operation: w.operation, agentId: w.agentId });
+            } else {
+              filesWritten.push(w);
+              onEvent?.({ type: 'write', ...w });
+            }
           }
         }
       } else {

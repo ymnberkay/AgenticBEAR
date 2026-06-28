@@ -24,6 +24,8 @@ export interface GatewayKey {
    * chatbot's conversation history grows).
    */
   cacheScope: 'conversation' | 'lastUser';
+  /** Permission group this key counts against (token quota + per-principal usage). null = none. */
+  groupId: string | null;
   lastUsedAt: string | null;
 }
 
@@ -35,6 +37,8 @@ export interface CreateGatewayKeyInput {
   expiresAt?: string | null;
   /** 'lastUser' = FAQ mode (cache by question only, ignore history). Default 'conversation'. */
   cacheScope?: 'conversation' | 'lastUser';
+  /** Permission group this key counts against. null/omitted = none. */
+  groupId?: string | null;
 }
 
 /** Prefix marking a parent-provider wildcard entry in `allowedModels`. */

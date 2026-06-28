@@ -9,6 +9,12 @@ vi.mock('../provider-registry.js', async (importOriginal) => ({
   resolveProvider: resolveMock,
 }));
 
+// The rate limiter reads settings from the DB — stub it to a no-op for this unit test.
+vi.mock('../../services/rate-limiter.service.js', () => ({
+  acquire: vi.fn(async () => () => {}),
+  modelTimeoutMs: vi.fn(async () => undefined),
+}));
+
 import { complete } from '../client.js';
 
 function mockFetchOnce(jsonBody: unknown, ok = true, status = 200) {

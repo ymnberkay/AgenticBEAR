@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Zap, KeyRound, Plus, Trash2, Copy, Check, X } from 'lucide-react';
 import { PROVIDER_SCOPE_PREFIX } from '@subagent/shared';
 import {
-  useGatewayKeys, useCreateGatewayKey, useDeleteGatewayKey, useModelCatalog, useSetGatewayKeyCacheScope,
+  useGatewayKeys, useCreateGatewayKey, useDeleteGatewayKey, useModelCatalog, useSetGatewayKeyCacheScope, useSetGatewayKeyGroup,
 } from '../../api/hooks/use-gateway';
+import { useGroups } from '../../api/hooks/use-auth';
 import { ModelScopePicker } from './model-scope-picker';
 import { Section, inputStyle } from './ui';
 
@@ -39,7 +40,9 @@ export function ApiKeysTab() {
   const createKey = useCreateGatewayKey();
   const deleteKey = useDeleteGatewayKey();
   const setCacheScope = useSetGatewayKeyCacheScope();
+  const setKeyGroup = useSetGatewayKeyGroup();
   const { data: catalog } = useModelCatalog();
+  const { data: groups } = useGroups();
 
   const [copied, setCopied] = useState<string | null>(null);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
@@ -50,6 +53,7 @@ export function ApiKeysTab() {
   const [scope, setScope] = useState<string[]>([]);
   const [expiryDays, setExpiryDays] = useState(0);
   const [faqMode, setFaqMode] = useState(false);
+  const [groupId, setGroupId] = useState<string>('');
 
   const baseUrl = `${window.location.origin}/v1`;
   const exampleModel = catalog?.[0]?.id ?? 'claude-sonnet-4-20250514';
@@ -60,15 +64,17 @@ export function ApiKeysTab() {
     setTimeout(() => setCopied(null), 1500);
   };
 
-  const resetForm = () => { setName(''); setScope([]); setExpiryDays(0); setFaqMode(false); setFormOpen(false); };
+  const resetForm = () => { setName(''); setScope([]); setExpiryDays(0); setFaqMode(false); setGroupId(''); setFormOpen(false); };
 
   const submit = () => {
     const expiresAt = expiryDays === 0 ? null : new Date(Date.now() + expiryDays * 86_400_000).toISOString();
     createKey.mutate(
-      { name: name.trim(), allowedModels: scope, expiresAt, cacheScope: faqMode ? 'lastUser' : 'conversation' },
+      { name: name.trim(), allowedModels: scope, expiresAt, cacheScope: faqMode ? 'lastUser' : 'conversation', groupId: groupId || null },
       { onSuccess: (k) => { setCreatedKey(k.key); resetForm(); } },
     );
   };
+
+  const groupName = (id: string | null) => (id ? groups?.find((g) => g.id === id)?.name ?? 'group' : null);
 
   const snippet = `from openai import OpenAI
 client = OpenAI(base_url="${baseUrl}", api_key="${createdKey ?? 'agb_live_...'}")
@@ -162,6 +168,18 @@ print(resp.choices[0].message.content)`;
                 </select>
               </div>
 
+              <div className="flex flex-col gap-1.5">
+                <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>Group (token quota)</label>
+                <select value={groupId} onChange={(e) => setGroupId(e.target.value)}
+                  style={{ ...inputStyle, cursor: 'pointer', width: 'auto', minWidth: 180 }}>
+                  <option value="">No group (unlimited)</option>
+                  {(groups ?? []).map((g) => <option key={g.id} value={g.id}>{g.name}{g.tokenQuota ? ` · ${g.tokenQuota.toLocaleString()} tok/mo` : ''}</option>)}
+                </select>
+                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
+                  Calls with this key count against the group's shared monthly token quota.
+                </span>
+              </div>
+
               <label className="flex items-start gap-2" style={{ cursor: 'pointer' }}>
                 <input type="checkbox" checked={faqMode} onChange={(e) => setFaqMode(e.target.checked)} style={{ marginTop: 2 }} />
                 <span>
@@ -195,9 +213,16 @@ print(resp.choices[0].message.content)`;
                   <span style={{ fontSize: 12.5, color: 'var(--color-text-primary)' }}>{k.name || '(unnamed)'}</span>
                   <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
                     {k.keyPrefix}… · {scopeLabel(k.allowedModels)} · <span style={{ color: exp.expired ? 'var(--color-error)' : 'var(--color-text-disabled)' }}>{exp.text}</span>{k.lastUsedAt ? ' · used' : ' · never used'}
+                    {k.groupId ? <> · <span style={{ color: 'var(--color-accent)' }}>{groupName(k.groupId)}</span></> : ''}
                   </div>
                 </div>
                 <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
+                  <select value={k.groupId ?? ''} onChange={(e) => setKeyGroup.mutate({ id: k.id, groupId: e.target.value || null })}
+                    title="Group (token quota)"
+                    style={{ ...inputStyle, height: 26, width: 'auto', minWidth: 96, fontSize: 10.5, cursor: 'pointer' }}>
+                    <option value="">no group</option>
+                    {(groups ?? []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                  </select>
                   <button type="button"
                     onClick={() => setCacheScope.mutate({ id: k.id, cacheScope: k.cacheScope === 'lastUser' ? 'conversation' : 'lastUser' })}
                     title="FAQ mode: cache by question only (ignore history)"

@@ -23,7 +23,22 @@ export interface PermissionGroup {
   role: UserRole;
   /** Projects this group can access. Empty = none (admins always see all). */
   projectIds: string[];
+  /**
+   * Monthly token budget shared by all group members (input+output). null/0 = unlimited.
+   * Consumption resets each calendar month; admins are exempt.
+   */
+  tokenQuota: number | null;
   createdAt: string;
+}
+
+/** Current-month token consumption for a group, against its quota. */
+export interface GroupUsage {
+  groupId: string;
+  period: string; // 'YYYY-MM'
+  totalTokens: number;
+  costUsd: number;
+  requestCount: number;
+  quota: number | null;
 }
 
 export interface LoginInput {

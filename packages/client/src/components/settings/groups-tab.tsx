@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Users2, Plus, Trash2, ShieldAlert, FolderGit2, Check } from 'lucide-react';
+import { Users2, Plus, Trash2, ShieldAlert, FolderGit2, Check, Gauge } from 'lucide-react';
 import type { UserRole } from '@subagent/shared';
-import { useGroups, useCreateGroup, useUpdateGroup, useDeleteGroup, useMe, useUsers } from '../../api/hooks/use-auth';
+import { useGroups, useGroupUsage, useCreateGroup, useUpdateGroup, useDeleteGroup, useMe, useUsers } from '../../api/hooks/use-auth';
 import { useProjects } from '../../api/hooks/use-projects';
 import { Section, inputStyle } from './ui';
 
@@ -10,15 +10,19 @@ const roleColor: Record<string, string> = {
   admin: 'var(--color-accent)', contributor: 'var(--color-success)', viewer: 'var(--color-text-tertiary)',
 };
 
+const fmtTokens = (n: number) => n.toLocaleString('en-US');
+
 /** Permission groups: each grants a role + access to a set of projects. Users belong to groups. */
 export function GroupsTab({ onSaved }: { onSaved: (msg: string) => void }) {
   const me = useMe();
   const { data: groups } = useGroups();
+  const { data: groupUsage } = useGroupUsage();
   const { data: users } = useUsers();
   const { data: projects } = useProjects();
   const createGroup = useCreateGroup();
   const updateGroup = useUpdateGroup();
   const deleteGroup = useDeleteGroup();
+  const usageByGroup = new Map((groupUsage ?? []).map((u) => [u.groupId, u]));
 
   const [name, setName] = useState('');
   const [role, setRole] = useState<UserRole>('contributor');
@@ -92,6 +96,46 @@ export function GroupsTab({ onSaved }: { onSaved: (msg: string) => void }) {
                   <Trash2 style={{ width: 13, height: 13 }} />
                 </button>
               </div>
+
+              {/* Token quota (shared monthly pool) */}
+              {(() => {
+                const u = usageByGroup.get(g.id);
+                const used = u?.totalTokens ?? 0;
+                const quota = g.tokenQuota ?? null;
+                const pct = quota && quota > 0 ? Math.min(100, (used / quota) * 100) : 0;
+                const over = quota != null && used >= quota;
+                return (
+                  <div style={{ marginBottom: 12 }}>
+                    <div className="flex items-center gap-2" style={{ marginBottom: 6 }}>
+                      <span className="flex items-center gap-1.5" style={{ fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', flexShrink: 0 }}>
+                        <Gauge style={{ width: 11, height: 11 }} /> Token quota / month
+                      </span>
+                      <input
+                        type="number" min={0} step={1000}
+                        defaultValue={g.tokenQuota ?? ''}
+                        placeholder="unlimited"
+                        key={g.tokenQuota ?? 'unlimited'}
+                        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                        onBlur={(e) => {
+                          const raw = e.target.value.trim();
+                          const v = raw === '' ? null : Math.max(0, parseInt(raw, 10) || 0);
+                          if ((v ?? null) !== (g.tokenQuota ?? null)) updateGroup.mutate({ id: g.id, tokenQuota: v });
+                        }}
+                        style={{ ...inputStyle, height: 28, width: 150, fontSize: 11.5 }}
+                        title="Shared monthly token budget for this group. Blank = unlimited."
+                      />
+                      <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: over ? 'var(--color-error)' : 'var(--color-text-tertiary)', marginLeft: 'auto' }}>
+                        {fmtTokens(used)} {quota ? `/ ${fmtTokens(quota)}` : '/ ∞'} this month
+                      </span>
+                    </div>
+                    {quota ? (
+                      <div style={{ height: 4, borderRadius: 2, background: 'var(--color-bg-surface)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: over ? 'var(--color-error)' : 'var(--color-accent)', transition: 'width .3s' }} />
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })()}
 
               {/* Members */}
               {members.length > 0 && (

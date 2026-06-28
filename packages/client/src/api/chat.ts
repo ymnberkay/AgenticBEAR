@@ -5,7 +5,7 @@ export interface ChatMessage {
 }
 
 export interface ToolEvent {
-  kind: 'tool' | 'toolResult' | 'write' | 'delegate';
+  kind: 'tool' | 'toolResult' | 'write' | 'delegate' | 'pendingWrite';
   name?: string;
   path?: string;
   operation?: string;
@@ -14,10 +14,18 @@ export interface ToolEvent {
   summary?: string;
 }
 
+/** A chat-staged file op awaiting the user's Approve/Reject (id known only after the turn). */
+export interface PendingChange {
+  id: string;
+  path: string;
+  operation: string;
+}
+
 interface StreamHandlers {
   onDelta?: (text: string) => void;
   onTool?: (e: ToolEvent) => void;
-  onDone?: (info: { servedModel?: string; filesWritten?: number }) => void;
+  onPending?: (p: PendingChange) => void;
+  onDone?: (info: { servedModel?: string; filesWritten?: number; pending?: number }) => void;
   onError?: (message: string) => void;
 }
 
@@ -65,6 +73,8 @@ export async function streamChat(
           tool?: { name: string; args: unknown };
           toolResult?: { name: string; summary: string };
           write?: { path: string; operation: string };
+          pendingWrite?: { path: string; operation: string };
+          pending?: { id: string; path: string; operation: string } | number;
           delegate?: { agent: string; task: string };
         };
         if (obj.error) handlers.onError?.(obj.error);
@@ -72,8 +82,10 @@ export async function streamChat(
         else if (obj.tool) handlers.onTool?.({ kind: 'tool', name: obj.tool.name });
         else if (obj.toolResult) handlers.onTool?.({ kind: 'toolResult', name: obj.toolResult.name, summary: obj.toolResult.summary });
         else if (obj.write) handlers.onTool?.({ kind: 'write', path: obj.write.path, operation: obj.write.operation });
+        else if (obj.pendingWrite) handlers.onTool?.({ kind: 'pendingWrite', path: obj.pendingWrite.path, operation: obj.pendingWrite.operation });
+        else if (obj.pending && typeof obj.pending === 'object') handlers.onPending?.(obj.pending);
         else if (obj.delegate) handlers.onTool?.({ kind: 'delegate', agent: obj.delegate.agent, task: obj.delegate.task });
-        else if (obj.done) handlers.onDone?.({ servedModel: obj.servedModel, filesWritten: obj.filesWritten });
+        else if (obj.done) handlers.onDone?.({ servedModel: obj.servedModel, filesWritten: obj.filesWritten, pending: typeof obj.pending === 'number' ? obj.pending : undefined });
       } catch {
         /* ignore malformed frame */
       }

@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Zap, PiggyBank, Database, Layers as LayersIcon, Cpu } from 'lucide-react';
-import { useGlobalAnalytics, type AnalyticsRange } from '../../api/hooks/use-analytics';
+import { Zap, PiggyBank, Database, Layers as LayersIcon, Cpu, Users2, Gauge as GaugeIcon } from 'lucide-react';
+import { useGlobalAnalytics, useUsageByUser, type AnalyticsRange } from '../../api/hooks/use-analytics';
 import { useGatewayUsage } from '../../api/hooks/use-gateway';
+import { useMe, useGroups, useGroupUsage } from '../../api/hooks/use-auth';
 import { AgenticUsage } from './agentic-usage';
 import { GatewayUsage } from './gateway-usage';
 import { Kpi, Gauge, Bars, DailyBars, SURFACE, LABEL, fmt, money, useCountUp } from '../charts/usage-bits';
@@ -16,6 +17,11 @@ export function UsageTab() {
   const [range, setRange] = useState<AnalyticsRange>('30d');
   const { data: agentic } = useGlobalAnalytics({ range });
   const { data: gw } = useGatewayUsage({ range });
+  const me = useMe();
+  const isAdmin = me.data?.role === 'admin';
+  const { data: byUser } = useUsageByUser(isAdmin ? { range } : {});
+  const { data: groups } = useGroups();
+  const { data: groupUsage } = useGroupUsage();
 
   const total = {
     inputTokens: (agentic?.totalInputTokens ?? 0) + (gw?.totalInputTokens ?? 0),
@@ -118,6 +124,46 @@ export function UsageTab() {
               </div>
             </div>
           </div>
+
+          {/* By user + by group (admin) */}
+          {isAdmin && (
+            <div className="flex flex-wrap" style={{ gap: 10 }}>
+              <div style={{ ...SURFACE, flex: 1, minWidth: 300, padding: '14px 16px' }}>
+                <div className="flex items-center gap-2" style={LABEL}><Users2 style={{ width: 12, height: 12 }} /> By user / key (tokens)</div>
+                <div style={{ marginTop: 12 }}>
+                  <Bars fmtVal={fmt} items={(byUser ?? []).slice(0, 8).map((u) => ({
+                    label: u.label, value: u.totalTokens,
+                    color: u.key.startsWith('gw:') ? 'var(--color-warning)' : 'var(--color-accent)',
+                  }))} />
+                  {(byUser ?? []).length === 0 && <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>No attributed usage yet.</span>}
+                </div>
+              </div>
+              <div style={{ ...SURFACE, flex: 1, minWidth: 300, padding: '14px 16px' }}>
+                <div className="flex items-center gap-2" style={LABEL}><GaugeIcon style={{ width: 12, height: 12 }} /> By group · quota (this month)</div>
+                <div className="flex flex-col" style={{ marginTop: 12, gap: 10 }}>
+                  {(groups ?? []).map((g) => {
+                    const u = (groupUsage ?? []).find((x) => x.groupId === g.id);
+                    const used = u?.totalTokens ?? 0;
+                    const quota = g.tokenQuota ?? null;
+                    const pct = quota && quota > 0 ? Math.min(100, (used / quota) * 100) : 0;
+                    const over = quota != null && used >= quota;
+                    return (
+                      <div key={g.id}>
+                        <div className="flex items-center justify-between" style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
+                          <span style={{ color: 'var(--color-text-secondary)' }}>{g.name}</span>
+                          <span style={{ color: over ? 'var(--color-error)' : 'var(--color-text-disabled)' }}>{fmt(used)} {quota ? `/ ${fmt(quota)}` : '/ ∞'}</span>
+                        </div>
+                        <div style={{ height: 4, borderRadius: 2, background: 'var(--color-bg-surface)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${quota ? pct : 0}%`, background: over ? 'var(--color-error)' : 'var(--color-accent)', transition: 'width .3s' }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {(groups ?? []).length === 0 && <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>No groups yet.</span>}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Daily trend + token mix */}
           <div className="flex flex-wrap" style={{ gap: 10 }}>

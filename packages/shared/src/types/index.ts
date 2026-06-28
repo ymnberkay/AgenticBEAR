@@ -59,6 +59,7 @@ export type {
   Settings,
   UpdateSettingsInput,
   DlpRule,
+  ModelLimit,
 } from './settings.js';
 
 export type {
@@ -69,6 +70,9 @@ export type {
 export type {
   AgentActivity,
   ActivityStatus,
+  ActivityAction,
+  ActivityLogEntry,
+  UsageByPrincipal,
 } from './activity.js';
 
 export type {
@@ -81,6 +85,7 @@ export type {
   User,
   CreateUserInput,
   PermissionGroup,
+  GroupUsage,
   LoginInput,
   AuthResult,
 } from './auth.js';

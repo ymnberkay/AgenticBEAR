@@ -38,8 +38,28 @@ describe('agent-tools — sandboxed file tools', () => {
     expect(existsSync(join(ws, '../escape.txt'))).toBe(false);
   });
 
-  it('exposes the three tool defs', () => {
-    expect(fileToolDefs().map((t) => t.name)).toEqual(['write_file', 'read_file', 'list_files']);
+  it('exposes the file tool defs', () => {
+    expect(fileToolDefs().map((t) => t.name)).toEqual(['write_file', 'read_file', 'list_files', 'delete_file']);
+  });
+
+  it('stageOnly write does NOT touch disk but returns the proposed change', () => {
+    const r = executeFileTool(ws, 'write_file', { path: 'staged.ts', content: 'pending' }, { stageOnly: true });
+    expect(existsSync(join(ws, 'staged.ts'))).toBe(false);          // not written
+    expect(r.write?.operation).toBe('create');
+    expect(r.write?.content).toBe('pending');
+    expect(r.result).toMatch(/pending user approval/i);
+  });
+
+  it('delete_file removes a file; stageOnly delete leaves it in place', () => {
+    executeFileTool(ws, 'write_file', { path: 'gone.txt', content: 'bye' });
+    const staged = executeFileTool(ws, 'delete_file', { path: 'gone.txt' }, { stageOnly: true });
+    expect(staged.write?.operation).toBe('delete');
+    expect(staged.write?.previousContent).toBe('bye');
+    expect(existsSync(join(ws, 'gone.txt'))).toBe(true);            // still there (staged)
+
+    const done = executeFileTool(ws, 'delete_file', { path: 'gone.txt' });
+    expect(done.write?.operation).toBe('delete');
+    expect(existsSync(join(ws, 'gone.txt'))).toBe(false);           // actually deleted
   });
 
   it('caches read_file but a later write to the same path invalidates it', () => {

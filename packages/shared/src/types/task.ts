@@ -59,5 +59,12 @@ export interface FileChange {
   previousContent: string | null;
   newContent: string;
   agentId: string;
+  /**
+   * 'applied' — written to disk (agentic runs auto-apply; default).
+   * 'pending' — proposed in chat, awaiting user approval (not yet on disk).
+   * 'rejected' — user declined.
+   */
+  status: 'applied' | 'pending' | 'rejected';
+  appliedAt: string | null;
   createdAt: string;
 }

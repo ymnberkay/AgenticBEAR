@@ -7,13 +7,27 @@ interface GroupRow {
   name: string;
   role: string;
   project_ids: string;
+  token_quota: number | null;
   created_at: string;
 }
 
 function rowToGroup(row: GroupRow): PermissionGroup {
   let projectIds: string[] = [];
   try { projectIds = JSON.parse(row.project_ids ?? '[]') as string[]; } catch { projectIds = []; }
-  return { id: row.id, name: row.name, role: row.role as UserRole, projectIds, createdAt: row.created_at };
+  return {
+    id: row.id,
+    name: row.name,
+    role: row.role as UserRole,
+    projectIds,
+    tokenQuota: row.token_quota ?? null,
+    createdAt: row.created_at,
+  };
+}
+
+/** Normalize a quota input: undefined keeps current; 0/negative/empty → unlimited (null). */
+function normalizeQuota(v: number | null | undefined): number | null {
+  if (v === undefined || v === null) return null;
+  return v > 0 ? Math.round(v) : null;
 }
 
 export const groupRepo = {
@@ -34,23 +48,24 @@ export const groupRepo = {
     return [...set];
   },
 
-  async create(input: { name: string; role?: UserRole; projectIds?: string[] }): Promise<PermissionGroup> {
+  async create(input: { name: string; role?: UserRole; projectIds?: string[]; tokenQuota?: number | null }): Promise<PermissionGroup> {
     const db = getDb();
     const id = generateId();
     const now = new Date().toISOString();
-    await db.prepare('INSERT INTO permission_groups (id, name, role, project_ids, created_at) VALUES (?, ?, ?, ?, ?)')
-      .run(id, input.name, input.role ?? 'contributor', JSON.stringify(input.projectIds ?? []), now);
+    await db.prepare('INSERT INTO permission_groups (id, name, role, project_ids, token_quota, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(id, input.name, input.role ?? 'contributor', JSON.stringify(input.projectIds ?? []), normalizeQuota(input.tokenQuota), now);
     return rowToGroup((await db.prepare('SELECT * FROM permission_groups WHERE id = ?').get<GroupRow>(id))!);
   },
 
-  async update(id: string, fields: { name?: string; role?: UserRole; projectIds?: string[] }): Promise<PermissionGroup | undefined> {
+  async update(id: string, fields: { name?: string; role?: UserRole; projectIds?: string[]; tokenQuota?: number | null }): Promise<PermissionGroup | undefined> {
     const db = getDb();
     const cur = await db.prepare('SELECT * FROM permission_groups WHERE id = ?').get<GroupRow>(id);
     if (!cur) return undefined;
-    await db.prepare('UPDATE permission_groups SET name = ?, role = ?, project_ids = ? WHERE id = ?').run(
+    await db.prepare('UPDATE permission_groups SET name = ?, role = ?, project_ids = ?, token_quota = ? WHERE id = ?').run(
       fields.name ?? cur.name,
       fields.role ?? cur.role,
       fields.projectIds ? JSON.stringify(fields.projectIds) : cur.project_ids,
+      fields.tokenQuota !== undefined ? normalizeQuota(fields.tokenQuota) : cur.token_quota,
       id,
     );
     return rowToGroup((await db.prepare('SELECT * FROM permission_groups WHERE id = ?').get<GroupRow>(id))!);

@@ -295,6 +295,46 @@ CREATE TABLE IF NOT EXISTS permission_groups (
 
   '016_settings_dlp_disabled_models.sql': `-- Models for which the DLP egress guard is skipped.
 ALTER TABLE settings ADD COLUMN dlp_disabled_models TEXT NOT NULL DEFAULT '[]';`,
+
+  '018_governance.sql': `-- Governance: group token quotas, gateway-key→group link, per-request user attribution,
+-- per-model limits, and staged (approval-pending) file changes.
+ALTER TABLE permission_groups ADD COLUMN token_quota INTEGER;
+ALTER TABLE gateway_keys ADD COLUMN group_id TEXT;
+ALTER TABLE runs ADD COLUMN user_id TEXT;
+ALTER TABLE runs ADD COLUMN username TEXT;
+ALTER TABLE runs ADD COLUMN group_id TEXT;
+ALTER TABLE gateway_usage ADD COLUMN group_id TEXT;
+ALTER TABLE settings ADD COLUMN model_limits_json TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE file_changes ADD COLUMN status TEXT NOT NULL DEFAULT 'applied';
+ALTER TABLE file_changes ADD COLUMN applied_at TEXT;`,
+
+  '019_group_usage.sql': `-- Per-group monthly token consumption (shared pool; period = 'YYYY-MM'). Drives quota enforcement.
+CREATE TABLE IF NOT EXISTS group_token_usage (
+  group_id TEXT NOT NULL,
+  period TEXT NOT NULL,
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  total_tokens INTEGER NOT NULL DEFAULT 0,
+  cost_usd REAL NOT NULL DEFAULT 0.0,
+  request_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (group_id, period)
+);`,
+
+  '020_activity_log.sql': `-- Per-project audit trail: who did what (chat, file approve/reject, agent CRUD, runs).
+CREATE TABLE IF NOT EXISTS activity_log (
+  id TEXT PRIMARY KEY,
+  project_id TEXT,
+  user_id TEXT,
+  username TEXT NOT NULL DEFAULT '',
+  action TEXT NOT NULL,
+  target TEXT NOT NULL DEFAULT '',
+  detail TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_activity_log_project ON activity_log(project_id);
+CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_activity_log_user ON activity_log(user_id);`,
 };
 
 /** Rewrite the SQLite-authored DDL for the target driver. */
@@ -304,7 +344,7 @@ function toDialect(sql: string, driver: 'sqlite' | 'postgres'): string {
   return sql.replace(/datetime\('now'\)/g, "now()::text");
 }
 
-const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql', '007_gateway.sql', '008_gateway_key_scope.sql', '009_agent_canvas_and_knowledge.sql', '010_run_step_breakdown.sql', '011_run_step_compression.sql', '012_gateway_key_expiry.sql', '013_gateway_key_cache_scope.sql', '014_settings_dlp_rules.sql', '015_users.sql', '016_settings_dlp_disabled_models.sql', '017_provider_auth.sql'];
+const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql', '007_gateway.sql', '008_gateway_key_scope.sql', '009_agent_canvas_and_knowledge.sql', '010_run_step_breakdown.sql', '011_run_step_compression.sql', '012_gateway_key_expiry.sql', '013_gateway_key_cache_scope.sql', '014_settings_dlp_rules.sql', '015_users.sql', '016_settings_dlp_disabled_models.sql', '017_provider_auth.sql', '018_governance.sql', '019_group_usage.sql', '020_activity_log.sql'];
 
 let db: Db | undefined;
 

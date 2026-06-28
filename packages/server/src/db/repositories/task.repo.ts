@@ -53,6 +53,8 @@ interface FileChangeRow {
   previous_content: string | null;
   new_content: string;
   agent_id: string;
+  status: string | null;
+  applied_at: string | null;
   created_at: string;
 }
 
@@ -112,6 +114,8 @@ function rowToFileChange(row: FileChangeRow): FileChange {
     previousContent: row.previous_content,
     newContent: row.new_content,
     agentId: row.agent_id,
+    status: (row.status as FileChange['status']) ?? 'applied',
+    appliedAt: row.applied_at ?? null,
     createdAt: row.created_at,
   };
 }
@@ -165,6 +169,8 @@ export interface CreateFileChangeInput {
   previousContent?: string | null;
   newContent: string;
   agentId: string;
+  /** 'pending' for chat-staged ops awaiting approval; default 'applied' (auto-applied). */
+  status?: FileChange['status'];
 }
 
 // ─── Repository ──────────────────────────────────────────────────
@@ -287,14 +293,40 @@ export const taskRepo = {
     return rows.map(rowToFileChange);
   },
 
+  async findFileChangeById(id: string): Promise<FileChange | undefined> {
+    const db = getDb();
+    const row = await db.prepare('SELECT * FROM file_changes WHERE id = ?').get<FileChangeRow>(id);
+    return row ? rowToFileChange(row) : undefined;
+  },
+
+  /** Pending (approval-awaiting) changes for a project, newest first. */
+  async findPendingFileChangesByProject(projectId: string): Promise<FileChange[]> {
+    const db = getDb();
+    const rows = await db.prepare(`
+      SELECT fc.* FROM file_changes fc
+      JOIN runs r ON r.id = fc.run_id
+      WHERE r.project_id = ? AND fc.status = 'pending'
+      ORDER BY fc.created_at DESC
+    `).all<FileChangeRow>(projectId);
+    return rows.map(rowToFileChange);
+  },
+
+  async setFileChangeStatus(id: string, status: FileChange['status']): Promise<FileChange | undefined> {
+    const db = getDb();
+    const appliedAt = status === 'applied' ? new Date().toISOString() : null;
+    await db.prepare('UPDATE file_changes SET status = ?, applied_at = ? WHERE id = ?').run(status, appliedAt, id);
+    return this.findFileChangeById(id);
+  },
+
   async createFileChange(input: CreateFileChangeInput): Promise<FileChange> {
     const db = getDb();
     const id = generateId();
     const now = new Date().toISOString();
+    const status = input.status ?? 'applied';
 
     await db.prepare(`
-      INSERT INTO file_changes (id, run_step_id, run_id, file_path, operation, previous_content, new_content, agent_id, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO file_changes (id, run_step_id, run_id, file_path, operation, previous_content, new_content, agent_id, status, applied_at, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       input.runStepId,
@@ -304,6 +336,8 @@ export const taskRepo = {
       input.previousContent ?? null,
       input.newContent,
       input.agentId,
+      status,
+      status === 'applied' ? now : null,
       now,
     );
 

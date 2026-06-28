@@ -2,7 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import { runRepo } from '../db/repositories/run.repo.js';
 import { taskRepo } from '../db/repositories/task.repo.js';
 import { executionEngine } from '../engine/execution-engine.js';
-import type { CreateRunInput } from '@subagent/shared';
+import type { CreateRunInput, User } from '@subagent/shared';
+import type { AuthedRequest } from '../middleware/require-auth.js';
+import { resolveGroupForUser, checkQuota, quotaExceededMessage } from '../services/quota.service.js';
 
 export async function runRoutes(app: FastifyInstance): Promise<void> {
   // List runs by project
@@ -22,7 +24,14 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: true, message: 'objective is required' });
       }
 
-      const run = await runRepo.create({ projectId, objective });
+      const user = (request as AuthedRequest).authUser as User | undefined;
+      const groupId = await resolveGroupForUser(user, projectId);
+      const quota = await checkQuota(groupId);
+      if (!quota.allowed) {
+        return reply.status(429).send({ error: true, message: quotaExceededMessage(quota) });
+      }
+
+      const run = await runRepo.create({ projectId, objective }, { userId: user?.id, username: user?.username, groupId });
       return reply.status(201).send(run);
     },
   );

@@ -22,6 +22,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoSaveInterval: 30000,
   dlpCustomRules: [],
   dlpDisabledModels: [],
+  modelLimits: {},
 };
 
 export const AGENT_COLORS: Record<string, string> = {

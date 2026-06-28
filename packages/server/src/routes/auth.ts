@@ -8,9 +8,10 @@
  *   DELETE /api/auth/users/:id    → remove (admin)
  */
 import type { FastifyInstance } from 'fastify';
-import type { CreateUserInput, LoginInput, UserRole } from '@subagent/shared';
+import type { CreateUserInput, GroupUsage, LoginInput, UserRole } from '@subagent/shared';
 import { userRepo } from '../db/repositories/user.repo.js';
 import { groupRepo } from '../db/repositories/group.repo.js';
+import { groupUsageRepo, currentPeriod } from '../db/repositories/group-usage.repo.js';
 import { verifyPassword, signToken } from '../security/auth-service.js';
 import { type AuthedRequest, requireAdmin } from '../middleware/require-auth.js';
 
@@ -69,20 +70,35 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     return reply.status(204).send();
   });
 
-  // ── Permission groups (admin) — role + project access; users belong to groups ──
+  // ── Permission groups (admin) — role + project access + token quota; users belong to groups ──
   app.get('/api/auth/groups', async (request, reply) => {
     if (!requireAdmin(request, reply)) return;
     return reply.send(await groupRepo.list());
   });
 
-  app.post<{ Body: { name: string; role?: UserRole; projectIds?: string[] } }>('/api/auth/groups', async (request, reply) => {
+  // Current-month token consumption per group (for the quota readout).
+  app.get('/api/auth/groups/usage', async (request, reply) => {
     if (!requireAdmin(request, reply)) return;
-    const { name, role, projectIds } = request.body ?? ({} as { name: string });
-    if (!name?.trim()) return reply.status(400).send({ error: true, message: 'name is required' });
-    return reply.status(201).send(await groupRepo.create({ name: name.trim(), role, projectIds }));
+    const [groups, usage] = await Promise.all([groupRepo.list(), groupUsageRepo.allForPeriod()]);
+    const period = currentPeriod();
+    return reply.send(groups.map((g): GroupUsage => {
+      const u = usage[g.id];
+      return {
+        groupId: g.id, period,
+        totalTokens: u?.totalTokens ?? 0, costUsd: u?.costUsd ?? 0, requestCount: u?.requestCount ?? 0,
+        quota: g.tokenQuota,
+      };
+    }));
   });
 
-  app.patch<{ Params: { id: string }; Body: { name?: string; role?: UserRole; projectIds?: string[] } }>(
+  app.post<{ Body: { name: string; role?: UserRole; projectIds?: string[]; tokenQuota?: number | null } }>('/api/auth/groups', async (request, reply) => {
+    if (!requireAdmin(request, reply)) return;
+    const { name, role, projectIds, tokenQuota } = request.body ?? ({} as { name: string });
+    if (!name?.trim()) return reply.status(400).send({ error: true, message: 'name is required' });
+    return reply.status(201).send(await groupRepo.create({ name: name.trim(), role, projectIds, tokenQuota }));
+  });
+
+  app.patch<{ Params: { id: string }; Body: { name?: string; role?: UserRole; projectIds?: string[]; tokenQuota?: number | null } }>(
     '/api/auth/groups/:id',
     async (request, reply) => {
       if (!requireAdmin(request, reply)) return;

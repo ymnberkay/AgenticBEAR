@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, BookOpen, Upload, FolderTree, X, MessageSquarePlus, PanelLeftClose, PanelLeft, Sparkles } from 'lucide-react';
+import { Plus, Trash2, BookOpen, Upload, FolderTree, X, MessageSquarePlus, PanelLeftClose, PanelLeft, Sparkles, Check, FileWarning } from 'lucide-react';
 import { useAgents } from '../../api/hooks/use-agents';
 import { useDocuments, useCreateDocument, useDeleteDocument } from '../../api/hooks/use-documents';
 import { useFileTree, workspaceKeys } from '../../api/hooks/use-workspace';
+import { useApplyFileChange, useRejectFileChange } from '../../api/hooks/use-file-changes';
 import { FileTree } from '../../components/workspace/file-tree';
 import { FileViewer } from '../../components/workspace/file-viewer';
-import { streamChat, type ChatMessage, type ToolEvent } from '../../api/chat';
+import { streamChat, type ChatMessage, type ToolEvent, type PendingChange } from '../../api/chat';
 import { ChatMessage as ChatBubble } from '../../components/chat/chat-message';
 import { ChatComposer } from '../../components/chat/chat-composer';
 import { useConversations, type ChatEntry } from '../../components/chat/use-conversations';
@@ -15,7 +16,8 @@ import { useConversations, type ChatEntry } from '../../components/chat/use-conv
 /** Human-readable one-liner for a tool event (shown as an activity chip). */
 function activityLine(e: ToolEvent): string | null {
   switch (e.kind) {
-    case 'write': return `${e.operation === 'modify' ? 'edited' : 'wrote'} ${e.path}`;
+    case 'write': return `${e.operation === 'modify' ? 'edited' : e.operation === 'delete' ? 'deleted' : 'wrote'} ${e.path}`;
+    case 'pendingWrite': return `proposed ${e.operation === 'delete' ? 'deletion of' : e.operation === 'modify' ? 'edit to' : 'new file'} ${e.path} — awaiting approval`;
     case 'delegate': return `→ delegated to ${e.agent}${e.task ? `: ${e.task.length > 70 ? `${e.task.slice(0, 67)}…` : e.task}` : ''}`;
     case 'tool':
       if (e.name === 'read_file') return 'read a file';
@@ -46,6 +48,8 @@ export function ProjectChatPage() {
   const deleteDoc = useDeleteDocument(projectId);
   const queryClient = useQueryClient();
   const { data: fileTree, isLoading: treeLoading } = useFileTree(projectId);
+  const applyChange = useApplyFileChange(projectId);
+  const rejectChange = useRejectFileChange(projectId);
 
   const conv = useConversations(projectId);
   const [messages, setMessages] = useState<ChatEntry[]>(conv.active?.messages ?? []);
@@ -55,6 +59,7 @@ export function ProjectChatPage() {
   const [railOpen, setRailOpen] = useState(true);
   const [panel, setPanel] = useState<null | 'knowledge' | 'workspace'>(null);
   const [changed, setChanged] = useState<Map<string, 'create' | 'modify'>>(new Map());
+  const [pending, setPending] = useState<PendingChange[]>([]);
   const [viewerPath, setViewerPath] = useState<string | null>(null);
   const [docName, setDocName] = useState('');
   const [docContent, setDocContent] = useState('');
@@ -72,7 +77,7 @@ export function ProjectChatPage() {
   }, [agentList, conv.activeId]);
 
   // Load messages when switching conversations.
-  useEffect(() => { setMessages(conv.active?.messages ?? []); setChanged(new Map()); /* eslint-disable-next-line */ }, [conv.activeId]);
+  useEffect(() => { setMessages(conv.active?.messages ?? []); setChanged(new Map()); setPending([]); /* eslint-disable-next-line */ }, [conv.activeId]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
@@ -107,6 +112,7 @@ export function ProjectChatPage() {
           setChanged((prev) => new Map(prev).set(e.path!, (e.operation as 'create' | 'modify') ?? 'modify'));
         }
       },
+      onPending: (p) => setPending((prev) => [...prev, p]),
       onError: (m) => setLast((last) => ({ ...last, content: `${last.content}\n\n⚠️ ${m}` })),
     });
     setStreaming(false);
@@ -120,6 +126,20 @@ export function ProjectChatPage() {
       setPanel('workspace');
     }
   }
+
+  function approve(p: PendingChange) {
+    applyChange.mutate(p.id, {
+      onSuccess: () => {
+        setPending((prev) => prev.filter((x) => x.id !== p.id));
+        if (p.operation !== 'delete') setChanged((prev) => new Map(prev).set(p.path, p.operation === 'modify' ? 'modify' : 'create'));
+        setPanel('workspace');
+      },
+    });
+  }
+  function reject(p: PendingChange) {
+    rejectChange.mutate(p.id, { onSuccess: () => setPending((prev) => prev.filter((x) => x.id !== p.id)) });
+  }
+  const approveAll = () => pending.forEach(approve);
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -238,6 +258,44 @@ export function ProjectChatPage() {
               )}
               <div ref={endRef} />
             </div>
+
+            {/* Pending file ops — require user approval before touching disk */}
+            {pending.length > 0 && (
+              <div style={{ maxWidth: 760, width: '100%', margin: '0 auto 10px', background: 'var(--color-bg-surface)', border: '1px solid rgba(124,140,248,0.4)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                <div className="flex items-center justify-between" style={{ padding: '8px 12px', borderBottom: '1px solid var(--color-border-subtle)' }}>
+                  <span className="flex items-center gap-2" style={{ fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+                    <FileWarning style={{ width: 13, height: 13, color: 'var(--color-accent)' }} /> {pending.length} file change{pending.length === 1 ? '' : 's'} need approval
+                  </span>
+                  <button type="button" onClick={approveAll} disabled={applyChange.isPending}
+                    style={{ height: 24, padding: '0 10px', fontSize: 11, fontWeight: 600, background: 'var(--color-accent)', color: '#021526', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}>
+                    Approve all
+                  </button>
+                </div>
+                <div className="flex flex-col">
+                  {pending.map((p) => {
+                    const op = p.operation === 'delete' ? 'delete' : p.operation === 'modify' ? 'edit' : 'create';
+                    const opColor = p.operation === 'delete' ? 'var(--color-error)' : p.operation === 'modify' ? 'var(--color-warning)' : 'var(--color-success)';
+                    return (
+                      <div key={p.id} className="flex items-center gap-2" style={{ padding: '7px 12px', borderTop: '1px solid var(--color-border-subtle)' }}>
+                        <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'var(--font-mono)', color: opColor, width: 46, flexShrink: 0 }}>{op}</span>
+                        <button type="button" onClick={() => setViewerPath(p.path)} className="truncate" title="Preview"
+                          style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)', minWidth: 0 }}>
+                          {p.path}
+                        </button>
+                        <button type="button" onClick={() => approve(p)} disabled={applyChange.isPending} title="Approve" className="flex items-center gap-1"
+                          style={{ height: 24, padding: '0 9px', fontSize: 10.5, fontWeight: 600, background: 'var(--color-success-subtle)', color: 'var(--color-success)', border: '1px solid rgba(109,181,138,0.4)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', flexShrink: 0 }}>
+                          <Check style={{ width: 11, height: 11 }} /> Approve
+                        </button>
+                        <button type="button" onClick={() => reject(p)} disabled={rejectChange.isPending} title="Reject" className="flex items-center gap-1"
+                          style={{ height: 24, padding: '0 9px', fontSize: 10.5, fontWeight: 600, background: 'none', color: 'var(--color-text-tertiary)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', flexShrink: 0 }}>
+                          <X style={{ width: 11, height: 11 }} /> Reject
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div style={{ maxWidth: 760, width: '100%', margin: '0 auto' }}>
               <ChatComposer

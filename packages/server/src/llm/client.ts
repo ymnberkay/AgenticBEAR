@@ -9,7 +9,7 @@
  *   - gemini                           → fetch generateContent; usageMetadata tokens.
  */
 import Anthropic from '@anthropic-ai/sdk';
-import type { ProviderKind } from '@subagent/shared';
+import { isBuiltinProviderId, type ProviderKind } from '@subagent/shared';
 import { createLogger } from '../utils/logger.js';
 import {
   resolveProvider,
@@ -17,6 +17,12 @@ import {
   applyOpenAiAuthHeaders,
   type ResolvedProvider,
 } from './provider-registry.js';
+import { acquire, modelTimeoutMs } from '../services/rate-limiter.service.js';
+
+/** Catalog model id used to key per-model limits (custom → `providerId/model`; built-in → bare id). */
+export function limiterKey(providerId: string | null | undefined, model: string): string {
+  return providerId && !isBuiltinProviderId(providerId) ? `${providerId}/${model}` : model;
+}
 
 const log = createLogger('llm');
 
@@ -55,17 +61,25 @@ export async function complete(
   const provider = await resolveProvider(req.providerId, req.model);
   log.info(`LLM call — model: ${req.model}, provider: ${provider.label} (${provider.kind})`);
 
-  switch (provider.kind) {
-    case 'anthropic':
-    case 'anthropic-compatible':
-      return callAnthropic(req, provider, onChunk);
-    case 'openai':
-    case 'openai-compatible':
-      return callOpenAICompatible(req, provider, onChunk);
-    case 'gemini':
-      return callGemini(req, provider, onChunk);
-    default:
-      throw new Error(`Desteklenmeyen provider kind: ${provider.kind}`);
+  // Per-model rate limit (token bucket + concurrency) + send timeout.
+  const key = limiterKey(req.providerId, req.model);
+  const release = await acquire(key);
+  const timeoutMs = await modelTimeoutMs(key);
+  try {
+    switch (provider.kind) {
+      case 'anthropic':
+      case 'anthropic-compatible':
+        return await callAnthropic(req, provider, onChunk, timeoutMs);
+      case 'openai':
+      case 'openai-compatible':
+        return await callOpenAICompatible(req, provider, onChunk, timeoutMs);
+      case 'gemini':
+        return await callGemini(req, provider, onChunk, timeoutMs);
+      default:
+        throw new Error(`Desteklenmeyen provider kind: ${provider.kind}`);
+    }
+  } finally {
+    release();
   }
 }
 
@@ -74,9 +88,11 @@ async function callAnthropic(
   req: UnifiedRequest,
   provider: ResolvedProvider,
   onChunk?: (chunk: string) => void,
+  timeoutMs?: number,
 ): Promise<UnifiedResult> {
   if (!provider.apiKey) throw new Error(`Anthropic API key yok (${provider.label})`);
   const client = new Anthropic(anthropicClientOptions(provider));
+  const reqOpts = timeoutMs ? { timeout: timeoutMs } : undefined;
 
   const system: Anthropic.MessageCreateParams['system'] = req.systemBlocks ?? req.systemPrompt;
   const body: Anthropic.MessageCreateParamsNonStreaming = {
@@ -89,7 +105,7 @@ async function callAnthropic(
   };
 
   if (onChunk) {
-    const stream = client.messages.stream(body);
+    const stream = client.messages.stream(body, reqOpts);
     let fullText = '';
     stream.on('text', (t) => {
       fullText += t;
@@ -108,7 +124,7 @@ async function callAnthropic(
     };
   }
 
-  const res = await client.messages.create(body);
+  const res = await client.messages.create(body, reqOpts);
   const text = res.content
     .filter((b): b is Anthropic.TextBlock => b.type === 'text')
     .map((b) => b.text)
@@ -146,6 +162,7 @@ async function callOpenAICompatible(
   req: UnifiedRequest,
   provider: ResolvedProvider,
   onChunk?: (chunk: string) => void,
+  timeoutMs?: number,
 ): Promise<UnifiedResult> {
   const url = chatCompletionsUrl(provider.baseUrl || 'https://api.openai.com/v1');
   const messages: Array<{ role: string; content: string }> = [];
@@ -166,6 +183,7 @@ async function callOpenAICompatible(
     method: 'POST',
     headers,
     body: JSON.stringify(body),
+    ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
   });
   if (!res.ok) {
     throw new Error(`${provider.label} API hatası (${res.status}): ${await res.text()}`);
@@ -201,6 +219,7 @@ async function callGemini(
   req: UnifiedRequest,
   provider: ResolvedProvider,
   onChunk?: (chunk: string) => void,
+  timeoutMs?: number,
 ): Promise<UnifiedResult> {
   if (!provider.apiKey) throw new Error(`Gemini API key yok (${provider.label})`);
   const base = (provider.baseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, '');
@@ -209,6 +228,7 @@ async function callGemini(
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(provider.headers ?? {}) },
+    ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
     body: JSON.stringify({
       ...(req.systemPrompt ? { system_instruction: { parts: [{ text: req.systemPrompt }] } } : {}),
       contents: req.messages.map((m) => ({

@@ -32,6 +32,13 @@ function rowToRun(row: RunRow): Run {
   };
 }
 
+/** Who initiated a run — stored for the usage-by-user dashboard + quota attribution. */
+export interface RunAttribution {
+  userId?: string | null;
+  username?: string | null;
+  groupId?: string | null;
+}
+
 export interface UpdateRunInput {
   status?: RunStatus;
   startedAt?: string;
@@ -56,15 +63,26 @@ export const runRepo = {
     return row ? rowToRun(row) : undefined;
   },
 
-  async create(input: CreateRunInput): Promise<Run> {
+  /** Who initiated the run + which group it counts against (for quota recording on completion). */
+  async getAttribution(id: string): Promise<RunAttribution> {
+    const db = getDb();
+    const row = await db.prepare('SELECT user_id, username, group_id FROM runs WHERE id = ?')
+      .get<{ user_id: string | null; username: string | null; group_id: string | null }>(id);
+    return { userId: row?.user_id ?? null, username: row?.username ?? null, groupId: row?.group_id ?? null };
+  },
+
+  async create(input: CreateRunInput, attribution?: RunAttribution): Promise<Run> {
     const db = getDb();
     const id = generateId();
     const now = new Date().toISOString();
 
     await db.prepare(`
-      INSERT INTO runs (id, project_id, objective, status, created_at)
-      VALUES (?, ?, ?, 'pending', ?)
-    `).run(id, input.projectId, input.objective, now);
+      INSERT INTO runs (id, project_id, objective, status, created_at, user_id, username, group_id)
+      VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)
+    `).run(
+      id, input.projectId, input.objective, now,
+      attribution?.userId ?? null, attribution?.username ?? null, attribution?.groupId ?? null,
+    );
 
     return (await this.findById(id))!;
   },

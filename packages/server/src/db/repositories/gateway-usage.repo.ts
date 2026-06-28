@@ -4,6 +4,7 @@ import type { GatewayUsageBucket, GatewayUsageSummary } from '@subagent/shared';
 
 export interface RecordUsageInput {
   keyId: string | null;
+  groupId?: string | null;
   model: string;
   providerId: string | null;
   inputTokens: number;
@@ -28,11 +29,12 @@ export const gatewayUsageRepo = {
     const db = getDb();
     await db.prepare(`
       INSERT INTO gateway_usage
-        (id, key_id, model, provider_id, input_tokens, output_tokens, cost_usd, baseline_usd, cache_hit, router_tier, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, key_id, group_id, model, provider_id, input_tokens, output_tokens, cost_usd, baseline_usd, cache_hit, router_tier, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       generateId(),
       input.keyId,
+      input.groupId ?? null,
       input.model,
       input.providerId,
       input.inputTokens,

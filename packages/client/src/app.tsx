@@ -17,6 +17,7 @@ import { ProjectDetailPage } from './routes/projects/project-detail';
 import { ProjectAgentsPage } from './routes/projects/project-agents';
 import { ProjectChatPage } from './routes/projects/project-chat';
 import { ProjectMonitorPage } from './routes/projects/project-monitor';
+import { ProjectActivityPage } from './routes/projects/project-activity';
 
 import { ProjectSettingsPage } from './routes/projects/project-settings';
 import { RunDetailPage } from './routes/projects/run-detail';
@@ -79,6 +80,12 @@ const projectMonitorRoute = createRoute({
 });
 
 
+const projectActivityRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: '/activity',
+  component: ProjectActivityPage,
+});
+
 // Analytics folded into Monitor — keep the path working for old links.
 const projectAnalyticsRoute = createRoute({
   getParentRoute: () => projectRoute,
@@ -135,6 +142,7 @@ const routeTree = rootRoute.addChildren([
     projectIndexRoute,
     projectAgentsRoute,
     projectMonitorRoute,
+    projectActivityRoute,
     projectAnalyticsRoute,
     projectChatRoute,
     projectSettingsRoute,

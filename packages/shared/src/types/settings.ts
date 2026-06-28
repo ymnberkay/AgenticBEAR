@@ -8,6 +8,16 @@ export interface DlpRule {
   pattern: string;
 }
 
+/** Per-model throttling. All fields optional; omit/0 = no limit for that dimension. */
+export interface ModelLimit {
+  /** Max requests per second (token-bucket). */
+  requestsPerSecond?: number;
+  /** Max in-flight requests for this model (semaphore). */
+  maxConcurrent?: number;
+  /** Per-request send timeout in milliseconds; the call aborts after this. */
+  timeoutMs?: number;
+}
+
 export interface Settings {
   apiKey: string;
   openAiApiKey: string;
@@ -22,6 +32,8 @@ export interface Settings {
   dlpCustomRules: DlpRule[];
   /** Models (served-model ids) for which the DLP egress guard is skipped. */
   dlpDisabledModels: string[];
+  /** Per-model rate limits + timeouts, keyed by catalog model id (incl. `providerId/model`). */
+  modelLimits: Record<string, ModelLimit>;
 }
 
 export interface UpdateSettingsInput {
@@ -36,4 +48,5 @@ export interface UpdateSettingsInput {
   autoSaveInterval?: number;
   dlpCustomRules?: DlpRule[];
   dlpDisabledModels?: string[];
+  modelLimits?: Record<string, ModelLimit>;
 }

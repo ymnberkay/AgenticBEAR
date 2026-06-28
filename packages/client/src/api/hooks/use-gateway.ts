@@ -44,6 +44,15 @@ export function useSetGatewayKeyCacheScope() {
   });
 }
 
+export function useSetGatewayKeyGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, groupId }: { id: string; groupId: string | null }) =>
+      apiPatch<GatewayKey>(`/api/gateway-keys/${id}`, { groupId }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keyKeys.all }),
+  });
+}
+
 export function useDeleteGatewayKey() {
   const qc = useQueryClient();
   return useMutation({
