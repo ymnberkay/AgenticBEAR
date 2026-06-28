@@ -132,6 +132,7 @@ function TemplateCard({
         background: 'var(--color-bg-surface)',
         border: '1px solid var(--color-border-subtle)',
         borderLeft: `3px solid var(--color-border-subtle)`,
+        borderRadius: 'var(--radius-md)',
         padding: '14px 16px',
         cursor: 'pointer',
       }}
@@ -150,7 +151,7 @@ function TemplateCard({
       <div className="flex items-start gap-3">
         <div
           className="flex h-9 w-9 shrink-0 items-center justify-center mt-0.5"
-          style={{ backgroundColor: `${color}18`, color }}
+          style={{ backgroundColor: `${color}18`, color, borderRadius: 'var(--radius-md)' }}
         >
           {icon}
         </div>

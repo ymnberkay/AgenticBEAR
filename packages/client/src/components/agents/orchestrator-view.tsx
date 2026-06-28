@@ -26,6 +26,7 @@ export function OrchestratorView({ orchestrator, status = 'idle', onConfigure }:
           style={{
             border: '1px dashed var(--color-border-default)',
             borderLeft: '3px dashed var(--color-border-default)',
+            borderRadius: 'var(--radius-md)',
             padding: '18px 16px',
             background: 'transparent',
             transition: 'all 0.15s',
@@ -71,6 +72,7 @@ export function OrchestratorView({ orchestrator, status = 'idle', onConfigure }:
           background: 'var(--color-bg-surface)',
           border: '1px solid var(--color-border-subtle)',
           borderLeft: `3px solid ${color}`,
+          borderRadius: 'var(--radius-md)',
           padding: '14px 16px',
           ...(status === 'running' ? { '--agent-color': `${color}40` } as React.CSSProperties : {}),
         }}
@@ -82,6 +84,7 @@ export function OrchestratorView({ orchestrator, status = 'idle', onConfigure }:
               width: 32, height: 32,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: `${color}14`,
+              borderRadius: 'var(--radius-md)',
               flexShrink: 0,
             }}
           >
@@ -97,7 +100,7 @@ export function OrchestratorView({ orchestrator, status = 'idle', onConfigure }:
               <span style={{
                 fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
                 fontFamily: 'var(--font-mono)', color, background: `${color}18`,
-                border: `1px solid ${color}30`, padding: '2px 6px', flexShrink: 0,
+                border: `1px solid ${color}30`, borderRadius: 'var(--radius-sm)', padding: '2px 6px', flexShrink: 0,
               }}>
                 Orchestrator
               </span>
@@ -141,6 +144,7 @@ export function OrchestratorView({ orchestrator, status = 'idle', onConfigure }:
               fontSize: 10, fontFamily: 'var(--font-mono)',
               color: 'var(--color-text-disabled)',
               border: '1px solid var(--color-border-subtle)',
+              borderRadius: 'var(--radius-sm)',
               padding: '3px 8px',
               background: 'transparent',
               transition: 'all 0.15s',

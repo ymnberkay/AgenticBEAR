@@ -201,6 +201,11 @@ CREATE TABLE IF NOT EXISTS llm_providers (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );`,
 
+  '017_provider_auth.sql': `-- Flexible auth for custom providers: corporate gateways/proxies fronting an
+-- Anthropic-compatible endpoint can require Authorization: Bearer + extra headers.
+ALTER TABLE llm_providers ADD COLUMN auth_type TEXT NOT NULL DEFAULT 'api_key';
+ALTER TABLE llm_providers ADD COLUMN headers_json TEXT NOT NULL DEFAULT '{}';`,
+
   '006_cost_savings.sql': `-- Cost optimization baseline tracking — what the call WOULD have cost without
 -- the cost-layer (semantic cache, router downgrade, prompt cache). Savings = baseline - actual.
 ALTER TABLE run_steps ADD COLUMN baseline_cost_usd REAL NOT NULL DEFAULT 0.0;
@@ -299,7 +304,7 @@ function toDialect(sql: string, driver: 'sqlite' | 'postgres'): string {
   return sql.replace(/datetime\('now'\)/g, "now()::text");
 }
 
-const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql', '007_gateway.sql', '008_gateway_key_scope.sql', '009_agent_canvas_and_knowledge.sql', '010_run_step_breakdown.sql', '011_run_step_compression.sql', '012_gateway_key_expiry.sql', '013_gateway_key_cache_scope.sql', '014_settings_dlp_rules.sql', '015_users.sql', '016_settings_dlp_disabled_models.sql'];
+const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql', '007_gateway.sql', '008_gateway_key_scope.sql', '009_agent_canvas_and_knowledge.sql', '010_run_step_breakdown.sql', '011_run_step_compression.sql', '012_gateway_key_expiry.sql', '013_gateway_key_cache_scope.sql', '014_settings_dlp_rules.sql', '015_users.sql', '016_settings_dlp_disabled_models.sql', '017_provider_auth.sql'];
 
 let db: Db | undefined;
 

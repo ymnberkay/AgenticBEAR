@@ -11,7 +11,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ProviderKind } from '@subagent/shared';
 import { createLogger } from '../utils/logger.js';
-import { resolveProvider, type ResolvedProvider } from './provider-registry.js';
+import {
+  resolveProvider,
+  anthropicClientOptions,
+  applyOpenAiAuthHeaders,
+  type ResolvedProvider,
+} from './provider-registry.js';
 
 const log = createLogger('llm');
 
@@ -71,10 +76,7 @@ async function callAnthropic(
   onChunk?: (chunk: string) => void,
 ): Promise<UnifiedResult> {
   if (!provider.apiKey) throw new Error(`Anthropic API key yok (${provider.label})`);
-  const client = new Anthropic({
-    apiKey: provider.apiKey,
-    ...(provider.baseUrl ? { baseURL: provider.baseUrl } : {}),
-  });
+  const client = new Anthropic(anthropicClientOptions(provider));
 
   const system: Anthropic.MessageCreateParams['system'] = req.systemBlocks ?? req.systemPrompt;
   const body: Anthropic.MessageCreateParamsNonStreaming = {
@@ -158,7 +160,7 @@ async function callOpenAICompatible(
   if (req.stopSequences && req.stopSequences.length > 0) body.stop = req.stopSequences;
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (provider.apiKey) headers.Authorization = `Bearer ${provider.apiKey}`;
+  applyOpenAiAuthHeaders(provider, headers);
 
   const res = await fetch(url, {
     method: 'POST',
@@ -206,7 +208,7 @@ async function callGemini(
 
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(provider.headers ?? {}) },
     body: JSON.stringify({
       ...(req.systemPrompt ? { system_instruction: { parts: [{ text: req.systemPrompt }] } } : {}),
       contents: req.messages.map((m) => ({

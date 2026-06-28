@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ResolvedProvider } from '../provider-registry.js';
 
 // Mock the registry so the client can be tested without DB/settings.
+// Keep the real pure auth-header helpers; only resolveProvider hits the DB.
 const { resolveMock } = vi.hoisted(() => ({ resolveMock: vi.fn() }));
-vi.mock('../provider-registry.js', () => ({
+vi.mock('../provider-registry.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../provider-registry.js')>()),
   resolveProvider: resolveMock,
 }));
 

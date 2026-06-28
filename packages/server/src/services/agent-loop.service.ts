@@ -16,6 +16,9 @@ import { minimizeDirective } from '../cost/layers/output-minimize.js';
 import * as semanticCache from '../cost/layers/semantic-cache.js';
 import type { LlmRequest, LlmResult, Classifier } from '../cost/types.js';
 import { agentRepo } from '../db/repositories/agent.repo.js';
+import { activityRepo } from '../db/repositories/activity.repo.js';
+import { memoryRepo } from '../db/repositories/memory.repo.js';
+import { eventBus } from '../utils/event-bus.js';
 import { withProjectKnowledge } from './knowledge.service.js';
 import { createLogger } from '../utils/logger.js';
 import { fileToolDefs, executeFileTool, FILE_TOOL_NAMES } from './agent-tools.js';
@@ -40,6 +43,10 @@ export interface RunTurnOpts {
   messages: ChatTurn[];
   depth?: number;
   onEvent?: (e: LoopEvent) => void;
+  /** Short label for the recorded activity + memory query (defaults to the last user message). */
+  label?: string;
+  /** Run id to attach to the recorded memory (null/undefined for chat). */
+  runId?: string | null;
 }
 
 export interface RunTurnResult {
@@ -213,7 +220,46 @@ const cacheJudge: Classifier = async ({ model, providerId, maxTokens, systemProm
   return { text: r.text, inputTokens: r.inputTokens, outputTokens: r.outputTokens };
 };
 
+/**
+ * Public entry: records agent **activity** + **memory** around the core loop, so chat-driven
+ * agents AND delegated specialists show up in the Activity/Memory tabs and the live Monitor feed.
+ * Recording is best-effort (never breaks the turn). The recursion delegates through this wrapper,
+ * so each delegated specialist gets its own activity + memory entry.
+ */
 export async function runAgentTurn(opts: RunTurnOpts): Promise<RunTurnResult> {
+  const { agent, projectId } = opts;
+  const query = ((opts.label ?? lastUserText(opts.messages) ?? '').trim().slice(0, 2000)) || '(chat)';
+
+  let activityId: string | undefined;
+  try {
+    const act = await activityRepo.create({ projectId, agentId: agent.id, type: 'direct', query });
+    activityId = act.id;
+    eventBus.emitProjectEvent(projectId, { type: 'agent:started', agentId: agent.id, activityId: act.id, query });
+  } catch { /* recording is best-effort */ }
+
+  let failed = false;
+  try {
+    const result = await runTurnInner(opts);
+    if (result.text) {
+      try {
+        await memoryRepo.create({ agentId: agent.id, projectId, type: 'interaction', query, response: result.text, runId: opts.runId ?? null });
+      } catch { /* best-effort */ }
+    }
+    return result;
+  } catch (e) {
+    failed = true;
+    throw e;
+  } finally {
+    if (activityId) {
+      try {
+        await activityRepo.complete(activityId, failed ? 'failed' : 'completed');
+        eventBus.emitProjectEvent(projectId, { type: 'agent:completed', agentId: agent.id, activityId });
+      } catch { /* best-effort */ }
+    }
+  }
+}
+
+async function runTurnInner(opts: RunTurnOpts): Promise<RunTurnResult> {
   const { agent, projectId, workspacePath, depth = 0, onEvent } = opts;
   const messages: ChatTurn[] = [...opts.messages];
 

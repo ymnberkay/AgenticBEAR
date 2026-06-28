@@ -1,26 +1,22 @@
 import { useState, useMemo } from 'react';
-import { Gauge } from 'lucide-react';
+import { Zap, PiggyBank, Database, Layers as LayersIcon, Cpu } from 'lucide-react';
 import { useGlobalAnalytics, type AnalyticsRange } from '../../api/hooks/use-analytics';
 import { useGatewayUsage } from '../../api/hooks/use-gateway';
-import { Section, Stat, money, fmtTokens } from './ui';
 import { AgenticUsage } from './agentic-usage';
 import { GatewayUsage } from './gateway-usage';
+import { Kpi, Gauge, Bars, DailyBars, SURFACE, LABEL, fmt, money, useCountUp } from '../charts/usage-bits';
 
 const RANGES: { value: AnalyticsRange; label: string }[] = [
-  { value: '24h', label: '24h' },
-  { value: '7d', label: '7d' },
-  { value: '30d', label: '30d' },
-  { value: '90d', label: '90d' },
-  { value: 'all', label: 'all' },
+  { value: '24h', label: '24h' }, { value: '7d', label: '7d' },
+  { value: '30d', label: '30d' }, { value: '90d', label: '90d' }, { value: 'all', label: 'all' },
 ];
 
-/** Org-wide usage dashboard: a combined overview on top, then agentic + gateway split below. */
+/** Org-wide usage dashboard — KPI cards + charts (agentic + gateway), then filterable drill-downs. */
 export function UsageTab() {
   const [range, setRange] = useState<AnalyticsRange>('30d');
   const { data: agentic } = useGlobalAnalytics({ range });
   const { data: gw } = useGatewayUsage({ range });
 
-  // Combined org totals (in-app agentic runs + external gateway calls).
   const total = {
     inputTokens: (agentic?.totalInputTokens ?? 0) + (gw?.totalInputTokens ?? 0),
     outputTokens: (agentic?.totalOutputTokens ?? 0) + (gw?.totalOutputTokens ?? 0),
@@ -29,8 +25,14 @@ export function UsageTab() {
     savedUsd: (agentic?.totalSavedUsd ?? 0) + (gw?.savedUsd ?? 0),
   };
   const savedPct = total.baselineUsd > 0 ? (total.savedUsd / total.baselineUsd) * 100 : 0;
+  const calls = (agentic?.totalRuns ?? 0) + (gw?.totalRequests ?? 0);
+  const cacheRate = agentic?.cache.hitRate ?? 0;
 
-  // Merge per-model in/out/cost across both sources for the overview table.
+  const spend = useCountUp(total.costUsd);
+  const saved = useCountUp(total.savedUsd);
+  const tokens = useCountUp(total.inputTokens + total.outputTokens);
+
+  // Merge per-model cost/in/out across agentic + gateway.
   const byModel = useMemo(() => {
     const map = new Map<string, { model: string; inputTokens: number; outputTokens: number; costUsd: number }>();
     const add = (model: string, i: number, o: number, c: number) => {
@@ -40,65 +42,111 @@ export function UsageTab() {
     };
     for (const m of agentic?.byModel ?? []) add(m.model, m.inputTokens, m.outputTokens, m.costUsd);
     for (const m of gw?.byModel ?? []) add(m.label, m.inputTokens, m.outputTokens, m.costUsd);
-    return [...map.values()].sort((a, b) => b.costUsd - a.costUsd);
+    return [...map.values()].sort((a, b) => b.costUsd - a.costUsd).slice(0, 8);
   }, [agentic, gw]);
 
+  const byProject = (agentic?.byProject ?? []).slice().sort((a, b) => b.costUsd - a.costUsd).slice(0, 8);
+  const layer = agentic?.savingsByLayer ?? { compression: 0, semanticCache: 0, router: 0, promptCache: 0 };
+  const mix = agentic?.tokenMix ?? { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
   const hasAny = total.inputTokens + total.outputTokens > 0;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col" style={{ gap: 14 }}>
       {/* Range selector */}
-      <div className="flex items-center gap-1">
-        {RANGES.map((r) => (
-          <button key={r.value} type="button" onClick={() => setRange(r.value)}
-            style={{
-              height: 28, padding: '0 12px', fontSize: 11.5, fontFamily: 'var(--font-mono)', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
-              background: range === r.value ? 'var(--color-accent-subtle)' : 'var(--color-bg-surface)',
-              border: `1px solid ${range === r.value ? 'var(--color-accent)' : 'var(--color-border-subtle)'}`,
-              color: range === r.value ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
-            }}>
-            {r.label}
-          </button>
-        ))}
+      <div className="flex items-center" style={{ gap: 4 }}>
+        {RANGES.map((r) => {
+          const on = range === r.value;
+          return (
+            <button key={r.value} type="button" onClick={() => setRange(r.value)}
+              style={{
+                height: 28, padding: '0 12px', fontSize: 11.5, fontFamily: 'var(--font-mono)', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
+                background: on ? 'var(--color-accent-subtle)' : 'var(--color-bg-surface)',
+                border: `1px solid ${on ? 'var(--color-accent)' : 'var(--color-border-subtle)'}`,
+                color: on ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
+              }}>
+              {r.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Overview — everything combined */}
-      <Section icon={<Gauge style={{ width: 13, height: 13 }} />} color="#6db58a" title="Overview — Organization (agentic + gateway)">
-        {!hasAny ? (
-          <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>No activity in this range.</span>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-center gap-6">
-              <Stat label="input" value={fmtTokens(total.inputTokens)} />
-              <Stat label="output" value={fmtTokens(total.outputTokens)} />
-              <Stat label="cost" value={money(total.costUsd)} />
-              <Stat label="baseline" value={money(total.baselineUsd)} />
-              <Stat label="saved" value={money(total.savedUsd)} color={total.savedUsd > 0 ? '#6db58a' : undefined} />
-              <Stat label="saved %" value={`${savedPct.toFixed(1)}%`} color={total.savedUsd > 0 ? '#6db58a' : undefined} />
-            </div>
-            {byModel.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between" style={{ fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', paddingBottom: 4 }}>
-                  <span>by model</span>
-                  <span className="flex items-center gap-6"><span style={{ width: 70, textAlign: 'right' }}>in</span><span style={{ width: 70, textAlign: 'right' }}>out</span><span style={{ width: 70, textAlign: 'right' }}>cost</span></span>
-                </div>
-                {byModel.map((m) => (
-                  <div key={m.model} className="flex items-center justify-between" style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', padding: '3px 0' }}>
-                    <code className="truncate" style={{ color: 'var(--color-text-primary)', maxWidth: '45%' }}>{m.model}</code>
-                    <span className="flex items-center gap-6" style={{ flexShrink: 0 }}>
-                      <span style={{ width: 70, textAlign: 'right' }}>{fmtTokens(m.inputTokens)}</span>
-                      <span style={{ width: 70, textAlign: 'right' }}>{fmtTokens(m.outputTokens)}</span>
-                      <span style={{ width: 70, textAlign: 'right' }}>{money(m.costUsd)}</span>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+      {!hasAny ? (
+        <div style={{ ...SURFACE, padding: '40px', textAlign: 'center', fontSize: 12.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
+          No activity in this range.
+        </div>
+      ) : (
+        <>
+          {/* KPI row */}
+          <div className="flex flex-wrap" style={{ gap: 10 }}>
+            <Kpi icon={<Zap style={{ width: 13, height: 13 }} />} label="Spend" value={`$${spend.toFixed(4)}`} sub="agentic + gateway" accent="var(--color-accent)" />
+            <Kpi icon={<PiggyBank style={{ width: 13, height: 13 }} />} label="Saved" value={`$${saved.toFixed(4)}`} sub={`${savedPct.toFixed(1)}% off baseline`} accent="var(--color-success)" />
+            <Kpi icon={<Database style={{ width: 13, height: 13 }} />} label="Tokens" value={fmt(tokens)} sub={`${fmt(agentic?.compressionSavedTokens ?? 0)} trimmed (L0)`} accent="var(--color-info)" />
+            <Kpi icon={<Cpu style={{ width: 13, height: 13 }} />} label="Calls" value={fmt(calls)} sub={`${agentic?.totalRuns ?? 0} runs · ${gw?.totalRequests ?? 0} gw`} accent="var(--color-warning)" />
           </div>
-        )}
-      </Section>
 
-      {/* Split: agentic (project-filterable) + gateway (key/model-filterable) */}
+          {/* Gauges + savings by layer */}
+          <div className="flex flex-wrap" style={{ gap: 10 }}>
+            <div className="flex items-center" style={{ ...SURFACE, gap: 24, flex: 1, minWidth: 250, padding: '16px 18px' }}>
+              <Gauge pct={savedPct} center={`${savedPct.toFixed(0)}%`} label="cost saved" accent="var(--color-success)" />
+              <Gauge pct={cacheRate} center={`${cacheRate.toFixed(0)}%`} label="L1 cache hit" accent="var(--color-warning)" />
+            </div>
+            <div style={{ ...SURFACE, flex: 1.3, minWidth: 280, padding: '14px 16px' }}>
+              <div className="flex items-center gap-2" style={LABEL}><LayersIcon style={{ width: 12, height: 12 }} /> Savings by layer</div>
+              <div style={{ marginTop: 12 }}>
+                <Bars fmtVal={money} items={[
+                  { label: 'L0 compress', value: layer.compression, color: 'var(--color-warning)' },
+                  { label: 'L1 cache', value: layer.semanticCache, color: 'var(--color-success)' },
+                  { label: 'L2 router', value: layer.router, color: 'var(--color-accent)' },
+                  { label: 'L3 prompt', value: layer.promptCache, color: 'var(--color-agent-documentation)' },
+                ]} />
+              </div>
+            </div>
+          </div>
+
+          {/* By project + by model */}
+          <div className="flex flex-wrap" style={{ gap: 10 }}>
+            <div style={{ ...SURFACE, flex: 1, minWidth: 300, padding: '14px 16px' }}>
+              <div style={LABEL}>By project (cost)</div>
+              <div style={{ marginTop: 12 }}>
+                <Bars fmtVal={money} items={byProject.map((p) => ({ label: p.projectName, value: p.costUsd, color: 'var(--color-accent)' }))} />
+              </div>
+            </div>
+            <div style={{ ...SURFACE, flex: 1, minWidth: 300, padding: '14px 16px' }}>
+              <div style={LABEL}>By model (cost)</div>
+              <div style={{ marginTop: 12 }}>
+                <Bars fmtVal={money} items={byModel.map((m) => ({ label: m.model, value: m.costUsd, color: 'var(--color-info)' }))} />
+              </div>
+            </div>
+          </div>
+
+          {/* Daily trend + token mix */}
+          <div className="flex flex-wrap" style={{ gap: 10 }}>
+            <div style={{ ...SURFACE, flex: 1.3, minWidth: 300, padding: '14px 16px' }}>
+              <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
+                <span style={LABEL}>Over time (agentic)</span>
+                <span className="flex items-center gap-3" style={{ fontSize: 9, color: 'var(--color-text-disabled)', fontFamily: 'var(--font-mono)' }}>
+                  <span className="flex items-center gap-1"><span style={{ width: 8, height: 8, background: 'var(--color-accent)', opacity: 0.7 }} />input</span>
+                  <span className="flex items-center gap-1"><span style={{ width: 8, height: 8, background: 'var(--color-accent-muted)', opacity: 0.45 }} />output</span>
+                </span>
+              </div>
+              <DailyBars data={agentic?.byDate ?? []} />
+            </div>
+            <div style={{ ...SURFACE, flex: 1, minWidth: 280, padding: '14px 16px' }}>
+              <div style={LABEL}>Token mix</div>
+              <div style={{ marginTop: 12 }}>
+                <Bars fmtVal={fmt} items={[
+                  { label: 'input', value: mix.input, color: 'var(--color-accent)' },
+                  { label: 'output', value: mix.output, color: 'var(--color-warning)' },
+                  { label: 'cache read', value: mix.cacheRead, color: 'var(--color-success)' },
+                  { label: 'cache write', value: mix.cacheCreation, color: 'var(--color-agent-documentation)' },
+                ]} />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Filterable drill-downs */}
       <AgenticUsage range={range} />
       <GatewayUsage range={range} />
     </div>

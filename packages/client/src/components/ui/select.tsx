@@ -36,6 +36,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               background: 'var(--glass-bg)',
               border: `1px solid ${error ? 'rgba(224, 96, 96, 0.5)' : 'var(--color-border-default)'}`,
               borderRadius: 'var(--radius-md)',
+              padding: '0 34px 0 12px',
+              textOverflow: 'ellipsis',
             }}
             onFocus={(e) => {
               e.currentTarget.style.borderColor = 'rgba(124,140,248, 0.5)';

@@ -2,7 +2,6 @@ import { ClaudeService, type ClaudeCallResult } from './claude.service.js';
 import { createLogger } from '../utils/logger.js';
 import { buildTaskContextMessage } from '../utils/prompt-adapter.js';
 import { buildMemoryBlock } from '../engine/context-builder.js';
-import { memoryRepo } from '../db/repositories/memory.repo.js';
 import { runAgentTurn, type RunTurnResult } from './agent-loop.service.js';
 import type { Agent, Task } from '@subagent/shared';
 
@@ -56,6 +55,9 @@ export async function executeTask(
     projectId,
     workspacePath: context.workspacePath,
     messages: [{ role: 'user', content: contextMessage }],
+    // Clean label + run id for the activity/memory recorded inside runAgentTurn.
+    label: task.title,
+    runId: task.runId,
   });
 
   // L2 level-routing may have served a cheaper model; record both actual + baseline for savings.
@@ -78,15 +80,7 @@ export async function executeTask(
     `Task "${task.title}" completed. Tokens: ${turn.inputTokens} in / ${turn.outputTokens} out; ` +
       `${turn.filesWritten.length} file(s) written`,
   );
-
-  await memoryRepo.create({
-    agentId: agent.id,
-    projectId,
-    type: 'interaction',
-    query: task.title,
-    response: turn.text,
-    runId: task.runId,
-  });
+  // Memory is recorded inside runAgentTurn (so chat-driven + delegated agents get it too).
 
   return { output: turn.text, apiResult, filesWritten: turn.filesWritten };
 }

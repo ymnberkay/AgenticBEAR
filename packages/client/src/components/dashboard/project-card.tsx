@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router';
-import { Clock, Bot } from 'lucide-react';
+import { Clock, Bot, ArrowRight } from 'lucide-react';
 import type { Project } from '@subagent/shared';
 import { formatRelativeTime } from '../../lib/format';
 
@@ -10,9 +10,9 @@ interface ProjectCardProps {
 }
 
 const statusConfig: Record<string, { color: string; label: string }> = {
-  active:   { color: '#6db58a', label: 'active' },
-  archived: { color: '#9ca8a2', label: 'archived' },
-  draft:    { color: '#7c8cf8', label: 'draft' },
+  active:   { color: 'var(--color-success)', label: 'Active' },
+  archived: { color: 'var(--color-text-tertiary)', label: 'Archived' },
+  draft:    { color: 'var(--color-accent)', label: 'Draft' },
 };
 
 function ProjectInitials({ name }: { name: string }) {
@@ -23,20 +23,18 @@ function ProjectInitials({ name }: { name: string }) {
     .join('');
   return (
     <div
+      className="flex items-center justify-center shrink-0"
       style={{
-        width: 36,
-        height: 36,
-        background: 'rgba(124,140,248, 0.1)',
-        border: '1px solid rgba(124,140,248, 0.22)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        width: 42,
+        height: 42,
+        borderRadius: 'var(--radius-md)',
+        background: 'linear-gradient(135deg, rgba(124,140,248,0.28), rgba(124,140,248,0.06))',
+        border: '1px solid rgba(124,140,248,0.3)',
         fontFamily: 'var(--font-mono)',
-        fontSize: 13,
-        fontWeight: 600,
-        color: '#7c8cf8',
-        flexShrink: 0,
-        letterSpacing: '0.04em',
+        fontSize: 15,
+        fontWeight: 700,
+        color: 'var(--color-accent-hover)',
+        letterSpacing: '0.02em',
       }}
     >
       {initials || '?'}
@@ -50,94 +48,82 @@ export function ProjectCard({ project, agentCount = 0, index = 0 }: ProjectCardP
 
   return (
     <button
-      onClick={() =>
-        navigate({ to: '/projects/$projectId', params: { projectId: project.id } })
-      }
+      onClick={() => navigate({ to: '/projects/$projectId', params: { projectId: project.id } })}
       className="group relative flex flex-col text-left w-full overflow-hidden transition-all duration-200 animate-fade-in-up"
       style={{
-        animationDelay: `${index * 50}ms`,
+        animationDelay: `${index * 40}ms`,
         background: 'var(--color-bg-surface)',
         border: '1px solid var(--color-border-subtle)',
-        borderLeft: '3px solid var(--color-accent-muted)',
-        borderRadius: 'var(--radius-md)',
-        padding: '16px 18px',
-        minHeight: 130,
+        borderRadius: 'var(--radius-lg)',
+        padding: '18px 20px',
+        minHeight: 158,
       }}
       onMouseEnter={(e) => {
         const el = e.currentTarget;
-        el.style.borderLeftColor = '#7c8cf8';
-        el.style.borderColor = 'var(--color-border-default)';
-        el.style.borderLeftColor = '#7c8cf8';
+        el.style.borderColor = 'var(--glass-border-hover)';
         el.style.background = 'var(--color-bg-raised)';
-        el.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)';
+        el.style.boxShadow = '0 8px 28px rgba(0,0,0,0.45)';
+        el.style.transform = 'translateY(-2px)';
       }}
       onMouseLeave={(e) => {
         const el = e.currentTarget;
         el.style.borderColor = 'var(--color-border-subtle)';
-        el.style.borderLeftColor = '#03346E';
         el.style.background = 'var(--color-bg-surface)';
         el.style.boxShadow = 'none';
+        el.style.transform = 'translateY(0)';
       }}
     >
       {/* Header row */}
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-start justify-between gap-3" style={{ marginBottom: 14 }}>
+        <div className="flex items-center gap-3 min-w-0">
           <ProjectInitials name={project.name} />
-          <h3
-            className="text-[14px] font-semibold truncate transition-colors duration-150"
-            style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-sans)' }}
-          >
-            {project.name}
-          </h3>
+          <div className="min-w-0">
+            <h3 className="truncate" style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', fontFamily: 'var(--font-sans)', lineHeight: 1.25 }}>
+              {project.name}
+            </h3>
+            <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', letterSpacing: '0.04em' }}>
+              project
+            </span>
+          </div>
         </div>
 
-        {/* Status badge */}
+        {/* Status pill (dot + label) */}
         <span
-          className="shrink-0 text-[10px] font-medium tracking-wide uppercase"
+          className="flex items-center gap-1.5 shrink-0"
           style={{
-            fontFamily: 'var(--font-mono)',
-            color: status.color,
-            background: `${status.color}18`,
-            border: `1px solid ${status.color}35`,
-            padding: '2px 7px',
+            fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
+            color: status.color, background: 'var(--color-bg-base)',
+            border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-xl)', padding: '3px 9px',
           }}
         >
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: status.color }} />
           {status.label}
         </span>
       </div>
 
       {/* Description */}
       <p
-        className="text-[12px] leading-relaxed flex-1 line-clamp-2"
-        style={{ color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-sans)' }}
+        className="flex-1 line-clamp-2"
+        style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-sans)' }}
       >
-        {project.description || '—'}
+        {project.description || 'No description'}
       </p>
 
       {/* Footer */}
-      <div
-        className="flex items-center gap-4 mt-4 pt-3"
-        style={{ borderTop: '1px solid var(--color-border-subtle)' }}
-      >
-        <span
-          className="flex items-center gap-1.5 text-[11px]"
-          style={{ color: 'var(--color-text-disabled)', fontFamily: 'var(--font-mono)' }}
-        >
-          <Bot className="h-3 w-3" />
+      <div className="flex items-center gap-4" style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--color-border-subtle)' }}>
+        <span className="flex items-center gap-1.5" style={{ fontSize: 11, color: 'var(--color-text-disabled)', fontFamily: 'var(--font-mono)' }}>
+          <Bot style={{ width: 12, height: 12 }} />
           {agentCount} {agentCount === 1 ? 'agent' : 'agents'}
         </span>
-        <span
-          className="flex items-center gap-1.5 text-[11px]"
-          style={{ color: 'var(--color-text-disabled)', fontFamily: 'var(--font-mono)' }}
-        >
-          <Clock className="h-3 w-3" />
+        <span className="flex items-center gap-1.5" style={{ fontSize: 11, color: 'var(--color-text-disabled)', fontFamily: 'var(--font-mono)' }}>
+          <Clock style={{ width: 12, height: 12 }} />
           {formatRelativeTime(project.updatedAt)}
         </span>
         <span
-          className="ml-auto text-[11px] opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-          style={{ color: '#7c8cf8', fontFamily: 'var(--font-mono)' }}
+          className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+          style={{ fontSize: 11, color: 'var(--color-accent)', fontFamily: 'var(--font-mono)' }}
         >
-          open →
+          open <ArrowRight style={{ width: 12, height: 12 }} />
         </span>
       </div>
     </button>

@@ -181,16 +181,27 @@ export function ProjectChatPage() {
 
       {/* ── Chat column ── */}
       <div className="flex-1 flex flex-col" style={{ minWidth: 0 }}>
-        {/* Tiny header: knowledge + files toggles */}
-        <div className="flex items-center justify-end gap-1.5" style={{ marginBottom: 8 }}>
-          <button type="button" onClick={() => setPanel((p) => (p === 'knowledge' ? null : 'knowledge'))} className="flex items-center gap-1.5"
-            style={{ height: 28, padding: '0 10px', fontSize: 11.5, fontFamily: 'var(--font-mono)', background: 'none', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)', color: panel === 'knowledge' ? 'var(--color-accent)' : 'var(--color-text-tertiary)', cursor: 'pointer' }}>
-            <BookOpen style={{ width: 13, height: 13 }} /> Knowledge ({docs?.length ?? 0})
-          </button>
-          <button type="button" onClick={() => setPanel((p) => (p === 'workspace' ? null : 'workspace'))} className="flex items-center gap-1.5"
-            style={{ height: 28, padding: '0 10px', fontSize: 11.5, fontFamily: 'var(--font-mono)', background: 'none', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)', color: panel === 'workspace' ? 'var(--color-accent)' : 'var(--color-text-tertiary)', cursor: 'pointer' }}>
-            <FolderTree style={{ width: 13, height: 13 }} /> Files{changed.size > 0 ? ` (${changed.size})` : ''}
-          </button>
+        {/* Header: knowledge + files toggle pills */}
+        <div className="flex items-center justify-end gap-2" style={{ marginBottom: 8 }}>
+          {([
+            { key: 'knowledge' as const, icon: <BookOpen style={{ width: 13, height: 13 }} />, label: `Knowledge (${docs?.length ?? 0})` },
+            { key: 'workspace' as const, icon: <FolderTree style={{ width: 13, height: 13 }} />, label: `Files${changed.size > 0 ? ` (${changed.size})` : ''}` },
+          ]).map(({ key, icon, label }) => {
+            const on = panel === key;
+            return (
+              <button key={key} type="button" onClick={() => setPanel((p) => (p === key ? null : key))}
+                className="flex items-center gap-2"
+                style={{
+                  height: 30, padding: '0 12px', fontSize: 12, fontFamily: 'var(--font-sans)', fontWeight: 500, cursor: 'pointer',
+                  borderRadius: 'var(--radius-md)', transition: 'all .15s',
+                  background: on ? 'var(--color-accent-subtle)' : 'var(--color-bg-surface)',
+                  border: `1px solid ${on ? 'var(--color-accent)' : 'var(--color-border-subtle)'}`,
+                  color: on ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                }}>
+                {icon} {label}
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex-1 flex" style={{ minHeight: 0, gap: 14 }}>

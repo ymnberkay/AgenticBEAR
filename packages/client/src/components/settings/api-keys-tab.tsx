@@ -99,7 +99,7 @@ print(resp.choices[0].message.content)`;
                 {copied === 'snip' ? 'copied' : 'copy'}
               </button>
             </div>
-            <pre style={{ margin: 0, padding: 12, background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)', fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--color-text-secondary)', overflowX: 'auto', whiteSpace: 'pre' }}>{snippet}</pre>
+            <pre style={{ margin: 0, padding: 12, background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--color-text-secondary)', overflowX: 'auto', whiteSpace: 'pre' }}>{snippet}</pre>
           </div>
         </div>
       </Section>
@@ -108,8 +108,10 @@ print(resp.choices[0].message.content)`;
       <Section icon={<KeyRound style={{ width: 13, height: 13 }} />} color="#d88aa0" title="API Keys"
         action={!formOpen && (
           <button type="button" onClick={() => setFormOpen(true)} className="flex items-center gap-1.5"
-            style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#7c8cf8', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <Plus style={{ width: 12, height: 12 }} /> create new API key
+            style={{ height: 28, padding: '0 12px', fontSize: 11.5, fontFamily: 'var(--font-sans)', fontWeight: 600, color: '#021526', background: 'var(--color-accent)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-accent-hover)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; }}>
+            <Plus style={{ width: 12, height: 12 }} /> New key
           </button>
         )}>
         <p style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', marginTop: 0, marginBottom: 12 }}>
@@ -117,8 +119,8 @@ print(resp.choices[0].message.content)`;
         </p>
 
         {createdKey && (
-          <div style={{ padding: 12, marginBottom: 12, background: 'rgba(109,181,138,0.08)', border: '1px solid rgba(109,181,138,0.4)' }}>
-            <div style={{ fontSize: 11, color: '#6db58a', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>New key — copy now, shown only once:</div>
+          <div style={{ padding: 12, marginBottom: 12, background: 'var(--color-success-subtle)', border: '1px solid rgba(109,181,138,0.4)', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ fontSize: 11, color: 'var(--color-success)', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>New key — copy now, shown only once:</div>
             <div className="flex items-center justify-between gap-2">
               <code style={{ fontSize: 12, color: 'var(--color-text-primary)', wordBreak: 'break-all' }}>{createdKey}</code>
               <button type="button" onClick={() => copy(createdKey, 'newkey')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: copied === 'newkey' ? '#6db58a' : 'var(--color-text-disabled)', flexShrink: 0 }}>
@@ -130,7 +132,7 @@ print(resp.choices[0].message.content)`;
 
         {/* Creation form */}
         {formOpen && (
-          <div style={{ padding: 14, marginBottom: 14, background: 'var(--color-bg-base)', border: '1px solid var(--color-border-default)' }}>
+          <div style={{ padding: 14, marginBottom: 14, background: 'var(--color-bg-base)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }}>
             <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
               <span style={{ fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)' }}>New API key</span>
               <button type="button" onClick={resetForm} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-disabled)' }}>
@@ -165,17 +167,19 @@ print(resp.choices[0].message.content)`;
                 <span>
                   <span style={{ fontSize: 12.5, color: 'var(--color-text-primary)' }}>FAQ mode (cache by question only)</span>
                   <span style={{ display: 'block', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
-                    Aynı soruyu tekrar soran chatbot'lar için: geçmişi yok sayar, sadece son soruya göre cache'ler → tekrar eden sorular hit eder. Bağlam-bağımlı asistanlarda kapalı tut.
+                    For chatbots that ask the same question repeatedly: ignores history and caches by the last question only → repeated questions hit cache. Leave off for context-dependent assistants.
                   </span>
                 </span>
               </label>
 
               <div className="flex items-center gap-2">
                 <button type="button" disabled={createKey.isPending} onClick={submit} className="flex items-center gap-1.5"
-                  style={{ height: 34, padding: '0 16px', background: '#7c8cf8', color: '#021526', fontSize: 12.5, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
-                  <Plus style={{ width: 13, height: 13 }} /> {createKey.isPending ? 'creating…' : 'create key'}
+                  style={{ height: 34, padding: '0 16px', background: 'var(--color-accent)', color: '#021526', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-accent-hover)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; }}>
+                  <Plus style={{ width: 13, height: 13 }} /> {createKey.isPending ? 'Creating…' : 'Create key'}
                 </button>
-                <button type="button" onClick={resetForm} style={{ height: 34, padding: '0 14px', background: 'none', border: '1px solid var(--color-border-subtle)', color: 'var(--color-text-disabled)', fontSize: 12.5, fontFamily: 'var(--font-mono)', cursor: 'pointer' }}>cancel</button>
+                <button type="button" onClick={resetForm} style={{ height: 34, padding: '0 14px', background: 'none', border: '1px solid var(--color-border-default)', color: 'var(--color-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-sans)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>Cancel</button>
               </div>
             </div>
           </div>
@@ -186,24 +190,27 @@ print(resp.choices[0].message.content)`;
           {(keys ?? []).map((k) => {
             const exp = expiryLabel(k.expiresAt);
             return (
-              <div key={k.id} className="flex items-center justify-between gap-3" style={{ padding: '9px 12px', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)' }}>
+              <div key={k.id} className="flex items-center justify-between gap-3" style={{ padding: '10px 12px', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-md)' }}>
                 <div style={{ minWidth: 0 }}>
                   <span style={{ fontSize: 12.5, color: 'var(--color-text-primary)' }}>{k.name || '(unnamed)'}</span>
                   <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
-                    {k.keyPrefix}… · {scopeLabel(k.allowedModels)} · <span style={{ color: exp.expired ? '#d88a8a' : 'var(--color-text-disabled)' }}>{exp.text}</span>{k.lastUsedAt ? ' · used' : ' · never used'}
+                    {k.keyPrefix}… · {scopeLabel(k.allowedModels)} · <span style={{ color: exp.expired ? 'var(--color-error)' : 'var(--color-text-disabled)' }}>{exp.text}</span>{k.lastUsedAt ? ' · used' : ' · never used'}
                   </div>
                 </div>
                 <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
                   <button type="button"
                     onClick={() => setCacheScope.mutate({ id: k.id, cacheScope: k.cacheScope === 'lastUser' ? 'conversation' : 'lastUser' })}
                     title="FAQ mode: cache by question only (ignore history)"
-                    style={{ height: 24, padding: '0 8px', fontSize: 10.5, fontFamily: 'var(--font-mono)', cursor: 'pointer',
-                      background: k.cacheScope === 'lastUser' ? 'rgba(109,181,138,0.15)' : 'none',
+                    style={{ height: 26, padding: '0 10px', fontSize: 10.5, fontFamily: 'var(--font-mono)', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
+                      background: k.cacheScope === 'lastUser' ? 'var(--color-success-subtle)' : 'none',
                       border: `1px solid ${k.cacheScope === 'lastUser' ? 'rgba(109,181,138,0.5)' : 'var(--color-border-subtle)'}`,
-                      color: k.cacheScope === 'lastUser' ? '#6db58a' : 'var(--color-text-disabled)' }}>
+                      color: k.cacheScope === 'lastUser' ? 'var(--color-success)' : 'var(--color-text-disabled)' }}>
                     FAQ {k.cacheScope === 'lastUser' ? 'on' : 'off'}
                   </button>
-                  <button type="button" onClick={() => deleteKey.mutate(k.id)} title="Revoke" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d88a8a' }}>
+                  <button type="button" onClick={() => deleteKey.mutate(k.id)} title="Revoke"
+                    className="flex items-center justify-center" style={{ width: 26, height: 26, borderRadius: 'var(--radius-sm)', background: 'none', border: '1px solid transparent', cursor: 'pointer', color: 'var(--color-text-disabled)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-error)'; e.currentTarget.style.background = 'var(--color-error-subtle)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; e.currentTarget.style.background = 'none'; }}>
                     <Trash2 style={{ width: 13, height: 13 }} />
                   </button>
                 </div>

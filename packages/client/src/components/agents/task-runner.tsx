@@ -40,6 +40,7 @@ export function TaskRunner({ projectId: _projectId }: TaskRunnerProps) {
       <div
         style={{
           background: 'var(--color-bg-card)',
+          borderRadius: 'var(--radius-md)',
           border: '1px solid var(--color-border-default)',
           padding: '16px 20px',
         }}
@@ -115,6 +116,7 @@ export function TaskRunner({ projectId: _projectId }: TaskRunnerProps) {
     <div
       style={{
         background: 'var(--color-bg-card)',
+        borderRadius: 'var(--radius-md)',
         border: '1px solid var(--color-border-default)',
         padding: '16px 20px',
       }}
@@ -137,6 +139,7 @@ export function TaskRunner({ projectId: _projectId }: TaskRunnerProps) {
             width: '100%',
             background: 'var(--color-bg-base)',
             border: '1px solid var(--color-border-subtle)',
+            borderRadius: 'var(--radius-md)',
             color: 'var(--color-text-primary)',
             fontSize: '13px',
             lineHeight: '1.6',
@@ -158,9 +161,9 @@ export function TaskRunner({ projectId: _projectId }: TaskRunnerProps) {
             disabled={!objective.trim()}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
-              height: '34px', padding: '0 16px',
-              background: objective.trim() ? 'white' : 'var(--color-bg-raised)',
-              color: objective.trim() ? '#0a0a0a' : 'var(--color-text-disabled)',
+              height: '34px', padding: '0 16px', borderRadius: 'var(--radius-md)',
+              background: objective.trim() ? 'var(--color-accent)' : 'var(--color-bg-raised)',
+              color: objective.trim() ? '#021526' : 'var(--color-text-disabled)',
               fontSize: '12.5px', fontWeight: 600,
               border: 'none',
               cursor: objective.trim() ? 'pointer' : 'not-allowed',

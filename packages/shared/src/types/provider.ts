@@ -14,6 +14,14 @@ export type ProviderKind =
   | 'openai-compatible'
   | 'anthropic-compatible';
 
+/**
+ * How the API key is presented to the endpoint.
+ * - `api_key`: provider-native (Anthropic → `x-api-key`; OpenAI-compatible → `Authorization: Bearer`).
+ * - `bearer`: force `Authorization: Bearer <key>` — used by corporate LLM gateways / proxies
+ *   (e.g. LiteLLM, Portkey) fronting an Anthropic-compatible endpoint.
+ */
+export type ProviderAuthType = 'api_key' | 'bearer';
+
 /** A single model exposed by a provider. Pricing fields drive cost measurement. */
 export interface LLMModelDef {
   id: string;
@@ -39,6 +47,10 @@ export interface LLMProvider {
   baseUrl?: string;
   /** Stored server-side; masked on read. Optional (local servers need no key). */
   apiKey?: string;
+  /** How the key is sent. Defaults to `api_key` (provider-native). */
+  authType?: ProviderAuthType;
+  /** Extra HTTP headers sent on every request (e.g. `anthropic-beta`, org routing). */
+  headers?: Record<string, string>;
   models: LLMModelDef[];
   enabled: boolean;
   createdAt: string;
@@ -50,6 +62,8 @@ export interface CreateProviderInput {
   kind: ProviderKind;
   baseUrl?: string;
   apiKey?: string;
+  authType?: ProviderAuthType;
+  headers?: Record<string, string>;
   models: LLMModelDef[];
   enabled?: boolean;
 }
@@ -59,6 +73,8 @@ export interface UpdateProviderInput {
   kind?: ProviderKind;
   baseUrl?: string;
   apiKey?: string;
+  authType?: ProviderAuthType;
+  headers?: Record<string, string>;
   models?: LLMModelDef[];
   enabled?: boolean;
 }

@@ -1,6 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { detectBuiltinProvider, isAnthropicKind, modelPricing } from '../provider-registry.js';
+import {
+  detectBuiltinProvider,
+  isAnthropicKind,
+  modelPricing,
+  anthropicClientOptions,
+  applyOpenAiAuthHeaders,
+  type ResolvedProvider,
+} from '../provider-registry.js';
 import { CLAUDE_MODELS } from '@subagent/shared';
+
+const base = (over: Partial<ResolvedProvider>): ResolvedProvider => ({
+  providerId: 'p', label: 'P', kind: 'anthropic-compatible', apiKey: 'k', ...over,
+});
 
 describe('provider-registry — pure helpers', () => {
   it('detectBuiltinProvider: id heuristic for legacy agents', () => {
@@ -29,5 +40,40 @@ describe('provider-registry — pure helpers', () => {
   it('modelPricing: unknown model with no/builtin provider → zero (no DB)', async () => {
     expect(await modelPricing(undefined, 'totally-unknown')).toEqual({ costPer1kInput: 0, costPer1kOutput: 0 });
     expect(await modelPricing('anthropic', 'totally-unknown')).toEqual({ costPer1kInput: 0, costPer1kOutput: 0 });
+  });
+
+  describe('anthropicClientOptions — flexible auth (Team/Enterprise gateways)', () => {
+    it('default (api_key) → sends apiKey, never authToken', () => {
+      const opts = anthropicClientOptions(base({ apiKey: 'sk-ant', baseUrl: 'https://gw/v1' }));
+      expect(opts.apiKey).toBe('sk-ant');
+      expect(opts.authToken).toBeUndefined();
+      expect(opts.baseURL).toBe('https://gw/v1');
+    });
+
+    it('bearer → sends only authToken so no conflicting x-api-key is emitted', () => {
+      const opts = anthropicClientOptions(base({ authType: 'bearer', apiKey: 'tok' }));
+      expect(opts.authToken).toBe('tok');
+      expect(opts.apiKey).toBeUndefined();
+    });
+
+    it('passes custom headers through as defaultHeaders', () => {
+      const opts = anthropicClientOptions(base({ headers: { 'anthropic-beta': 'x', 'x-org': 'acme' } }));
+      expect(opts.defaultHeaders).toEqual({ 'anthropic-beta': 'x', 'x-org': 'acme' });
+    });
+  });
+
+  describe('applyOpenAiAuthHeaders', () => {
+    it('sets Bearer + merges custom headers; custom wins on conflict', () => {
+      const h: Record<string, string> = { 'Content-Type': 'application/json' };
+      applyOpenAiAuthHeaders(base({ kind: 'openai-compatible', apiKey: 'sk', headers: { 'x-route': 'eu', Authorization: 'Bearer override' } }), h);
+      expect(h['x-route']).toBe('eu');
+      expect(h.Authorization).toBe('Bearer override'); // custom header overrides the default Bearer
+    });
+
+    it('no key → no Authorization header', () => {
+      const h: Record<string, string> = {};
+      applyOpenAiAuthHeaders(base({ kind: 'openai-compatible', apiKey: '' }), h);
+      expect(h.Authorization).toBeUndefined();
+    });
   });
 });

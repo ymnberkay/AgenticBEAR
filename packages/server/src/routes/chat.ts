@@ -87,6 +87,7 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       try {
         const result = await runAgentTurn({
           agent, projectId, workspacePath: project.workspacePath, messages: turns,
+          label: lastUser,
           onEvent: (e) => {
             if (e.type === 'tool') send({ tool: { name: e.name, args: e.args } });
             else if (e.type === 'toolResult') send({ toolResult: { name: e.name, summary: e.summary } });

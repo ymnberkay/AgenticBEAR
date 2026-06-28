@@ -1,63 +1,100 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { PromptTemplate } from '@subagent/shared';
 import { useTemplates } from '../api/hooks/use-templates';
+import { useUIStore } from '../stores/ui.store';
 import { TemplateList } from '../components/templates/template-list';
 import { TemplateEditor } from '../components/templates/template-editor';
 import { Dialog } from '../components/ui/dialog';
-import { Button } from '../components/ui/button';
+import { UserMenu } from '../components/layout/user-menu';
 
 export function TemplatesPage() {
   const { data: templates, isLoading } = useTemplates();
   const [showEditor, setShowEditor] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<PromptTemplate | undefined>();
+  const openModal = useUIStore((s) => s.openModal);
+  const paletteOpen = useUIStore((s) => s.commandPaletteOpen);
 
-  const handleSelect = (template: PromptTemplate) => {
-    setEditingTemplate(template);
-    setShowEditor(true);
-  };
-
-  const handleCreate = () => {
-    setEditingTemplate(undefined);
-    setShowEditor(true);
-  };
+  const handleSelect = (template: PromptTemplate) => { setEditingTemplate(template); setShowEditor(true); };
+  const handleCreate = () => { setEditingTemplate(undefined); setShowEditor(true); };
 
   return (
-    <div className="h-full overflow-y-auto w-full">
-    <div className="px-6 py-8 pr-8">
-      <div className="flex items-end justify-between mb-8" style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '20px' }}>
-        <div>
-          <h1 className="text-[18px] font-semibold text-text-primary tracking-tight">Templates</h1>
-          <p className="text-[12px] text-text-secondary mt-1">
-            Reusable prompt templates for your agents
-          </p>
+    <div className="h-full flex flex-col" style={{ background: 'var(--color-bg-base)', position: 'relative' }}>
+      <div className="ambient" />
+      {/* Top bar — consistent with the dashboard/project header */}
+      <div
+        className="relative flex items-center w-full"
+        style={{
+          height: 56, padding: '0 32px', position: 'sticky', top: 0, zIndex: 2,
+          borderBottom: '1px solid var(--color-border-subtle)',
+          background: 'rgba(2,21,38,0.75)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+        }}
+      >
+        {/* Left: breadcrumb + count */}
+        <div className="flex items-center gap-2.5" style={{ flex: '1 1 0', minWidth: 0, fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+          <Link to="/" style={{ color: 'var(--color-text-disabled)', textDecoration: 'none', flexShrink: 0 }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-accent)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; }}>
+            agenticbear
+          </Link>
+          <span style={{ color: 'var(--color-border-default)' }}>/</span>
+          <span style={{ color: 'var(--color-text-primary)', fontWeight: 500, fontFamily: 'var(--font-sans)', fontSize: 15 }}>Templates</span>
+          {!isLoading && (
+            <span style={{ fontSize: 10, color: 'var(--color-text-disabled)', background: 'var(--color-bg-raised)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)', padding: '2px 6px' }}>
+              {templates?.length ?? 0}
+            </span>
+          )}
         </div>
-        <Button
-          variant="primary"
-          icon={<Plus className="h-3.5 w-3.5" />}
-          onClick={handleCreate}
-        >
-          New Template
-        </Button>
+
+        {/* Center: search trigger */}
+        <AnimatePresence>
+          {!paletteOpen && (
+            <motion.button
+              layoutId="spotlight-bar" key="search-trigger"
+              onClick={() => openModal('command-palette')}
+              className="absolute flex items-center gap-2.5"
+              style={{
+                left: 'calc(50% - 160px)', width: 320, height: 34, padding: '0 14px',
+                background: 'var(--color-bg-raised)', border: '1px solid var(--color-border-default)',
+                color: 'var(--color-text-disabled)', fontFamily: 'var(--font-sans)', fontSize: 13,
+                cursor: 'pointer', borderRadius: 'var(--radius-md)',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(124,140,248,0.35)'; e.currentTarget.style.background = 'var(--color-bg-overlay)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; e.currentTarget.style.background = 'var(--color-bg-raised)'; }}
+            >
+              <Search style={{ width: 13, height: 13, flexShrink: 0 }} />
+              <span style={{ flex: 1, textAlign: 'left' }}>Search or jump to...</span>
+              <kbd style={{ fontFamily: 'var(--font-mono)', fontSize: 10, background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)', padding: '1px 5px', color: 'var(--color-text-disabled)', flexShrink: 0 }}>⌘K</kbd>
+            </motion.button>
+          )}
+        </AnimatePresence>
+
+        {/* Right: new template + account */}
+        <div className="flex items-center gap-3 justify-end" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <button onClick={handleCreate} className="flex items-center gap-2 transition-all duration-150"
+            style={{ height: 34, padding: '0 16px', borderRadius: 'var(--radius-md)', background: 'var(--color-accent)', color: '#021526', fontSize: 13, fontWeight: 600, border: 'none', whiteSpace: 'nowrap' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-accent-hover)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; }}>
+            <Plus style={{ width: 14, height: 14 }} /> New Template
+          </button>
+          <div style={{ width: 1, height: 22, background: 'var(--color-border-subtle)' }} />
+          <UserMenu />
+        </div>
       </div>
 
-      <TemplateList
-        templates={templates}
-        isLoading={isLoading}
-        onSelect={handleSelect}
-      />
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto animate-fade-in-up" style={{ padding: '28px 32px', position: 'relative', zIndex: 1 }}>
+        <p style={{ fontSize: 12.5, color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)', marginBottom: 22 }}>
+          Reusable prompt templates for your agents
+        </p>
+        <TemplateList templates={templates} isLoading={isLoading} onSelect={handleSelect} />
+      </div>
 
-      <Dialog
-        open={showEditor}
-        onClose={() => setShowEditor(false)}
-        maxWidth="680px"
-      >
-        <TemplateEditor
-          template={editingTemplate}
-          onClose={() => setShowEditor(false)}
-        />
+      <Dialog open={showEditor} onClose={() => setShowEditor(false)} maxWidth="680px">
+        <TemplateEditor template={editingTemplate} onClose={() => setShowEditor(false)} />
       </Dialog>
-    </div>
     </div>
   );
 }

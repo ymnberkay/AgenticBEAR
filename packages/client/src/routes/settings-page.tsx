@@ -30,9 +30,13 @@ export function SettingsPage() {
   const initialTab = (typeof window !== 'undefined' && window.location.hash.slice(1)) as TabId;
   const [tab, setTab] = useState<TabId>(TABS.some((t) => t.id === initialTab) ? initialTab : 'general');
 
+  // Usage is a wide dashboard; the rest are forms that read best in a narrow column.
+  const wide = tab === 'usage';
+
   return (
     <div className="h-full overflow-y-auto" style={{ background: 'var(--color-bg-base)' }}>
-      <div style={{ maxWidth: 760, margin: '0 auto', padding: '40px 32px' }}>
+      {/* Header + tabs — kept in a narrow column */}
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: '40px 32px 0' }}>
         <Link to="/" className="flex items-center gap-2 w-fit"
           style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', textDecoration: 'none', marginBottom: 28 }}>
           <ArrowLeft style={{ width: 12, height: 12 }} /> agenticbear / settings
@@ -47,21 +51,30 @@ export function SettingsPage() {
           </p>
         </div>
 
-        {/* Tab bar */}
-        <div className="flex items-center gap-1" style={{ marginBottom: 24, borderBottom: '1px solid var(--color-border-subtle)' }}>
-          {TABS.map((t) => (
-            <button key={t.id} type="button" onClick={() => { setTab(t.id); history.replaceState(null, '', `#${t.id}`); }}
-              style={{
-                height: 36, padding: '0 14px', fontSize: 12.5, fontFamily: 'var(--font-mono)', cursor: 'pointer',
-                background: 'none', border: 'none', borderBottom: `2px solid ${tab === t.id ? '#7c8cf8' : 'transparent'}`,
-                color: tab === t.id ? 'var(--color-text-primary)' : 'var(--color-text-disabled)',
-                marginBottom: -1,
-              }}>
-              {t.label}
-            </button>
-          ))}
+        {/* Tab bar — segmented pills, evenly distributed across the full width */}
+        <div className="flex items-center" style={{ marginBottom: 24, gap: 4, padding: 4, width: '100%', background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-lg)' }}>
+          {TABS.map((t) => {
+            const on = tab === t.id;
+            return (
+              <button key={t.id} type="button" onClick={() => { setTab(t.id); history.replaceState(null, '', `#${t.id}`); }}
+                className="flex items-center justify-center"
+                style={{
+                  flex: 1, minWidth: 0, height: 32, padding: '0 8px', fontSize: 12.5, fontFamily: 'var(--font-sans)', fontWeight: on ? 600 : 500, cursor: 'pointer', whiteSpace: 'nowrap',
+                  borderRadius: 'var(--radius-md)', border: 'none', transition: 'all .15s',
+                  background: on ? 'var(--color-accent-subtle)' : 'transparent',
+                  color: on ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                }}
+                onMouseEnter={(e) => { if (!on) { e.currentTarget.style.background = 'var(--color-bg-raised)'; e.currentTarget.style.color = 'var(--color-text-primary)'; } }}
+                onMouseLeave={(e) => { if (!on) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-secondary)'; } }}>
+                {t.label}
+              </button>
+            );
+          })}
         </div>
+      </div>
 
+      {/* Tab content — Usage breaks out to a wider column to use the screen */}
+      <div style={{ maxWidth: wide ? 1320 : 760, margin: '0 auto', padding: '22px 32px 48px', transition: 'max-width 0.2s ease' }}>
         {tab === 'general' && <GeneralTab onSaved={showToast} />}
         {tab === 'providers' && <ProvidersTab onSaved={showToast} />}
         {tab === 'apikeys' && <ApiKeysTab />}

@@ -1,100 +1,10 @@
 import { Outlet, useParams, Link } from '@tanstack/react-router';
 import { Settings, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRef, useEffect, useMemo } from 'react';
 import { useProject } from '../../api/hooks/use-projects';
 import { ProjectNav } from '../../components/layout/project-nav';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useUIStore } from '../../stores/ui.store';
-
-// ── Abstract network background ───────────────────────────────────────────────
-interface Node { x: number; y: number; vx: number; vy: number; r: number; pulse: number; speed: number }
-
-function NetworkCanvas() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const nodes = useMemo<Node[]>(() => Array.from({ length: 14 }, () => ({
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    vx: (Math.random() - 0.5) * 0.012,
-    vy: (Math.random() - 0.5) * 0.012,
-    r: 1.5 + Math.random() * 2,
-    pulse: Math.random() * Math.PI * 2,
-    speed: 0.008 + Math.random() * 0.012,
-  })), []);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    let raf: number;
-    let t = 0;
-
-    const draw = () => {
-      const W = canvas.offsetWidth;
-      const H = canvas.offsetHeight;
-      if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
-
-      ctx.clearRect(0, 0, W, H);
-      t += 1;
-
-      // move nodes
-      nodes.forEach((n) => {
-        n.x += n.vx;
-        n.y += n.vy;
-        if (n.x < 0 || n.x > 100) n.vx *= -1;
-        if (n.y < 0 || n.y > 100) n.vy *= -1;
-        n.pulse += n.speed;
-      });
-
-      // edges between nearby nodes
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const a = nodes[i], b = nodes[j];
-          const dx = (a.x - b.x) / 100 * W;
-          const dy = (a.y - b.y) / 100 * H;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 160) {
-            const alpha = (1 - dist / 160) * 0.12;
-            ctx.strokeStyle = `rgba(124,140,248,${alpha})`;
-            ctx.lineWidth = 0.6;
-            ctx.beginPath();
-            ctx.moveTo(a.x / 100 * W, a.y / 100 * H);
-            ctx.lineTo(b.x / 100 * W, b.y / 100 * H);
-            ctx.stroke();
-          }
-        }
-      }
-
-      // nodes
-      nodes.forEach((n) => {
-        const px = n.x / 100 * W;
-        const py = n.y / 100 * H;
-        const glow = 0.25 + 0.15 * Math.sin(n.pulse);
-        const radius = n.r * (1 + 0.3 * Math.sin(n.pulse));
-        ctx.beginPath();
-        ctx.arc(px, py, radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(124,140,248,${glow})`;
-        ctx.fill();
-      });
-
-      raf = requestAnimationFrame(draw);
-    };
-
-    draw();
-    return () => cancelAnimationFrame(raf);
-  }, [nodes]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        position: 'absolute', inset: 0, width: '100%', height: '100%',
-        pointerEvents: 'none', opacity: 0.45,
-      }}
-    />
-  );
-}
 
 const statusConfig: Record<string, { color: string; label: string }> = {
   active:   { color: '#6db58a', label: 'active' },
@@ -209,20 +119,21 @@ export function ProjectDetailPage() {
             <Link
               to="/projects/$projectId/settings"
               params={{ projectId: project.id }}
-              className="flex items-center gap-1.5"
+              className="flex items-center gap-2"
               style={{
-                height: 28, padding: '0 10px',
-                color: 'var(--color-text-disabled)',
+                height: 30, padding: '0 13px', borderRadius: 'var(--radius-md)',
+                color: 'var(--color-text-secondary)',
                 border: '1px solid var(--color-border-subtle)',
-                fontFamily: 'var(--font-mono)', fontSize: 11,
+                background: 'var(--color-bg-surface)',
+                fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 500,
                 textDecoration: 'none',
                 transition: 'all 0.15s ease',
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#7c8cf8'; e.currentTarget.style.borderColor = 'rgba(124,140,248,0.3)'; e.currentTarget.style.background = 'rgba(124,140,248,0.06)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; e.currentTarget.style.background = 'transparent'; }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-text-primary)'; e.currentTarget.style.borderColor = 'var(--glass-border-hover)'; e.currentTarget.style.background = 'var(--color-bg-raised)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-secondary)'; e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; e.currentTarget.style.background = 'var(--color-bg-surface)'; }}
             >
-              <Settings style={{ width: 12, height: 12 }} />
-              <span>settings</span>
+              <Settings style={{ width: 13, height: 13 }} />
+              <span>Settings</span>
             </Link>
           </div>
         </div>
@@ -237,8 +148,8 @@ export function ProjectDetailPage() {
           transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
           style={{ position: 'absolute', top: 0, right: 0, bottom: 0, background: 'var(--color-bg-base)', padding: '32px 40px' }}
         >
-          {/* Abstract background decoration */}
-          <NetworkCanvas />
+          {/* Calm static ambient — dot-grid + glow (no interaction) */}
+          <div className="ambient ambient-soft" />
           <div style={{ position: 'relative', zIndex: 1 }}>
             <Outlet />
           </div>

@@ -48,6 +48,7 @@ export function AgentList({
               fontSize: 10, fontFamily: 'var(--font-mono)',
               background: 'var(--color-bg-raised)',
               border: '1px solid var(--color-border-subtle)',
+              borderRadius: 'var(--radius-sm)',
               color: 'var(--color-text-disabled)',
               padding: '1px 6px',
             }}>
@@ -66,6 +67,7 @@ export function AgentList({
             color: 'var(--color-text-secondary)',
             background: 'transparent',
             border: '1px solid var(--color-border-default)',
+            borderRadius: 'var(--radius-md)',
             cursor: 'pointer',
             transition: 'all 0.15s',
           }}
@@ -85,6 +87,7 @@ export function AgentList({
             padding: '40px 24px',
             width: '100%',
             border: '1px dashed var(--color-border-default)',
+            borderRadius: 'var(--radius-md)',
             background: 'transparent',
             transition: 'all 0.15s',
           }}
@@ -106,7 +109,7 @@ export function AgentList({
           </p>
         </button>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(208px, 1fr))', gap: 10 }}>
           {specialists.map((agent) => (
             <AgentCard
               key={agent.id}

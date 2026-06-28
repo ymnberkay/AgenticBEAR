@@ -18,6 +18,7 @@ export type {
 
 export type {
   ProviderKind,
+  ProviderAuthType,
   LLMModelDef,
   LLMProvider,
   CreateProviderInput,

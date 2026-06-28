@@ -60,8 +60,11 @@ export function ProvidersTab({ onSaved }: { onSaved: (msg: string) => void }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <Section icon={<Key style={{ width: 13, height: 13 }} />} color="#c0a0d8" title="Built-in Provider Keys"
-        action={<button type="button" onClick={save} disabled={updateSettings.isPending} style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#7c8cf8', background: 'none', border: 'none', cursor: 'pointer' }}>{updateSettings.isPending ? 'saving…' : 'save'}</button>}>
+      <Section icon={<Key style={{ width: 13, height: 13 }} />} color="var(--color-agent-documentation)" title="Built-in Provider Keys"
+        action={<button type="button" onClick={save} disabled={updateSettings.isPending}
+          style={{ height: 28, padding: '0 14px', fontSize: 11.5, fontFamily: 'var(--font-sans)', fontWeight: 600, color: '#021526', background: 'var(--color-accent)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-accent-hover)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; }}>{updateSettings.isPending ? 'Saving…' : 'Save'}</button>}>
         <div className="flex flex-col gap-5">
           <Field label="Anthropic API Key" helper="Used for Claude models (claude-*). Stored encrypted.">
             <ApiKeyInput value={apiKey} onChange={setApiKey} placeholder="sk-ant-..." />

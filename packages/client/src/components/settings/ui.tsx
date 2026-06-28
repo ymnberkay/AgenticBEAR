@@ -4,7 +4,7 @@ import type { ReactNode, CSSProperties } from 'react';
 export const inputStyle: CSSProperties = {
   width: '100%', height: 36, padding: '0 12px', background: 'var(--color-bg-base)',
   border: '1px solid var(--color-border-default)', color: 'var(--color-text-primary)',
-  fontFamily: 'var(--font-mono)', fontSize: 13, outline: 'none', borderRadius: 'var(--radius-sm)',
+  fontFamily: 'var(--font-mono)', fontSize: 13, outline: 'none', borderRadius: 'var(--radius-md)',
 };
 
 export function Section({

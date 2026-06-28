@@ -26,94 +26,72 @@ export function AgentCard({ agent, status = 'idle', selected = false, onClick, o
   const Icon = iconMap[agent.icon] || Bot;
   const modelLabel = CLAUDE_MODELS[agent.modelConfig.model]?.label ?? agent.modelConfig.model;
 
-  const handleEdit = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onEdit?.();
-  };
+  const handleEdit = (e: React.MouseEvent) => { e.stopPropagation(); onEdit?.(); };
 
   return (
     <button
       onClick={onClick}
-      className={cn(
-        'w-full text-left group transition-all duration-200 cursor-pointer',
-        status === 'running' && 'agent-running',
-      )}
+      className={cn('group relative flex flex-col text-left w-full transition-all duration-200 cursor-pointer', status === 'running' && 'agent-running')}
       style={{
-        background: selected ? `${agent.color}10` : 'var(--color-bg-card)',
-        border: selected ? `1px solid ${agent.color}35` : '1px solid var(--color-border-subtle)',
-        padding: '14px 16px',
+        gap: 11,
+        background: selected ? `${agent.color}12` : 'var(--color-bg-card)',
+        border: `1px solid ${selected ? agent.color + '45' : 'var(--color-border-subtle)'}`,
+        borderRadius: 'var(--radius-md)',
+        padding: '14px 14px 13px',
+        minHeight: 112,
         ...(status === 'running' ? { '--agent-color': `${agent.color}40` } as React.CSSProperties : {}),
       }}
       onMouseEnter={(e) => {
-        if (!selected) {
-          e.currentTarget.style.borderColor = 'var(--color-border-default)';
-          e.currentTarget.style.background = 'var(--color-bg-card-hover, rgba(255,255,255,0.03))';
-        }
+        if (selected) return;
+        e.currentTarget.style.borderColor = 'var(--color-border-default)';
+        e.currentTarget.style.background = 'var(--color-bg-raised)';
+        e.currentTarget.style.transform = 'translateY(-1px)';
       }}
       onMouseLeave={(e) => {
-        if (!selected) {
-          e.currentTarget.style.borderColor = 'var(--color-border-subtle)';
-          e.currentTarget.style.background = 'var(--color-bg-card)';
-        }
+        if (selected) return;
+        e.currentTarget.style.borderColor = 'var(--color-border-subtle)';
+        e.currentTarget.style.background = 'var(--color-bg-card)';
+        e.currentTarget.style.transform = 'translateY(0)';
       }}
     >
-      <div className="flex items-center gap-3 min-w-0">
-        {/* Icon */}
+      {/* Top: icon + status / edit */}
+      <div className="flex items-start justify-between">
         <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center"
-          style={{ backgroundColor: `${agent.color}15`, color: agent.color }}
+          className="flex items-center justify-center shrink-0"
+          style={{ height: 38, width: 38, borderRadius: 'var(--radius-md)', backgroundColor: `${agent.color}18`, color: agent.color, border: `1px solid ${agent.color}2a` }}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className="h-[18px] w-[18px]" />
         </div>
 
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-[13px] font-semibold text-text-primary truncate">{agent.name}</span>
-            <span
-              className="shrink-0 text-[10px] font-medium truncate"
-              style={{
-                color: agent.color,
-                background: `${agent.color}15`,
-                padding: '1px 6px',
-                borderRadius: '4px',
-              }}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {status === 'running' && <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ backgroundColor: agent.color }} />}
+          {status === 'completed' && <Check className="h-3.5 w-3.5 animate-fade-in" style={{ color: 'var(--color-success)' }} />}
+          {onEdit && (
+            <button
+              onClick={handleEdit}
+              title="Edit"
+              className="flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-150"
+              style={{ height: 24, width: 24, borderRadius: 'var(--radius-sm)', color: 'var(--color-text-disabled)', border: '1px solid transparent' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; e.currentTarget.style.background = 'var(--color-bg-raised)'; e.currentTarget.style.color = 'var(--color-text-secondary)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
             >
-              {modelLabel}
-            </span>
-            {status === 'running' && (
-              <span className="flex items-center gap-1 shrink-0">
-                <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ backgroundColor: agent.color }} />
-              </span>
-            )}
-            {status === 'completed' && (
-              <Check className="h-3 w-3 text-[#6db58a] shrink-0 animate-fade-in" />
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <Badge color={agent.color}>{agent.role}</Badge>
-          </div>
+              <Pencil className="h-3 w-3" />
+            </button>
+          )}
         </div>
+      </div>
 
-        {/* Edit button - shows on hover */}
-        {onEdit && (
-          <button
-            onClick={handleEdit}
-            className="shrink-0 flex items-center gap-1 px-2 py-1 text-[10px] text-text-disabled hover:text-text-secondary transition-all duration-200 opacity-0 group-hover:opacity-100"
-            style={{ border: '1px solid transparent' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--color-border-subtle)';
-              e.currentTarget.style.background = 'var(--color-bg-raised)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'transparent';
-              e.currentTarget.style.background = 'transparent';
-            }}
-          >
-            <Pencil className="h-2.5 w-2.5" />
-            Edit
-          </button>
-        )}
+      {/* Name + meta */}
+      <div className="min-w-0">
+        <div className="truncate" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--color-text-primary)', lineHeight: 1.25 }}>
+          {agent.name}
+        </div>
+        <div className="flex items-center gap-2 min-w-0" style={{ marginTop: 6 }}>
+          <Badge color={agent.color}>{agent.role}</Badge>
+          <span className="truncate" style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
+            {modelLabel}
+          </span>
+        </div>
       </div>
     </button>
   );

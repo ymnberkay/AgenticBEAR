@@ -54,6 +54,7 @@ export function ModelConfigForm({ config, onChange }: ModelConfigFormProps) {
                 color: 'var(--color-text-primary)',
                 background: 'var(--glass-bg)',
                 border: '1px solid var(--color-border-default)',
+                borderRadius: 'var(--radius-md)',
               }}
               onFocus={(e) => {
                 e.currentTarget.style.borderColor = 'rgba(124,140,248, 0.5)';

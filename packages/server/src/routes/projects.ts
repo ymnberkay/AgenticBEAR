@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { projectRepo } from '../db/repositories/project.repo.js';
+import { agentRepo } from '../db/repositories/agent.repo.js';
 import type { CreateProjectInput, UpdateProjectInput } from '@subagent/shared';
 import { type AuthedRequest } from '../middleware/require-auth.js';
 import { accessibleProjectIds } from '../middleware/rbac.js';
@@ -8,10 +9,12 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
   // List projects — admins see all; others only those granted via their permission groups.
   app.get('/api/projects', async (request, reply) => {
     const projects = await projectRepo.findAll();
+    const counts = await agentRepo.countsByProject();
+    const withCounts = projects.map((p) => ({ ...p, agentCount: counts[p.id] ?? 0 }));
     const user = (request as AuthedRequest).authUser;
-    if (!user || user.role === 'admin') return reply.send(projects);
+    if (!user || user.role === 'admin') return reply.send(withCounts);
     const allowed = new Set(await accessibleProjectIds(user));
-    return reply.send(projects.filter((p) => allowed.has(p.id)));
+    return reply.send(withCounts.filter((p) => allowed.has(p.id)));
   });
 
   // Get project by ID

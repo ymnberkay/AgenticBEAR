@@ -6,7 +6,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ProviderKind } from '@subagent/shared';
 import { createLogger } from '../utils/logger.js';
-import { resolveProvider, type ResolvedProvider } from './provider-registry.js';
+import {
+  resolveProvider,
+  anthropicClientOptions,
+  applyOpenAiAuthHeaders,
+  type ResolvedProvider,
+} from './provider-registry.js';
 import { compressLossless } from '../cost/layers/compression.js';
 import { costConfig } from '../cost/config.js';
 import { scanAndRedact, dlpActiveForModel } from '../security/dlp.js';
@@ -137,7 +142,7 @@ type ProviderToolResult = Omit<ToolCompletionResult, 'compressionSavedTokens'>;
 
 async function callAnthropicTools(req: ToolCompletionRequest, provider: ResolvedProvider, tools: ToolDef[]): Promise<ProviderToolResult> {
   if (!provider.apiKey) throw new Error(`Anthropic API key yok (${provider.label})`);
-  const client = new Anthropic({ apiKey: provider.apiKey, ...(provider.baseUrl ? { baseURL: provider.baseUrl } : {}) });
+  const client = new Anthropic(anthropicClientOptions(provider));
 
   const res = await client.messages.create({
     model: req.model,
@@ -215,7 +220,7 @@ async function callOpenAITools(req: ToolCompletionRequest, provider: ResolvedPro
   if (!/^o\d/.test(req.model) && req.temperature !== undefined) body.temperature = req.temperature;
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (provider.apiKey) headers.Authorization = `Bearer ${provider.apiKey}`;
+  applyOpenAiAuthHeaders(provider, headers);
 
   const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`${provider.label} API hatası (${res.status}): ${await res.text()}`);

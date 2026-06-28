@@ -9,6 +9,8 @@ export interface Project {
   orchestratorId: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Number of agents in the project (attached by the list endpoint; undefined elsewhere). */
+  agentCount?: number;
 }
 
 export interface CreateProjectInput {

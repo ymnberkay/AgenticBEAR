@@ -56,9 +56,10 @@ export function LoginPage({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <div className="h-screen flex items-center justify-center relative" style={{ background: 'var(--color-bg-base)', overflow: 'hidden' }}>
-      {/* Ambient indigo glow */}
+      {/* Ambient dot-grid + glow */}
+      <div className="ambient" />
       <div className="pointer-events-none absolute inset-0" style={{
-        backgroundImage: 'radial-gradient(900px 460px at 50% -10%, rgba(124,140,248,0.16), transparent 60%), radial-gradient(700px 420px at 90% 110%, rgba(109,181,138,0.07), transparent 62%)',
+        backgroundImage: 'radial-gradient(700px 420px at 90% 110%, rgba(109,181,138,0.06), transparent 62%)',
       }} />
 
       <motion.form

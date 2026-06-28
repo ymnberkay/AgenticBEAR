@@ -329,6 +329,7 @@ export function ActivityDetailPanel({
                 color: statusColor,
                 background: `${statusColor}15`,
                 border: `1px solid ${statusColor}30`,
+                borderRadius: 'var(--radius-sm)',
               }}
             >
               {statusLabel}
@@ -338,6 +339,7 @@ export function ActivityDetailPanel({
               style={{
                 color: 'var(--color-text-disabled)',
                 background: 'var(--color-bg-card)',
+                borderRadius: 'var(--radius-md)',
                 border: '1px solid var(--color-border-subtle)',
               }}
             >
@@ -368,6 +370,7 @@ export function ActivityDetailPanel({
               fontSize: '12.5px',
               color: 'var(--color-text-primary)',
               background: 'var(--color-bg-card)',
+              borderRadius: 'var(--radius-md)',
               border: '1px solid var(--color-border-subtle)',
               padding: '14px 16px',
             }}
@@ -382,6 +385,7 @@ export function ActivityDetailPanel({
             fontSize: '11px',
             color: 'var(--color-text-disabled)',
             background: 'var(--color-bg-card)',
+            borderRadius: 'var(--radius-md)',
             border: '1px solid var(--color-border-subtle)',
             padding: '10px 14px',
             lineHeight: '1.6',
@@ -424,6 +428,7 @@ function ActivityRow({
       style={{
         background: isSelected ? `${agentColor}08` : 'var(--color-bg-card)',
         border: `1px solid ${isSelected ? agentColor + '40' : 'var(--color-border-subtle)'}`,
+        borderRadius: 'var(--radius-md)',
       }}
       onClick={onSelect}
       onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
@@ -491,6 +496,7 @@ function MemoryRow({
       className="group flex items-start gap-3 px-3 py-3 transition-colors duration-200"
       style={{
         background: 'var(--color-bg-card)',
+        borderRadius: 'var(--radius-md)',
         border: '1px solid var(--color-border-subtle)',
       }}
       onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
@@ -507,6 +513,7 @@ function MemoryRow({
               color: typeColor,
               background: `${typeColor}15`,
               border: `1px solid ${typeColor}30`,
+              borderRadius: 'var(--radius-sm)',
             }}
           >
             {typeLabel}
@@ -548,6 +555,7 @@ function TaskRow({ task, agentColor }: { task: Task; agentColor: string }) {
       className="flex items-start gap-3 px-3 py-3 transition-colors duration-200"
       style={{
         background: 'var(--color-bg-card)',
+        borderRadius: 'var(--radius-md)',
         border: '1px solid var(--color-border-subtle)',
       }}
     >

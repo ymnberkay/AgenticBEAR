@@ -220,6 +220,29 @@ a {
   50%       { box-shadow: 0 0 0 5px transparent; }
 }
 
+/* ─── Ambient backdrop ─── */
+/* Non-interactive, professional: a faint indigo dot-grid + soft top glow,
+   masked to fade toward the edges so it reads as depth, not noise. */
+.ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(960px 520px at 50% -14%, rgba(124,140,248,0.10), transparent 62%),
+    radial-gradient(rgba(124,140,248,0.14) 1px, transparent 1.4px);
+  background-size: 100% 100%, 23px 23px;
+  -webkit-mask-image: radial-gradient(135% 95% at 50% -14%, #000 34%, transparent 80%);
+          mask-image: radial-gradient(135% 95% at 50% -14%, #000 34%, transparent 80%);
+}
+/* Lighter variant for dense inner views */
+.ambient-soft {
+  background-image:
+    radial-gradient(820px 460px at 70% -10%, rgba(124,140,248,0.07), transparent 62%),
+    radial-gradient(rgba(124,140,248,0.10) 1px, transparent 1.4px);
+  background-size: 100% 100%, 26px 26px;
+}
+
 /* ─── Glass utilities ─── */
 .glass {
   background: var(--glass-bg);

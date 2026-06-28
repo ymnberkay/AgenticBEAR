@@ -57,6 +57,15 @@ export const agentRepo = {
     return rows.map(rowToAgent);
   },
 
+  /** agent count per project id (single query) — for the dashboard project cards. */
+  async countsByProject(): Promise<Record<string, number>> {
+    const rows = await getDb().prepare('SELECT project_id, COUNT(*) AS n FROM agents GROUP BY project_id')
+      .all<{ project_id: string; n: number }>();
+    const out: Record<string, number> = {};
+    for (const r of rows) out[r.project_id] = r.n;
+    return out;
+  },
+
   async findById(id: string): Promise<Agent | undefined> {
     const db = getDb();
     const row = await db.prepare('SELECT * FROM agents WHERE id = ?').get<AgentRow>(id);

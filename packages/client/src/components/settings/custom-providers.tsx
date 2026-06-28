@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Boxes, Plus, Trash2, Pencil, X } from 'lucide-react';
-import type { LLMModelDef, ProviderKind } from '@subagent/shared';
+import type { LLMModelDef, ProviderAuthType, ProviderKind } from '@subagent/shared';
 import { PROVIDER_PRESETS } from '@subagent/shared';
 import {
   useProviders,
@@ -20,6 +20,7 @@ const inputStyle: React.CSSProperties = {
   fontFamily: 'var(--font-mono)',
   fontSize: 12.5,
   outline: 'none',
+  borderRadius: 'var(--radius-md)',
 };
 
 const KIND_LABELS: Record<ProviderKind, string> = {
@@ -40,11 +41,18 @@ interface ModelRow {
   level: string;
 }
 
+interface HeaderRow {
+  key: string;
+  value: string;
+}
+
 interface FormState {
   label: string;
   kind: ProviderKind;
   baseUrl: string;
   apiKey: string;
+  authType: ProviderAuthType;
+  headers: HeaderRow[];
   models: ModelRow[];
 }
 
@@ -53,8 +61,24 @@ const EMPTY_FORM: FormState = {
   kind: 'openai-compatible',
   baseUrl: '',
   apiKey: '',
+  authType: 'api_key',
+  headers: [],
   models: [{ id: '', label: '', inPer1M: '', outPer1M: '', level: '' }],
 };
+
+function toHeaderRows(headers: Record<string, string> | undefined): HeaderRow[] {
+  if (!headers) return [];
+  return Object.entries(headers).map(([key, value]) => ({ key, value }));
+}
+
+function toHeaderObject(rows: HeaderRow[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const r of rows) {
+    const k = r.key.trim();
+    if (k) out[k] = r.value;
+  }
+  return out;
+}
 
 function toModelRows(models: LLMModelDef[]): ModelRow[] {
   if (models.length === 0) return [{ id: '', label: '', inPer1M: '', outPer1M: '', level: '' }];
@@ -96,7 +120,15 @@ export function CustomProvidersSection() {
   }
 
   function startEdit(p: ProviderView) {
-    setForm({ label: p.label, kind: p.kind, baseUrl: p.baseUrl ?? '', apiKey: '', models: toModelRows(p.models) });
+    setForm({
+      label: p.label,
+      kind: p.kind,
+      baseUrl: p.baseUrl ?? '',
+      apiKey: '',
+      authType: p.authType ?? 'api_key',
+      headers: toHeaderRows(p.headers),
+      models: toModelRows(p.models),
+    });
     setEditingId(p.id);
   }
 
@@ -117,6 +149,8 @@ export function CustomProvidersSection() {
       label: form.label.trim(),
       kind: form.kind,
       baseUrl: form.baseUrl.trim() || undefined,
+      authType: form.authType,
+      headers: toHeaderObject(form.headers),
       models: toModelDefs(form.models),
       // apiKey: empty string on edit keeps existing (server treats undefined as keep);
       // send only when the user typed something.
@@ -134,19 +168,25 @@ export function CustomProvidersSection() {
     setForm((f) => ({ ...f, models: f.models.map((m, idx) => (idx === i ? { ...m, ...patch } : m)) }));
   }
 
+  function updateHeader(i: number, patch: Partial<HeaderRow>) {
+    setForm((f) => ({ ...f, headers: f.headers.map((h, idx) => (idx === i ? { ...h, ...patch } : h)) }));
+  }
+
   return (
-    <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: '3px solid #d88aa0' }}>
+    <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: '3px solid var(--color-agent-documentation)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
       <div className="flex items-center justify-between" style={{ padding: '14px 16px', borderBottom: '1px solid var(--color-border-subtle)' }}>
         <div className="flex items-center gap-2.5">
-          <Boxes style={{ width: 13, height: 13, color: '#d88aa0', flexShrink: 0 }} />
+          <Boxes style={{ width: 13, height: 13, color: 'var(--color-agent-documentation)', flexShrink: 0 }} />
           <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
             Custom LLM Providers
           </span>
         </div>
         {!open && (
           <button type="button" onClick={startNew} className="flex items-center gap-1.5"
-            style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#7c8cf8', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <Plus style={{ width: 12, height: 12 }} /> add provider
+            style={{ height: 28, padding: '0 12px', fontSize: 11.5, fontFamily: 'var(--font-sans)', fontWeight: 600, color: '#021526', background: 'var(--color-accent)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-accent-hover)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; }}>
+            <Plus style={{ width: 12, height: 12 }} /> Add provider
           </button>
         )}
       </div>
@@ -160,7 +200,7 @@ export function CustomProvidersSection() {
         {/* Existing providers */}
         {(providers ?? []).map((p) => (
           <div key={p.id} className="flex items-center justify-between gap-3"
-            style={{ padding: '10px 12px', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)' }}>
+            style={{ padding: '10px 12px', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-md)' }}>
             <div style={{ minWidth: 0 }}>
               <div className="truncate" style={{ fontSize: 12.5, color: 'var(--color-text-primary)', fontWeight: 600 }}>
                 {p.label} <span style={{ color: 'var(--color-text-disabled)', fontWeight: 400 }}>· {p.kind}</span>
@@ -175,7 +215,7 @@ export function CustomProvidersSection() {
                 <Pencil style={{ width: 13, height: 13 }} />
               </button>
               <button type="button" onClick={() => deleteProvider.mutate(p.id)} title="Delete"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d88a8a', padding: 4 }}>
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-error)', padding: 4 }}>
                 <Trash2 style={{ width: 13, height: 13 }} />
               </button>
             </div>
@@ -184,7 +224,7 @@ export function CustomProvidersSection() {
 
         {/* Add/Edit form */}
         {open && (
-          <div className="flex flex-col gap-3" style={{ padding: '14px', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-default)' }}>
+          <div className="flex flex-col gap-3" style={{ padding: '14px', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }}>
             <div className="flex items-center justify-between">
               <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 {editingId ? 'Edit provider' : 'New provider'}
@@ -218,6 +258,39 @@ export function CustomProvidersSection() {
             <input type="password" placeholder={editingId ? 'API key (leave blank to keep)' : 'API key (blank for local)'}
               value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} style={inputStyle} />
 
+            {/* Auth header style — for corporate gateways/proxies (Team/Enterprise) */}
+            <div className="flex flex-col gap-1.5">
+              <select value={form.authType} onChange={(e) => setForm({ ...form, authType: e.target.value as ProviderAuthType })} style={{ ...inputStyle, cursor: 'pointer' }}>
+                <option value="api_key">Auth: provider default (Anthropic → x-api-key, OpenAI → Bearer)</option>
+                <option value="bearer">Auth: Authorization: Bearer (gateway / proxy)</option>
+              </select>
+              <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
+                Use “Bearer” for a Team/Enterprise LLM gateway (LiteLLM, Portkey, …) fronting an Anthropic-compatible endpoint.
+              </span>
+            </div>
+
+            {/* Custom headers — org routing, anthropic-beta flags, etc. */}
+            <div className="flex flex-col gap-2">
+              <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Custom headers (optional)
+              </span>
+              {form.headers.map((h, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <input placeholder="Header (e.g. anthropic-beta)" value={h.key} onChange={(e) => updateHeader(i, { key: e.target.value })} style={{ ...inputStyle, flex: 2 }} />
+                  <input placeholder="Value" value={h.value} onChange={(e) => updateHeader(i, { value: e.target.value })} style={{ ...inputStyle, flex: 3 }} />
+                  <button type="button" onClick={() => setForm((f) => ({ ...f, headers: f.headers.filter((_, idx) => idx !== i) }))}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-error)', padding: 4, flexShrink: 0 }}>
+                    <Trash2 style={{ width: 12, height: 12 }} />
+                  </button>
+                </div>
+              ))}
+              <button type="button" onClick={() => setForm((f) => ({ ...f, headers: [...f.headers, { key: '', value: '' }] }))}
+                className="flex items-center gap-1.5 w-fit"
+                style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#7c8cf8', background: 'none', border: 'none', cursor: 'pointer' }}>
+                <Plus style={{ width: 11, height: 11 }} /> add header
+              </button>
+            </div>
+
             {/* Models */}
             <div className="flex flex-col gap-2">
               <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -231,7 +304,7 @@ export function CustomProvidersSection() {
                   <input placeholder="out" value={m.outPer1M} onChange={(e) => updateModel(i, { outPer1M: e.target.value })} style={{ ...inputStyle, flex: 1 }} />
                   <input placeholder="lvl" type="number" min={1} max={10} value={m.level} onChange={(e) => updateModel(i, { level: e.target.value })} style={{ ...inputStyle, width: 52, flexShrink: 0 }} title="Capability level 1–10 (router)" />
                   <button type="button" onClick={() => setForm((f) => ({ ...f, models: f.models.filter((_, idx) => idx !== i) }))}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d88a8a', padding: 4, flexShrink: 0 }}>
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-error)', padding: 4, flexShrink: 0 }}>
                     <Trash2 style={{ width: 12, height: 12 }} />
                   </button>
                 </div>
@@ -245,11 +318,13 @@ export function CustomProvidersSection() {
 
             <div className="flex items-center justify-end gap-2" style={{ paddingTop: 4 }}>
               <button type="button" onClick={() => setEditingId(null)}
-                style={{ height: 32, padding: '0 14px', background: 'transparent', color: 'var(--color-text-disabled)', fontSize: 12.5, border: '1px solid var(--color-border-default)', cursor: 'pointer' }}>
+                style={{ height: 34, padding: '0 14px', background: 'transparent', color: 'var(--color-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-sans)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
                 Cancel
               </button>
               <button type="button" onClick={save} disabled={createProvider.isPending || updateProvider.isPending}
-                style={{ height: 32, padding: '0 16px', background: '#7c8cf8', color: '#021526', fontSize: 12.5, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
+                style={{ height: 34, padding: '0 16px', background: 'var(--color-accent)', color: '#021526', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-accent-hover)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; }}>
                 {editingId ? 'Save changes' : 'Add provider'}
               </button>
             </div>
