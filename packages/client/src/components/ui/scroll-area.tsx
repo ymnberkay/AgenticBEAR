@@ -12,13 +12,20 @@ export function ScrollArea({ children, maxHeight, className, style, ...props }: 
       className={cn(
         'overflow-auto',
         '[&::-webkit-scrollbar]:w-1.5',
+        '[&::-webkit-scrollbar]:h-1.5',
         '[&::-webkit-scrollbar-track]:bg-transparent',
         '[&::-webkit-scrollbar-thumb]:bg-border-default',
         '[&::-webkit-scrollbar-thumb]:rounded-full',
         '[&::-webkit-scrollbar-thumb:hover]:bg-text-disabled',
         className,
       )}
-      style={{ maxHeight, ...style }}
+      style={{
+        maxHeight,
+        // Firefox scrollbar styling
+        scrollbarWidth: 'thin',
+        scrollbarColor: 'var(--color-border-default) transparent',
+        ...style,
+      }}
       {...props}
     >
       {children}

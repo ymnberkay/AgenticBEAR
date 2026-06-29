@@ -18,14 +18,14 @@ export function HandoffIndicator({ fromAgent, toAgent }: HandoffIndicatorProps) 
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 text-[11px] text-text-tertiary min-w-0 overflow-hidden">
-        {fromAgent && (
-          <span className="font-medium truncate max-w-[120px]" style={{ color: fromAgent.color }}>{fromAgent.name}</span>
-        )}
+      <div className="flex items-center gap-1.5 text-[11px] text-text-secondary min-w-0 overflow-hidden" role="presentation">
+        <span className="font-medium truncate max-w-[120px]" style={{ color: fromAgent?.color ?? 'var(--color-text-secondary)' }}>
+          {fromAgent?.name ?? 'Unknown agent'}
+        </span>
         <span className="shrink-0">handed off to</span>
-        {toAgent && (
-          <span className="font-medium truncate max-w-[120px]" style={{ color: toAgent.color }}>{toAgent.name}</span>
-        )}
+        <span className="font-medium truncate max-w-[120px]" style={{ color: toAgent?.color ?? 'var(--color-text-secondary)' }}>
+          {toAgent?.name ?? 'Unknown agent'}
+        </span>
       </div>
     </div>
   );

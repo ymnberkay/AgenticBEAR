@@ -10,7 +10,7 @@ interface BadgeProps {
 }
 
 const variantStyles: Record<BadgeVariant, React.CSSProperties> = {
-  default: { background: 'var(--color-bg-raised)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border-default)' },
+  default: { background: 'var(--color-bg-raised)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-default)' },
   success: { background: 'var(--color-success-subtle)', color: 'var(--color-success)', border: '1px solid rgba(109,181,138,0.25)' },
   warning: { background: 'var(--color-warning-subtle)', color: 'var(--color-warning)', border: '1px solid rgba(226,176,74,0.25)' },
   error:   { background: 'var(--color-error-subtle)',   color: 'var(--color-error)',   border: '1px solid rgba(224,96,96,0.25)' },
@@ -28,10 +28,10 @@ export function Badge({ variant = 'default', color, children, className }: Badge
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        padding: '2px 6px',
-        fontSize: '10px',
+        padding: '2px 7px',
+        fontSize: '11px',
         fontWeight: 600,
-        lineHeight: 1,
+        lineHeight: 1.2,
         whiteSpace: 'nowrap',
         letterSpacing: '0.04em',
         textTransform: 'uppercase',

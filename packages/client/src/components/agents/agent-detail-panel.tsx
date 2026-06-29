@@ -1,17 +1,21 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Brain, Server, Monitor, Database, Container, TestTube2,
   FileText, Palette, Bot, X, Pencil, Clock, CheckCircle, AlertCircle, Loader2,
-  MessageSquare, Trash2, ChevronRight, BookOpen,
+  MessageSquare, Trash2, ChevronRight, BookOpen, Search, Filter,
 } from 'lucide-react';
 import type { Agent, Task, AgentActivity, AgentMemory } from '@subagent/shared';
 import { CLAUDE_MODELS } from '@subagent/shared';
 import { Badge } from '../ui/badge';
+import { Dialog } from '../ui/dialog';
+import { useToast } from '../ui/toast';
 import {
   useAgentTasks, useAgentActivities, useDeleteActivity, useClearActivities,
   useAgentMemories, useDeleteMemory, useClearMemories,
 } from '../../api/hooks/use-agents';
 import type { AgentStatus } from './agent-card';
+
+const PAGE_SIZE = 25;
 
 const iconMap: Record<string, React.FC<{ className?: string; style?: React.CSSProperties }>> = {
   Brain, Server, Monitor, Database, Container, TestTube2,
@@ -39,6 +43,10 @@ interface AgentDetailPanelProps {
 
 export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit, selectedActivityId, onSelectActivity }: AgentDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<'activity' | 'memory'>('activity');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'running' | 'completed' | 'failed'>('all');
+  const [visible, setVisible] = useState(PAGE_SIZE);
+  const [confirmClear, setConfirmClear] = useState<null | 'activity' | 'memory'>(null);
 
   const { data: tasks, isLoading: tasksLoading } = useAgentTasks(agent.id);
   const { data: activities, isLoading: activitiesLoading } = useAgentActivities(agent.id);
@@ -47,19 +55,49 @@ export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit, sele
   const clearActivities = useClearActivities();
   const deleteMemory = useDeleteMemory();
   const clearMemories = useClearMemories();
+  const { show: showToast } = useToast();
 
   const Icon = iconMap[agent.icon] || Bot;
   const modelLabel = CLAUDE_MODELS[agent.modelConfig.model]?.label ?? agent.modelConfig.model;
 
-  const handleClearActivities = () => {
-    if (window.confirm('Tüm activity geçmişi silinsin mi?')) {
-      clearActivities.mutate(agent.id);
+  const filteredActivities = useMemo(() => {
+    let list = activities ?? [];
+    if (statusFilter !== 'all') list = list.filter((a) => a.status === statusFilter);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter((a) => a.query?.toLowerCase().includes(q));
     }
-  };
+    return list;
+  }, [activities, statusFilter, search]);
 
-  const handleClearMemories = () => {
-    if (window.confirm('Bu agentin tüm hafızası silinsin mi? Bu işlem geri alınamaz.')) {
-      clearMemories.mutate(agent.id);
+  const filteredMemories = useMemo(() => {
+    let list = memories ?? [];
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter((m) => m.query?.toLowerCase().includes(q) || m.response?.toLowerCase().includes(q));
+    }
+    return list;
+  }, [memories, search]);
+
+  // Reset pagination when switching tab or filters.
+  const visibleList = activeTab === 'activity' ? filteredActivities.slice(0, visible) : filteredMemories.slice(0, visible);
+  const sourceList = activeTab === 'activity' ? filteredActivities : filteredMemories;
+  const hasMore = sourceList.length > visible;
+
+  const handleConfirmClear = () => {
+    if (!confirmClear) return;
+    const target = confirmClear;
+    setConfirmClear(null);
+    if (target === 'activity') {
+      clearActivities.mutate(agent.id, {
+        onSuccess: () => showToast('Activity history cleared', { variant: 'success' }),
+        onError: (err) => showToast(err instanceof Error ? err.message : 'Failed to clear', { variant: 'error' }),
+      });
+    } else {
+      clearMemories.mutate(agent.id, {
+        onSuccess: () => showToast('Memories cleared', { variant: 'success' }),
+        onError: (err) => showToast(err instanceof Error ? err.message : 'Failed to clear', { variant: 'error' }),
+      });
     }
   };
 
@@ -93,23 +131,28 @@ export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit, sele
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button
+            type="button"
             onClick={onEdit}
-            className="flex items-center gap-1 text-[11px] text-text-disabled hover:text-text-secondary transition-colors duration-200 px-2 py-1"
+            aria-label={`Edit ${agent.name}`}
+            className="flex items-center gap-1 text-[11px] text-text-secondary hover:text-text-primary transition-colors duration-200 px-2 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8] rounded"
+            style={{ minHeight: 28 }}
           >
-            <Pencil className="h-3 w-3" />
+            <Pencil className="h-3 w-3" aria-hidden="true" />
             Edit
           </button>
           <button
+            type="button"
             onClick={onClose}
-            className="flex items-center justify-center h-7 w-7 text-text-disabled hover:text-text-secondary transition-colors duration-200"
+            aria-label="Close agent detail"
+            className="flex items-center justify-center h-8 w-8 text-text-secondary hover:text-text-primary transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8] rounded"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex items-center shrink-0" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
+      <div className="flex items-center shrink-0" style={{ borderBottom: '1px solid var(--color-border-subtle)' }} role="tablist" aria-label="Agent details">
         <div className="flex gap-1 px-1">
           {(['activity', 'memory'] as const).map((tab) => {
             const count = tab === 'activity'
@@ -119,21 +162,27 @@ export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit, sele
             return (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
-                className="flex items-center gap-2 px-3 py-2.5 transition-colors duration-150"
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => { setActiveTab(tab); setVisible(PAGE_SIZE); }}
+                className="flex items-center gap-2 px-3 py-2.5 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8] rounded"
                 style={{
                   fontSize: '10px',
                   fontWeight: 600,
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
-                  color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-disabled)',
+                  color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                   borderBottom: isActive ? `2px solid ${agent.color}` : '2px solid transparent',
                   marginBottom: '-1px',
+                  minHeight: 36,
                 }}
               >
                 {tab === 'activity' ? 'Activity' : 'Memory'}
                 {count > 0 && (
                   <span
+                    aria-label={`${count} items`}
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -145,7 +194,7 @@ export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit, sele
                       fontWeight: 700,
                       lineHeight: 1,
                       background: isActive ? `${agent.color}22` : 'var(--color-bg-raised)',
-                      color: isActive ? agent.color : 'var(--color-text-disabled)',
+                      color: isActive ? agent.color : 'var(--color-text-secondary)',
                       borderRadius: '4px',
                     }}
                   >
@@ -159,31 +208,79 @@ export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit, sele
         <div className="flex-1" />
         {activeTab === 'activity' && activities && activities.length > 0 && (
           <button
-            onClick={handleClearActivities}
+            type="button"
+            onClick={() => setConfirmClear('activity')}
             disabled={clearActivities.isPending}
-            className="flex items-center gap-1 transition-colors duration-200 disabled:opacity-50 mr-1"
-            style={{ fontSize: '10px', color: 'var(--color-text-disabled)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px' }}
+            aria-label="Clear all activity history"
+            className="flex items-center gap-1 transition-colors duration-200 disabled:opacity-50 mr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8] rounded"
+            style={{ fontSize: '10.5px', color: 'var(--color-text-secondary)', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 8px' }}
             onMouseEnter={(e) => { e.currentTarget.style.color = '#e06060'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-secondary)'; }}
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="h-3 w-3" aria-hidden="true" />
             Clear
           </button>
         )}
         {activeTab === 'memory' && memories && memories.length > 0 && (
           <button
-            onClick={handleClearMemories}
+            type="button"
+            onClick={() => setConfirmClear('memory')}
             disabled={clearMemories.isPending}
-            className="flex items-center gap-1 transition-colors duration-200 disabled:opacity-50 mr-1"
-            style={{ fontSize: '10px', color: 'var(--color-text-disabled)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px' }}
+            aria-label="Clear all memories"
+            className="flex items-center gap-1 transition-colors duration-200 disabled:opacity-50 mr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8] rounded"
+            style={{ fontSize: '10.5px', color: 'var(--color-text-secondary)', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 8px' }}
             onMouseEnter={(e) => { e.currentTarget.style.color = '#e06060'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-secondary)'; }}
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="h-3 w-3" aria-hidden="true" />
             Clear
           </button>
         )}
       </div>
+
+      {/* Search & filter */}
+      {((activeTab === 'activity' && (activities?.length ?? 0) > 0) || (activeTab === 'memory' && (memories?.length ?? 0) > 0)) && (
+        <div className="flex items-center gap-2 px-1 pt-3 pb-2 shrink-0">
+          <div style={{ position: 'relative', flex: 1 }}>
+            <Search aria-hidden="true" style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 12, height: 12, color: 'var(--color-text-secondary)' }} />
+            <label className="sr-only" htmlFor={`detail-search-${agent.id}`}>Search</label>
+            <input
+              id={`detail-search-${agent.id}`}
+              type="search"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setVisible(PAGE_SIZE); }}
+              placeholder={activeTab === 'activity' ? 'Search activity…' : 'Search memories…'}
+              style={{
+                width: '100%', height: 30, padding: '0 8px 0 26px',
+                background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)',
+                color: 'var(--color-text-primary)', fontFamily: 'var(--font-mono)', fontSize: 11.5,
+                borderRadius: 'var(--radius-sm)', outline: 'none',
+              }}
+            />
+          </div>
+          {activeTab === 'activity' && (
+            <label className="inline-flex items-center gap-1.5">
+              <Filter aria-hidden="true" style={{ width: 11, height: 11, color: 'var(--color-text-secondary)' }} />
+              <span className="sr-only">Filter by status</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => { setStatusFilter(e.target.value as typeof statusFilter); setVisible(PAGE_SIZE); }}
+                aria-label="Filter activity by status"
+                style={{
+                  height: 30, padding: '0 6px', background: 'var(--color-bg-base)',
+                  border: '1px solid var(--color-border-subtle)', color: 'var(--color-text-secondary)',
+                  fontFamily: 'var(--font-mono)', fontSize: 11, borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                }}
+              >
+                <option value="all">all</option>
+                <option value="running">running</option>
+                <option value="completed">completed</option>
+                <option value="failed">failed</option>
+              </select>
+            </label>
+          )}
+        </div>
+      )}
 
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto pt-4">
@@ -209,19 +306,42 @@ export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit, sele
               </div>
             )}
 
-            {activities && activities.length > 0 && (
+            {filteredActivities.length > 0 && (
               <div className="flex flex-col gap-2 mb-4">
-                {activities.map((activity) => (
+                {visibleList.length === 0 && activeTab === 'activity' && (
+                  <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+                    No matches for "{search}".
+                  </span>
+                )}
+                {activeTab === 'activity' && (visibleList as AgentActivity[]).map((activity) => (
                   <ActivityRow
                     key={activity.id}
                     activity={activity}
                     agentColor={agent.color}
                     isSelected={activity.id === selectedActivityId}
                     onSelect={() => onSelectActivity(activity)}
-                    onDelete={() => deleteActivity.mutate({ id: activity.id, agentId: agent.id })}
+                    onDelete={() => deleteActivity.mutate(
+                      { id: activity.id, agentId: agent.id },
+                      { onError: (err) => showToast(err instanceof Error ? err.message : 'Delete failed', { variant: 'error' }) },
+                    )}
                     isDeleting={deleteActivity.isPending}
                   />
                 ))}
+                {activeTab === 'activity' && hasMore && (
+                  <button
+                    type="button"
+                    onClick={() => setVisible((v) => v + PAGE_SIZE)}
+                    className="self-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                    style={{
+                      height: 30, padding: '0 14px', marginTop: 6,
+                      background: 'var(--color-bg-raised)', border: '1px solid var(--color-border-default)',
+                      color: 'var(--color-text-primary)', fontSize: 11.5, borderRadius: 'var(--radius-sm)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Load {Math.min(PAGE_SIZE, filteredActivities.length - visible)} more
+                  </button>
+                )}
               </div>
             )}
 
@@ -261,22 +381,77 @@ export function AgentDetailPanel({ agent, status = 'idle', onClose, onEdit, sele
               </div>
             )}
 
-            {memories && memories.length > 0 && (
+            {filteredMemories.length > 0 && (
               <div className="flex flex-col gap-2">
-                {memories.map((memory) => (
+                {visibleList.length === 0 && activeTab === 'memory' && (
+                  <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+                    No matches for "{search}".
+                  </span>
+                )}
+                {activeTab === 'memory' && (visibleList as AgentMemory[]).map((memory) => (
                   <MemoryRow
                     key={memory.id}
                     memory={memory}
                     agentColor={agent.color}
-                    onDelete={() => deleteMemory.mutate({ id: memory.id, agentId: agent.id })}
+                    onDelete={() => deleteMemory.mutate(
+                      { id: memory.id, agentId: agent.id },
+                      { onError: (err) => showToast(err instanceof Error ? err.message : 'Delete failed', { variant: 'error' }) },
+                    )}
                     isDeleting={deleteMemory.isPending}
                   />
                 ))}
+                {activeTab === 'memory' && hasMore && (
+                  <button
+                    type="button"
+                    onClick={() => setVisible((v) => v + PAGE_SIZE)}
+                    className="self-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                    style={{
+                      height: 30, padding: '0 14px', marginTop: 6,
+                      background: 'var(--color-bg-raised)', border: '1px solid var(--color-border-default)',
+                      color: 'var(--color-text-primary)', fontSize: 11.5, borderRadius: 'var(--radius-sm)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Load {Math.min(PAGE_SIZE, filteredMemories.length - visible)} more
+                  </button>
+                )}
               </div>
             )}
           </>
         )}
       </div>
+
+      {/* Confirm clear */}
+      <Dialog
+        open={!!confirmClear}
+        onClose={() => setConfirmClear(null)}
+        title={confirmClear === 'activity' ? 'Clear activity history?' : 'Clear all memories?'}
+        description={
+          confirmClear === 'activity'
+            ? 'This permanently deletes all logged activity for this agent. The agent will lose its context cues.'
+            : "This permanently deletes everything this agent has learned. The agent will start fresh on its next run."
+        }
+        maxWidth="440px"
+      >
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setConfirmClear(null)}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+            style={{ height: 36, padding: '0 14px', background: 'transparent', border: '1px solid var(--color-border-default)', color: 'var(--color-text-primary)', fontSize: 12, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirmClear}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+            style={{ height: 36, padding: '0 14px', background: '#e06060', color: '#021526', border: 'none', fontSize: 12, fontWeight: 600, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+          >
+            Clear
+          </button>
+        </div>
+      </Dialog>
     </div>
   );
 }
@@ -424,51 +599,62 @@ function ActivityRow({
 
   return (
     <div
-      className="group flex items-start gap-3 px-3 py-3 transition-colors duration-200 cursor-pointer"
+      role="button"
+      tabIndex={0}
+      aria-label={`Activity: ${activity.query?.slice(0, 80)}${activity.query && activity.query.length > 80 ? '…' : ''}, ${statusLabel}`}
+      aria-pressed={isSelected}
+      className="group flex items-start gap-3 px-3 py-3 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
       style={{
         background: isSelected ? `${agentColor}08` : 'var(--color-bg-card)',
         border: `1px solid ${isSelected ? agentColor + '40' : 'var(--color-border-subtle)'}`,
         borderRadius: 'var(--radius-md)',
       }}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
       onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; }}
     >
-      <span className="shrink-0 mt-0.5" style={{ color: agentColor }}>
+      <span className="shrink-0 mt-0.5" style={{ color: agentColor }} aria-hidden="true">
         <MessageSquare className="h-3.5 w-3.5" />
       </span>
       <div className="flex-1 min-w-0">
         <div className="text-[12px] font-medium text-text-primary line-clamp-2">{activity.query}</div>
         <div className="flex items-center gap-3 mt-1.5">
           <span className="flex items-center gap-1 text-[9px] uppercase tracking-wider font-medium" style={{ color: statusColor }}>
-            <StatusIcon className={`h-2.5 w-2.5 ${isRunning ? 'animate-spin' : ''}`} />
+            <StatusIcon className={`h-2.5 w-2.5 ${isRunning ? 'animate-spin' : ''}`} aria-hidden="true" />
             {statusLabel}
           </span>
           {activity.completedAt && (
-            <span className="text-[9px] text-text-disabled">
+            <span className="text-[9px] text-text-secondary">
               {new Date(activity.completedAt).toLocaleString()}
             </span>
           )}
           {!activity.completedAt && activity.startedAt && (
-            <span className="text-[9px] text-text-disabled">
+            <span className="text-[9px] text-text-secondary">
               {new Date(activity.startedAt).toLocaleString()}
             </span>
           )}
         </div>
       </div>
-      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150">
         <button
+          type="button"
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           disabled={isDeleting}
-          className="flex items-center justify-center h-6 w-6 transition-colors duration-200 disabled:opacity-50"
-          style={{ color: 'var(--color-text-disabled)' }}
+          aria-label="Delete activity"
+          className="flex items-center justify-center h-7 w-7 transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8] rounded"
+          style={{ color: 'var(--color-text-secondary)' }}
           onMouseEnter={(e) => { e.currentTarget.style.color = '#e06060'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
-          title="Sil"
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-secondary)'; }}
         >
-          <Trash2 className="h-3 w-3" />
+          <Trash2 className="h-3 w-3" aria-hidden="true" />
         </button>
-        <ChevronRight className="h-3.5 w-3.5" style={{ color: 'var(--color-text-disabled)' }} />
+        <ChevronRight className="h-3.5 w-3.5" style={{ color: 'var(--color-text-secondary)' }} aria-hidden="true" />
       </div>
     </div>
   );
@@ -527,17 +713,18 @@ function MemoryRow({
           {new Date(memory.createdAt).toLocaleString()}
         </span>
       </div>
-      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150">
         <button
+          type="button"
           onClick={onDelete}
           disabled={isDeleting}
-          className="flex items-center justify-center h-6 w-6 transition-colors duration-200 disabled:opacity-50"
-          style={{ color: 'var(--color-text-disabled)' }}
+          aria-label="Delete memory"
+          className="flex items-center justify-center h-7 w-7 transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8] rounded"
+          style={{ color: 'var(--color-text-secondary)' }}
           onMouseEnter={(e) => { e.currentTarget.style.color = '#e06060'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
-          title="Sil"
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-secondary)'; }}
         >
-          <Trash2 className="h-3 w-3" />
+          <Trash2 className="h-3 w-3" aria-hidden="true" />
         </button>
       </div>
     </div>

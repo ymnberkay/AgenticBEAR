@@ -35,31 +35,41 @@ const variantHover: Record<ButtonVariant, Partial<React.CSSProperties>> = {
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = 'default', size = 'md', loading = false, icon, disabled, className, children, style, ...props }, ref) => {
+  ({ variant = 'default', size = 'md', loading = false, icon, disabled, className, children, style, type, ...props }, ref) => {
+    const isDisabled = disabled || loading;
     return (
       <button
         ref={ref}
-        disabled={disabled || loading}
+        type={type ?? 'button'}
+        disabled={isDisabled}
+        aria-busy={loading || undefined}
+        aria-disabled={isDisabled || undefined}
         className={cn(
           'inline-flex items-center justify-center font-medium transition-all duration-150 whitespace-nowrap leading-none select-none',
           'rounded-[var(--radius-md)]',
-          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#7c8cf8]',
-          'disabled:opacity-40 disabled:pointer-events-none',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8] focus-visible:ring-offset-1 focus-visible:ring-offset-transparent',
+          'disabled:opacity-40 disabled:pointer-events-none disabled:cursor-not-allowed',
           sizeStyles[size],
           className,
         )}
         style={{ fontFamily: 'var(--font-sans)', ...variantBase[variant], ...style }}
         onMouseEnter={(e) => {
+          if (isDisabled) return;
           Object.assign(e.currentTarget.style, variantHover[variant]);
           props.onMouseEnter?.(e);
         }}
         onMouseLeave={(e) => {
+          if (isDisabled) return;
           Object.assign(e.currentTarget.style, variantBase[variant]);
           props.onMouseLeave?.(e);
         }}
         {...props}
       >
-        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : icon ? <span className="shrink-0">{icon}</span> : null}
+        {loading ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+        ) : icon ? (
+          <span className="shrink-0" aria-hidden="true">{icon}</span>
+        ) : null}
         {children}
       </button>
     );

@@ -1,30 +1,51 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId, useMemo } from 'react';
 import { Key, Eye, EyeOff } from 'lucide-react';
 import { useSettings, useUpdateSettings } from '../../api/hooks/use-settings';
 import { useRefreshModelCatalog } from '../../api/hooks/use-gateway';
+import { useToast } from '../ui/toast';
 import { CustomProvidersSection } from './custom-providers';
 import { Section, inputStyle } from './ui';
 
-function ApiKeyInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+function ApiKeyInput({ id, value, onChange, placeholder, label }: { id: string; value: string; onChange: (v: string) => void; placeholder: string; label: string }) {
   const [visible, setVisible] = useState(false);
   return (
     <div style={{ position: 'relative' }}>
-      <input type={visible ? 'text' : 'password'} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-        style={{ ...inputStyle, paddingRight: 40 }} />
-      <button type="button" onClick={() => setVisible((v) => !v)}
-        style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-disabled)', padding: 0, display: 'flex' }}>
-        {visible ? <EyeOff style={{ width: 14, height: 14 }} /> : <Eye style={{ width: 14, height: 14 }} />}
+      <input
+        id={id}
+        type={visible ? 'text' : 'password'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoComplete="off"
+        spellCheck={false}
+        aria-label={label}
+        style={{ ...inputStyle, paddingRight: 44 }}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? 'Hide API key' : 'Show API key'}
+        aria-pressed={visible}
+        className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+        style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: 8, display: 'flex', borderRadius: 4 }}
+      >
+        {visible ? <EyeOff style={{ width: 14, height: 14 }} aria-hidden="true" /> : <Eye style={{ width: 14, height: 14 }} aria-hidden="true" />}
       </button>
     </div>
   );
 }
 
-function Field({ label, helper, children }: { label: string; helper?: string; children: React.ReactNode }) {
+function Field({ id, label, helper, children }: { id?: string; label: string; helper?: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>{label}</label>
+      <label
+        htmlFor={id}
+        style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}
+      >
+        {label}
+      </label>
       {children}
-      {helper && <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>{helper}</span>}
+      {helper && <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>{helper}</span>}
     </div>
   );
 }
@@ -34,6 +55,10 @@ export function ProvidersTab({ onSaved }: { onSaved: (msg: string) => void }) {
   const { data: settings } = useSettings();
   const updateSettings = useUpdateSettings();
   const refreshCatalog = useRefreshModelCatalog();
+  const { show: showToast } = useToast();
+  const antId = useId();
+  const oaiId = useId();
+  const gemId = useId();
 
   const [apiKey, setApiKey] = useState('');
   const [openAiApiKey, setOpenAiApiKey] = useState('');
@@ -47,33 +72,76 @@ export function ProvidersTab({ onSaved }: { onSaved: (msg: string) => void }) {
     }
   }, [settings]);
 
+  const isDirty = useMemo(() => {
+    if (!settings) return false;
+    return (
+      apiKey !== (settings.apiKey ?? '') ||
+      openAiApiKey !== (settings.openAiApiKey ?? '') ||
+      geminiApiKey !== (settings.geminiApiKey ?? '')
+    );
+  }, [settings, apiKey, openAiApiKey, geminiApiKey]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
   const save = () =>
     updateSettings.mutate(
       { apiKey, openAiApiKey, geminiApiKey },
       {
         onSuccess: () => {
-          onSaved('Keys saved');
+          onSaved('Provider keys saved');
           refreshCatalog.mutate(); // new/changed keys → re-discover reachable models
         },
+        onError: (err) => showToast(err instanceof Error ? err.message : 'Failed to save keys', { variant: 'error' }),
       },
     );
 
   return (
     <div className="flex flex-col gap-3">
-      <Section icon={<Key style={{ width: 13, height: 13 }} />} color="var(--color-agent-documentation)" title="Built-in Provider Keys"
-        action={<button type="button" onClick={save} disabled={updateSettings.isPending}
-          style={{ height: 28, padding: '0 14px', fontSize: 11.5, fontFamily: 'var(--font-sans)', fontWeight: 600, color: '#021526', background: 'var(--color-accent)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-accent-hover)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; }}>{updateSettings.isPending ? 'Saving…' : 'Save'}</button>}>
+      <Section
+        icon={<Key style={{ width: 13, height: 13 }} aria-hidden="true" />}
+        color="var(--color-agent-documentation)"
+        title="Built-in Provider Keys"
+        action={
+          <div className="flex items-center gap-2">
+            {isDirty && (
+              <span aria-live="polite" style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-warning)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                unsaved
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={save}
+              disabled={updateSettings.isPending || !isDirty}
+              aria-busy={updateSettings.isPending || undefined}
+              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+              style={{
+                height: 32, padding: '0 14px', fontSize: 11.5, fontFamily: 'var(--font-sans)', fontWeight: 600,
+                color: !isDirty || updateSettings.isPending ? 'var(--color-text-disabled)' : '#021526',
+                background: !isDirty || updateSettings.isPending ? 'var(--color-bg-raised)' : 'var(--color-accent)',
+                border: 'none', borderRadius: 'var(--radius-md)', cursor: !isDirty || updateSettings.isPending ? 'not-allowed' : 'pointer',
+              }}
+              onMouseEnter={(e) => { if (isDirty && !updateSettings.isPending) e.currentTarget.style.background = 'var(--color-accent-hover)'; }}
+              onMouseLeave={(e) => { if (isDirty && !updateSettings.isPending) e.currentTarget.style.background = 'var(--color-accent)'; }}
+            >
+              {updateSettings.isPending ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        }
+      >
         <div className="flex flex-col gap-5">
-          <Field label="Anthropic API Key" helper="Used for Claude models (claude-*). Stored encrypted.">
-            <ApiKeyInput value={apiKey} onChange={setApiKey} placeholder="sk-ant-..." />
+          <Field id={antId} label="Anthropic API Key" helper="Used for Claude models (claude-*). Stored encrypted.">
+            <ApiKeyInput id={antId} label="Anthropic API key" value={apiKey} onChange={setApiKey} placeholder="sk-ant-..." />
           </Field>
-          <Field label="OpenAI API Key" helper="Used for GPT, o-series and Codex models. Stored encrypted.">
-            <ApiKeyInput value={openAiApiKey} onChange={setOpenAiApiKey} placeholder="sk-..." />
+          <Field id={oaiId} label="OpenAI API Key" helper="Used for GPT, o-series and Codex models. Stored encrypted.">
+            <ApiKeyInput id={oaiId} label="OpenAI API key" value={openAiApiKey} onChange={setOpenAiApiKey} placeholder="sk-..." />
           </Field>
-          <Field label="Gemini API Key" helper="Used for Google Gemini models. Stored encrypted.">
-            <ApiKeyInput value={geminiApiKey} onChange={setGeminiApiKey} placeholder="AIza..." />
+          <Field id={gemId} label="Gemini API Key" helper="Used for Google Gemini models. Stored encrypted.">
+            <ApiKeyInput id={gemId} label="Gemini API key" value={geminiApiKey} onChange={setGeminiApiKey} placeholder="AIza..." />
           </Field>
         </div>
       </Section>

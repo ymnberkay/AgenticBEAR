@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, BookOpen, Upload, FolderTree, X, MessageSquarePlus, PanelLeftClose, PanelLeft, Sparkles, Check, FileWarning } from 'lucide-react';
+import { Plus, Trash2, BookOpen, Upload, FolderTree, X, MessageSquarePlus, PanelLeftClose, PanelLeft, Sparkles, Check, FileWarning, ArrowDown } from 'lucide-react';
 import { useAgents } from '../../api/hooks/use-agents';
 import { useDocuments, useCreateDocument, useDeleteDocument } from '../../api/hooks/use-documents';
 import { useFileTree, workspaceKeys } from '../../api/hooks/use-workspace';
@@ -12,6 +12,8 @@ import { streamChat, type ChatMessage, type ToolEvent, type PendingChange } from
 import { ChatMessage as ChatBubble } from '../../components/chat/chat-message';
 import { ChatComposer } from '../../components/chat/chat-composer';
 import { useConversations, type ChatEntry } from '../../components/chat/use-conversations';
+import { useToast } from '../../components/ui/toast';
+import { Dialog } from '../../components/ui/dialog';
 
 /** Human-readable one-liner for a tool event (shown as an activity chip). */
 function activityLine(e: ToolEvent): string | null {
@@ -63,7 +65,17 @@ export function ProjectChatPage() {
   const [viewerPath, setViewerPath] = useState<string | null>(null);
   const [docName, setDocName] = useState('');
   const [docContent, setDocContent] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState<
+    | { kind: 'doc'; id: string; name: string }
+    | { kind: 'conv'; id: string; title: string }
+    | null
+  >(null);
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [streamError, setStreamError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
+  const lastInputRef = useRef<{ history: ChatMessage[]; text: string } | null>(null);
+  const { show: showToast } = useToast();
 
   const agentList = useMemo(() => agents ?? [], [agents]);
   const activeAgent = agentList.find((a) => a.id === agentId);
@@ -79,11 +91,28 @@ export function ProjectChatPage() {
   // Load messages when switching conversations.
   useEffect(() => { setMessages(conv.active?.messages ?? []); setChanged(new Map()); setPending([]); /* eslint-disable-next-line */ }, [conv.activeId]);
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  // Smart auto-scroll: only follow the latest message when the user is already near the bottom.
+  useEffect(() => {
+    if (!autoScroll) return;
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, autoScroll]);
+
+  const onThreadScroll = useCallback(() => {
+    const el = threadRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setAutoScroll(distanceFromBottom < 120);
+  }, []);
+
+  const scrollToLatest = useCallback(() => {
+    setAutoScroll(true);
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
 
   async function send() {
     const text = input.trim();
     if (!text || !agentId || streaming) return;
+    setStreamError(null);
 
     // Ensure a conversation exists.
     let id = conv.activeId;
@@ -102,6 +131,7 @@ export function ProjectChatPage() {
     const setLast = (fn: (last: ChatEntry) => ChatEntry) => { work[work.length - 1] = fn(work[work.length - 1]); setMessages([...work]); };
 
     const touched: string[] = [];
+    lastInputRef.current = { history, text };
     await streamChat(projectId, agentId, history, {
       onDelta: (t) => setLast((last) => ({ ...last, content: last.content + t })),
       onTool: (e) => {
@@ -113,7 +143,10 @@ export function ProjectChatPage() {
         }
       },
       onPending: (p) => setPending((prev) => [...prev, p]),
-      onError: (m) => setLast((last) => ({ ...last, content: `${last.content}\n\n⚠️ ${m}` })),
+      onError: (m) => {
+        setStreamError(m);
+        showToast(m, { variant: 'error' });
+      },
     });
     setStreaming(false);
 
@@ -134,12 +167,26 @@ export function ProjectChatPage() {
         if (p.operation !== 'delete') setChanged((prev) => new Map(prev).set(p.path, p.operation === 'modify' ? 'modify' : 'create'));
         setPanel('workspace');
       },
+      onError: (err) => showToast(err instanceof Error ? err.message : `Failed to apply ${p.path}`, { variant: 'error' }),
     });
   }
   function reject(p: PendingChange) {
-    rejectChange.mutate(p.id, { onSuccess: () => setPending((prev) => prev.filter((x) => x.id !== p.id)) });
+    rejectChange.mutate(p.id, {
+      onSuccess: () => setPending((prev) => prev.filter((x) => x.id !== p.id)),
+      onError: (err) => showToast(err instanceof Error ? err.message : `Failed to reject ${p.path}`, { variant: 'error' }),
+    });
   }
-  const approveAll = () => pending.forEach(approve);
+  const approveAll = () => {
+    const count = pending.length;
+    if (count === 0) return;
+    Promise.allSettled(pending.map((p) => new Promise<void>((resolve, reject) => {
+      applyChange.mutate(p.id, { onSuccess: () => resolve(), onError: () => reject() });
+    }))).then((results) => {
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      if (failed === 0) showToast(`Applied ${count} change${count === 1 ? '' : 's'}`, { variant: 'success' });
+      else showToast(`${count - failed} applied, ${failed} failed`, { variant: 'error' });
+    });
+  };
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -154,38 +201,57 @@ export function ProjectChatPage() {
   }
 
   return (
-    <div className="flex" style={{ height: 'calc(100vh - 116px)', gap: 0 }}>
+    <div className="flex flex-col md:flex-row" style={{ height: 'calc(100vh - 116px)', gap: 0 }}>
       {/* ── Conversation rail ── */}
       {railOpen ? (
         <div className="flex flex-col" style={{ width: 230, flexShrink: 0, borderRight: '1px solid var(--color-border-subtle)', paddingRight: 12, marginRight: 14 }}>
-          <button type="button" onClick={() => { setMessages([]); conv.startNew(agentId); }} className="flex items-center justify-center gap-2"
-            style={{ height: 36, background: 'var(--color-accent)', color: '#0d1117', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, marginBottom: 12 }}>
-            <MessageSquarePlus style={{ width: 15, height: 15 }} /> New chat
+          <button
+            type="button"
+            onClick={() => { setMessages([]); conv.startNew(agentId); }}
+            aria-label="Start a new chat"
+            className="flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+            style={{ height: 36, background: 'var(--color-accent)', color: '#021526', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, marginBottom: 12 }}
+          >
+            <MessageSquarePlus style={{ width: 15, height: 15 }} aria-hidden="true" /> New chat
           </button>
           <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
-            <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-text-disabled)', fontFamily: 'var(--font-mono)' }}>Chats</span>
-            <button type="button" onClick={() => setRailOpen(false)} title="Hide" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-disabled)' }}>
-              <PanelLeftClose style={{ width: 14, height: 14 }} />
+            <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)' }}>Chats</span>
+            <button
+              type="button"
+              onClick={() => setRailOpen(false)}
+              aria-label="Hide conversations sidebar"
+              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: 6, borderRadius: 4 }}
+            >
+              <PanelLeftClose style={{ width: 14, height: 14 }} aria-hidden="true" />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto flex flex-col" style={{ gap: 2 }}>
             {conv.conversations.length === 0 && (
-              <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', padding: '4px 2px' }}>No chats yet.</span>
+              <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', padding: '4px 2px' }}>No chats yet.</span>
             )}
             {conv.conversations.map((c) => {
               const on = c.id === conv.activeId;
               return (
-                <div key={c.id} className="group flex items-center" style={{ borderRadius: 'var(--radius-sm)', background: on ? 'var(--color-accent-subtle)' : 'transparent' }}>
-                  <button type="button" onClick={() => conv.setActiveId(c.id)} className="truncate"
-                    style={{ flex: 1, textAlign: 'left', padding: '7px 9px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12.5, color: on ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)' }}>
+                <div key={c.id} className="group flex items-center focus-within:ring-2 focus-within:ring-[#7c8cf8]" style={{ borderRadius: 'var(--radius-sm)', background: on ? 'var(--color-accent-subtle)' : 'transparent' }}>
+                  <button
+                    type="button"
+                    onClick={() => conv.setActiveId(c.id)}
+                    className="truncate focus-visible:outline-none"
+                    style={{ flex: 1, textAlign: 'left', padding: '8px 9px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12.5, color: on ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)', minHeight: 36 }}
+                  >
                     {c.title}
                   </button>
-                  <button type="button" onClick={() => conv.remove(c.id)} title="Delete"
-                    style={{ opacity: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-disabled)', padding: '0 7px' }}
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete({ kind: 'conv', id: c.id, title: c.title })}
+                    aria-label={`Delete chat ${c.title}`}
+                    className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: '6px 7px', borderRadius: 4 }}
                     onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-error)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
-                    className="group-hover:opacity-100">
-                    <Trash2 style={{ width: 12.5, height: 12.5 }} />
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-secondary)'; }}
+                  >
+                    <Trash2 style={{ width: 12.5, height: 12.5 }} aria-hidden="true" />
                   </button>
                 </div>
               );
@@ -193,9 +259,14 @@ export function ProjectChatPage() {
           </div>
         </div>
       ) : (
-        <button type="button" onClick={() => setRailOpen(true)} title="Chats"
-          style={{ width: 30, height: 30, marginRight: 12, flexShrink: 0, background: 'none', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--color-text-disabled)' }}>
-          <PanelLeft style={{ width: 14, height: 14 }} />
+        <button
+          type="button"
+          onClick={() => setRailOpen(true)}
+          aria-label="Show conversations sidebar"
+          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+          style={{ width: 36, height: 36, marginRight: 12, flexShrink: 0, background: 'none', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--color-text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <PanelLeft style={{ width: 14, height: 14 }} aria-hidden="true" />
         </button>
       )}
 
@@ -224,10 +295,15 @@ export function ProjectChatPage() {
           })}
         </div>
 
-        <div className="flex-1 flex" style={{ minHeight: 0, gap: 14 }}>
+        <div className="flex-1 flex flex-col lg:flex-row" style={{ minHeight: 0, gap: 14 }}>
           {/* Thread + composer */}
-          <div className="flex-1 flex flex-col" style={{ minWidth: 0 }}>
-            <div className="flex-1 overflow-y-auto flex flex-col" style={{ gap: 22, padding: '6px 4px 12px' }}>
+          <div className="flex-1 flex flex-col relative" style={{ minWidth: 0 }}>
+            <div
+              ref={threadRef}
+              onScroll={onThreadScroll}
+              className="flex-1 overflow-y-auto flex flex-col"
+              style={{ gap: 22, padding: '6px 4px 12px' }}
+            >
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center" style={{ margin: 'auto', maxWidth: 560, textAlign: 'center', gap: 18 }}>
                   <div className="flex items-center justify-center" style={{ width: 46, height: 46, borderRadius: 'var(--radius-lg)', background: 'var(--color-accent-subtle)', border: '1px solid var(--glass-border-hover)' }}>
@@ -252,12 +328,84 @@ export function ProjectChatPage() {
                 </div>
               ) : (
                 messages.map((m, i) => (
-                  <ChatBubble key={i} entry={m} agentName={activeAgent?.name ?? 'agent'} agentColor={activeAgent?.color ?? 'var(--color-accent)'}
-                    streaming={streaming && i === messages.length - 1} />
+                  <ChatBubble
+                    key={`${m.role}-${i}-${m.content.length}`}
+                    entry={m}
+                    agentName={activeAgent?.name ?? 'agent'}
+                    agentColor={activeAgent?.color ?? 'var(--color-accent)'}
+                    streaming={streaming && i === messages.length - 1}
+                  />
                 ))
               )}
               <div ref={endRef} />
             </div>
+
+            {/* Streaming error banner with retry */}
+            {streamError && (
+              <div
+                role="alert"
+                className="flex items-center justify-between gap-3"
+                style={{
+                  margin: '0 auto 8px',
+                  maxWidth: 760,
+                  width: '100%',
+                  padding: '8px 12px',
+                  background: 'var(--color-error-subtle)',
+                  border: '1px solid rgba(224,96,96,0.3)',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: 12,
+                  color: '#e06060',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                <span className="truncate" style={{ flex: 1 }}>Stream failed: {streamError}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const last = lastInputRef.current;
+                      if (!last) return;
+                      setInput(last.text);
+                      setStreamError(null);
+                    }}
+                    className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                    style={{ height: 26, padding: '0 10px', background: 'transparent', border: '1px solid rgba(224,96,96,0.4)', color: '#e06060', fontSize: 11, borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
+                  >
+                    Retry
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStreamError(null)}
+                    aria-label="Dismiss error"
+                    style={{ background: 'none', border: 'none', color: '#e06060', padding: 4, cursor: 'pointer' }}
+                  >
+                    <X style={{ width: 12, height: 12 }} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* "Jump to latest" pill — appears when the user has scrolled up from the bottom */}
+            {!autoScroll && messages.length > 0 && (
+              <button
+                type="button"
+                onClick={scrollToLatest}
+                aria-label="Jump to latest message"
+                className="absolute focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                style={{
+                  bottom: 100, left: '50%', transform: 'translateX(-50%)',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  height: 30, padding: '0 12px',
+                  background: 'var(--color-bg-surface)',
+                  border: '1px solid rgba(124,140,248,0.4)',
+                  color: 'var(--color-accent)',
+                  borderRadius: 999, fontSize: 11.5, fontFamily: 'var(--font-mono)',
+                  cursor: 'pointer', boxShadow: '0 6px 18px rgba(0,0,0,0.4)',
+                }}
+              >
+                <ArrowDown style={{ width: 12, height: 12 }} aria-hidden="true" /> Latest
+              </button>
+            )}
 
             {/* Pending file ops — require user approval before touching disk */}
             {pending.length > 0 && (
@@ -329,15 +477,25 @@ export function ProjectChatPage() {
                       <div key={d.id} className="flex items-center justify-between gap-2" style={{ padding: '6px 9px', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)' }}>
                         <span className="truncate" style={{ fontSize: 11.5, color: 'var(--color-text-primary)' }}>{d.name}</span>
                         <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
-                          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>{(d.content.length / 1000).toFixed(1)}k</span>
-                          <button type="button" onClick={() => deleteDoc.mutate(d.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-error)' }}><Trash2 style={{ width: 12, height: 12 }} /></button>
+                          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>{(d.content.length / 1000).toFixed(1)}k</span>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDelete({ kind: 'doc', id: d.id, name: d.name })}
+                            aria-label={`Delete document ${d.name}`}
+                            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-error)', padding: 6, borderRadius: 4 }}
+                          >
+                            <Trash2 style={{ width: 12, height: 12 }} aria-hidden="true" />
+                          </button>
                         </div>
                       </div>
                     ))}
                     {(docs ?? []).length === 0 && <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>No documents.</span>}
                   </div>
-                  <input placeholder="document name" value={docName} onChange={(e) => setDocName(e.target.value)} style={{ ...inputStyle, marginBottom: 8 }} />
-                  <textarea placeholder="paste content…" value={docContent} onChange={(e) => setDocContent(e.target.value)}
+                  <label htmlFor="doc-name-input" className="sr-only">Document name</label>
+                  <input id="doc-name-input" placeholder="document name" value={docName} onChange={(e) => setDocName(e.target.value)} style={{ ...inputStyle, marginBottom: 8 }} />
+                  <label htmlFor="doc-content-input" className="sr-only">Document content</label>
+                  <textarea id="doc-content-input" placeholder="paste content…" value={docContent} onChange={(e) => setDocContent(e.target.value)}
                     style={{ ...inputStyle, height: 80, padding: '7px 10px', resize: 'vertical', marginBottom: 8 }} />
                   <div className="flex items-center gap-2">
                     <button type="button" onClick={addDoc} disabled={createDoc.isPending} className="flex items-center gap-1.5"
@@ -379,20 +537,62 @@ export function ProjectChatPage() {
         </div>
       </div>
 
-      {/* File viewer overlay */}
-      {viewerPath && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setViewerPath(null)}>
-          <div className="flex flex-col" style={{ width: '80%', maxWidth: 900, height: '80%', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }} onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between" style={{ padding: '9px 12px', borderBottom: '1px solid var(--color-border-subtle)' }}>
-              <span className="truncate" style={{ fontSize: 12.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)' }}>{viewerPath}</span>
-              <button type="button" onClick={() => setViewerPath(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-disabled)' }}><X style={{ width: 15, height: 15 }} /></button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <FileViewer projectId={projectId} filePath={viewerPath} />
-            </div>
-          </div>
+      {/* File viewer overlay — reuses Dialog for ESC/focus/scroll-lock/aria */}
+      <Dialog
+        open={!!viewerPath}
+        onClose={() => setViewerPath(null)}
+        title={viewerPath ?? undefined}
+        maxWidth="900px"
+        className="!max-h-[85vh]"
+      >
+        <div style={{ height: '70vh', minHeight: 320 }}>
+          {viewerPath && <FileViewer projectId={projectId} filePath={viewerPath} />}
         </div>
-      )}
+      </Dialog>
+
+      {/* Delete confirm dialog (doc or conversation) */}
+      <Dialog
+        open={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        title={confirmDelete?.kind === 'doc' ? 'Delete document' : 'Delete conversation'}
+        description={
+          confirmDelete?.kind === 'doc'
+            ? `Remove "${confirmDelete.name}" from project knowledge. Agents will no longer see it.`
+            : confirmDelete?.kind === 'conv'
+              ? `Permanently delete "${confirmDelete.title}". This cannot be undone.`
+              : undefined
+        }
+        maxWidth="420px"
+      >
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(null)}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+            style={{ height: 34, padding: '0 14px', background: 'transparent', border: '1px solid var(--color-border-default)', color: 'var(--color-text-primary)', fontSize: 12, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!confirmDelete) return;
+              if (confirmDelete.kind === 'doc') {
+                deleteDoc.mutate(confirmDelete.id, {
+                  onError: (err) => showToast(err instanceof Error ? err.message : 'Delete failed', { variant: 'error' }),
+                });
+              } else {
+                conv.remove(confirmDelete.id);
+              }
+              setConfirmDelete(null);
+            }}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+            style={{ height: 34, padding: '0 14px', background: '#e06060', color: '#021526', border: 'none', fontSize: 12, fontWeight: 600, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+          >
+            Delete
+          </button>
+        </div>
+      </Dialog>
     </div>
   );
 }

@@ -138,21 +138,25 @@ export function OrchestratorView({ orchestrator, status = 'idle', onConfigure }:
 
           {/* Edit button */}
           <button
+            type="button"
             onClick={onConfigure}
-            className="shrink-0 opacity-0 group-hover:opacity-100 flex items-center gap-1"
+            aria-label={`Edit orchestrator ${orchestrator.name}`}
+            className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
             style={{
-              fontSize: 10, fontFamily: 'var(--font-mono)',
-              color: 'var(--color-text-disabled)',
+              fontSize: 11, fontFamily: 'var(--font-mono)',
+              color: 'var(--color-text-secondary)',
               border: '1px solid var(--color-border-subtle)',
               borderRadius: 'var(--radius-sm)',
-              padding: '3px 8px',
+              padding: '6px 10px',
               background: 'transparent',
               transition: 'all 0.15s',
+              cursor: 'pointer',
+              minHeight: 28,
             }}
             onMouseEnter={(e) => { e.currentTarget.style.color = '#7c8cf8'; e.currentTarget.style.borderColor = 'rgba(124,140,248,0.3)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-secondary)'; e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; }}
           >
-            <Pencil style={{ width: 10, height: 10 }} />
+            <Pencil style={{ width: 10, height: 10 }} aria-hidden="true" />
             <span>edit</span>
           </button>
         </div>

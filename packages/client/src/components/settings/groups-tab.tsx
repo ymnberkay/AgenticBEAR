@@ -3,6 +3,8 @@ import { Users2, Plus, Trash2, ShieldAlert, FolderGit2, Check, Gauge } from 'luc
 import type { UserRole } from '@subagent/shared';
 import { useGroups, useGroupUsage, useCreateGroup, useUpdateGroup, useDeleteGroup, useMe, useUsers } from '../../api/hooks/use-auth';
 import { useProjects } from '../../api/hooks/use-projects';
+import { useToast } from '../ui/toast';
+import { Dialog } from '../ui/dialog';
 import { Section, inputStyle } from './ui';
 
 const ROLES: UserRole[] = ['admin', 'contributor', 'viewer'];
@@ -22,10 +24,17 @@ export function GroupsTab({ onSaved }: { onSaved: (msg: string) => void }) {
   const createGroup = useCreateGroup();
   const updateGroup = useUpdateGroup();
   const deleteGroup = useDeleteGroup();
+  const { show: showToast } = useToast();
   const usageByGroup = new Map((groupUsage ?? []).map((u) => [u.groupId, u]));
 
   const [name, setName] = useState('');
   const [role, setRole] = useState<UserRole>('contributor');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; memberCount: number } | null>(null);
+
+  const runUpdate = (groupId: string, patch: Parameters<typeof updateGroup.mutate>[0]) =>
+    updateGroup.mutate(patch, {
+      onError: (err) => showToast(err instanceof Error ? err.message : 'Update failed', { variant: 'error' }),
+    });
 
   if (me.data && me.data.role !== 'admin') {
     return (
@@ -73,8 +82,9 @@ export function GroupsTab({ onSaved }: { onSaved: (msg: string) => void }) {
                 </span>
                 <input
                   defaultValue={g.name}
+                  aria-label={`Rename group ${g.name}`}
                   onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                  onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== g.name) updateGroup.mutate({ id: g.id, name: v }); else e.target.value = g.name; }}
+                  onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== g.name) runUpdate(g.id, { id: g.id, name: v }); else e.target.value = g.name; }}
                   style={{ flex: 1, minWidth: 0, background: 'transparent', border: '1px solid transparent', borderRadius: 'var(--radius-sm)', padding: '4px 8px', fontSize: 13.5, fontWeight: 600, color: 'var(--color-text-primary)', fontFamily: 'var(--font-sans)', outline: 'none' }}
                   onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; e.currentTarget.style.background = 'var(--color-bg-surface)'; }}
                   onMouseEnter={(e) => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; }}
@@ -84,16 +94,26 @@ export function GroupsTab({ onSaved }: { onSaved: (msg: string) => void }) {
                 <span className="flex items-center gap-1.5 shrink-0" style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-tertiary)' }}>
                   {members.length} member{members.length === 1 ? '' : 's'}
                 </span>
-                <select value={g.role} onChange={(e) => updateGroup.mutate({ id: g.id, role: e.target.value as UserRole })}
-                  style={{ ...inputStyle, height: 28, width: 'auto', minWidth: 112, cursor: 'pointer', fontSize: 11.5, color: roleColor[g.role] }}>
+                <label className="sr-only" htmlFor={`group-${g.id}-role`}>Role for {g.name}</label>
+                <select
+                  id={`group-${g.id}-role`}
+                  value={g.role}
+                  onChange={(e) => runUpdate(g.id, { id: g.id, role: e.target.value as UserRole })}
+                  style={{ ...inputStyle, height: 30, width: 'auto', minWidth: 112, cursor: 'pointer', fontSize: 11.5, color: roleColor[g.role] }}
+                >
                   {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
-                <button type="button" onClick={() => { if (window.confirm(`Delete group "${g.name}"?`)) deleteGroup.mutate(g.id); }} title="Delete group"
-                  className="flex items-center justify-center shrink-0"
-                  style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'none', border: '1px solid transparent', cursor: 'pointer', color: 'var(--color-text-disabled)' }}
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget({ id: g.id, name: g.name, memberCount: members.length })}
+                  aria-label={`Delete group ${g.name}`}
+                  title="Delete group"
+                  className="flex items-center justify-center shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                  style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: 'none', border: '1px solid transparent', cursor: 'pointer', color: 'var(--color-text-secondary)' }}
                   onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-error)'; e.currentTarget.style.background = 'var(--color-error-subtle)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; e.currentTarget.style.background = 'none'; }}>
-                  <Trash2 style={{ width: 13, height: 13 }} />
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-secondary)'; e.currentTarget.style.background = 'none'; }}
+                >
+                  <Trash2 style={{ width: 13, height: 13 }} aria-hidden="true" />
                 </button>
               </div>
 
@@ -190,9 +210,50 @@ export function GroupsTab({ onSaved }: { onSaved: (msg: string) => void }) {
         )}
       </div>
 
-      <p style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', marginTop: 14, marginBottom: 0 }}>
-        Assign users to groups from the <b style={{ color: 'var(--color-text-tertiary)' }}>Users</b> tab. Admins access every project; others only their groups' projects.
+      <p style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginTop: 14, marginBottom: 0 }}>
+        Assign users to groups from the <b style={{ color: 'var(--color-text-primary)' }}>Users</b> tab. Admins access every project; others only their groups' projects.
       </p>
+
+      <Dialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete permission group"
+        description={
+          deleteTarget
+            ? deleteTarget.memberCount > 0
+              ? `${deleteTarget.memberCount} member${deleteTarget.memberCount === 1 ? '' : 's'} will lose project access tied to this group.`
+              : 'This group will be permanently removed.'
+            : undefined
+        }
+        maxWidth="440px"
+      >
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setDeleteTarget(null)}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+            style={{ height: 36, padding: '0 14px', background: 'transparent', border: '1px solid var(--color-border-default)', color: 'var(--color-text-primary)', fontSize: 12, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!deleteTarget) return;
+              const target = deleteTarget;
+              setDeleteTarget(null);
+              deleteGroup.mutate(target.id, {
+                onSuccess: () => showToast(`Deleted "${target.name}"`, { variant: 'success' }),
+                onError: (err) => showToast(err instanceof Error ? err.message : 'Delete failed', { variant: 'error' }),
+              });
+            }}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+            style={{ height: 36, padding: '0 14px', background: '#e06060', color: '#021526', border: 'none', fontSize: 12, fontWeight: 600, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+          >
+            Delete group
+          </button>
+        </div>
+      </Dialog>
     </Section>
   );
 }

@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import type { PromptTemplate, TemplateCategory, ModelConfig, AgentPermissions } from '@subagent/shared';
-import { DEFAULT_MODEL_CONFIG, DEFAULT_PERMISSIONS, AGENT_COLORS, AGENT_ICONS } from '@subagent/shared';
+import type { PromptTemplate, TemplateCategory, ModelConfig } from '@subagent/shared';
+import { DEFAULT_MODEL_CONFIG, AGENT_COLORS, AGENT_ICONS } from '@subagent/shared';
 import { Input } from '../ui/input';
 import { Select } from '../ui/select';
 import { Button } from '../ui/button';
 import { Separator } from '../ui/separator';
+import { Dialog } from '../ui/dialog';
+import { useToast } from '../ui/toast';
 import { PromptEditor } from '../agents/prompt-editor';
 import { ModelConfigForm } from '../agents/model-config';
 import { useCreateTemplate, useUpdateTemplate, useDeleteTemplate } from '../../api/hooks/use-templates';
@@ -23,6 +25,7 @@ export function TemplateEditor({ template, onClose }: TemplateEditorProps) {
   const createTemplate = useCreateTemplate();
   const updateTemplate = useUpdateTemplate();
   const deleteTemplate = useDeleteTemplate();
+  const { show: showToast } = useToast();
 
   const [name, setName] = useState(template?.name ?? '');
   const [category, setCategory] = useState<TemplateCategory>(template?.category ?? 'custom');
@@ -33,6 +36,7 @@ export function TemplateEditor({ template, onClose }: TemplateEditorProps) {
   );
   const [icon, setIcon] = useState(template?.suggestedIcon ?? 'Bot');
   const [color, setColor] = useState(template?.suggestedColor ?? AGENT_COLORS.custom);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +53,10 @@ export function TemplateEditor({ template, onClose }: TemplateEditorProps) {
           suggestedIcon: icon,
           suggestedColor: color,
         },
-        { onSuccess: onClose },
+        {
+          onSuccess: () => { showToast(`Saved "${name}"`, { variant: 'success' }); onClose(); },
+          onError: (err) => showToast(err instanceof Error ? err.message : 'Save failed', { variant: 'error' }),
+        },
       );
     } else {
       createTemplate.mutate(
@@ -62,16 +69,22 @@ export function TemplateEditor({ template, onClose }: TemplateEditorProps) {
           suggestedIcon: icon,
           suggestedColor: color,
         },
-        { onSuccess: onClose },
+        {
+          onSuccess: () => { showToast(`Created "${name}"`, { variant: 'success' }); onClose(); },
+          onError: (err) => showToast(err instanceof Error ? err.message : 'Create failed', { variant: 'error' }),
+        },
       );
     }
   };
 
-  const handleDelete = () => {
+  const confirmAndDelete = () => {
     if (!template) return;
-    if (window.confirm('Delete this template?')) {
-      deleteTemplate.mutate(template.id, { onSuccess: onClose });
-    }
+    setConfirmDelete(false);
+    const tplName = template.name;
+    deleteTemplate.mutate(template.id, {
+      onSuccess: () => { showToast(`Deleted "${tplName}"`, { variant: 'success' }); onClose(); },
+      onError: (err) => showToast(err instanceof Error ? err.message : 'Delete failed', { variant: 'error' }),
+    });
   };
 
   return (
@@ -85,7 +98,7 @@ export function TemplateEditor({ template, onClose }: TemplateEditorProps) {
             type="button"
             variant="danger"
             size="sm"
-            onClick={handleDelete}
+            onClick={() => setConfirmDelete(true)}
             loading={deleteTemplate.isPending}
           >
             Delete
@@ -122,7 +135,7 @@ export function TemplateEditor({ template, onClose }: TemplateEditorProps) {
 
       <Separator />
 
-      <PromptEditor value={systemPrompt} onChange={setSystemPrompt} />
+      <PromptEditor value={systemPrompt} onChange={setSystemPrompt} originalValue={template?.systemPrompt} />
 
       <Separator />
 
@@ -132,20 +145,25 @@ export function TemplateEditor({ template, onClose }: TemplateEditorProps) {
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-[10px] font-medium uppercase text-white/20 tracking-[0.08em] block mb-1.5">
+          <label className="text-[10px] font-medium uppercase text-text-secondary tracking-[0.08em] block mb-1.5">
             Color
           </label>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Template color">
             {Object.entries(AGENT_COLORS).map(([key, val]) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => setColor(val)}
-                className="h-5 w-5 border-2 rounded-full transition-all duration-150"
+                role="radio"
+                aria-checked={color === val}
+                aria-label={`Color ${key}`}
+                className="rounded-full transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
                 style={{
+                  width: 24, height: 24,
                   backgroundColor: val,
-                  borderColor: color === val ? 'white' : 'transparent',
+                  border: color === val ? '2px solid white' : '2px solid transparent',
                   transform: color === val ? 'scale(1.15)' : undefined,
+                  cursor: 'pointer',
                 }}
                 title={key}
               />
@@ -157,9 +175,9 @@ export function TemplateEditor({ template, onClose }: TemplateEditorProps) {
           value={icon}
           onChange={(e) => setIcon(e.target.value)}
         >
-          {Object.entries(AGENT_ICONS).map(([key, val]) => (
-            <option key={key} value={val}>
-              {val} ({key})
+          {Object.entries(AGENT_ICONS).map(([key, _val]) => (
+            <option key={key} value={key}>
+              {key}
             </option>
           ))}
         </Select>
@@ -178,6 +196,33 @@ export function TemplateEditor({ template, onClose }: TemplateEditorProps) {
           {template ? 'Save Changes' : 'Create Template'}
         </Button>
       </div>
+
+      <Dialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title="Delete template?"
+        description={template ? `Permanently delete "${template.name}". Agents created from this template will keep their copy of the prompt.` : undefined}
+        maxWidth="440px"
+      >
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(false)}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+            style={{ height: 36, padding: '0 14px', background: 'transparent', border: '1px solid var(--color-border-default)', color: 'var(--color-text-primary)', fontSize: 12, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={confirmAndDelete}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+            style={{ height: 36, padding: '0 14px', background: '#e06060', color: '#021526', border: 'none', fontSize: 12, fontWeight: 600, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+          >
+            Delete template
+          </button>
+        </div>
+      </Dialog>
     </form>
   );
 }

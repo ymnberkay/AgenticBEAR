@@ -39,8 +39,10 @@ export function GatewayUsage({ range }: { range: AnalyticsRange }) {
         </div>
       }
     >
-      {!data || data.totalRequests === 0 ? (
-        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>No gateway calls for this filter.</span>
+      {!data ? (
+        <span role="status" aria-live="polite" style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>Loading gateway usage…</span>
+      ) : data.totalRequests === 0 ? (
+        <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>No gateway calls for this filter.</span>
       ) : (
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-6">
@@ -55,8 +57,8 @@ export function GatewayUsage({ range }: { range: AnalyticsRange }) {
             <div style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', marginBottom: 6 }}>by model</div>
             <div className="flex flex-col gap-1">
               {data.byModel.map((m) => (
-                <div key={m.key} className="flex items-center justify-between" style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
-                  <code style={{ wordBreak: 'break-all', color: 'var(--color-text-primary)' }}>{m.label}</code>
+                <div key={m.key} className="flex items-center justify-between gap-2" style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+                  <code title={m.label} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--color-text-primary)', minWidth: 0 }}>{m.label}</code>
                   <span style={{ flexShrink: 0 }}>{m.requests} · ↑{fmtTokens(m.inputTokens)} ↓{fmtTokens(m.outputTokens)} · {money(m.costUsd)}</span>
                 </div>
               ))}

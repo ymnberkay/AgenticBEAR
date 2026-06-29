@@ -34,8 +34,25 @@ export function ProjectDetailPage() {
 
   if (!project) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-2" style={{ background: 'var(--color-bg-base)' }}>
-        <p style={{ fontSize: 13, color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)' }}>project not found</p>
+      <div className="flex flex-col items-center justify-center h-full gap-3 px-6" style={{ background: 'var(--color-bg-base)' }}>
+        <p style={{ fontSize: 13, color: 'var(--color-text-primary)', fontFamily: 'var(--font-mono)' }}>project not found</p>
+        <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)', textAlign: 'center', maxWidth: 360 }}>
+          The project may have been deleted or you may not have access.
+        </p>
+        <Link
+          to="/"
+          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            height: 36, padding: '0 16px',
+            background: 'var(--color-accent)', color: '#021526',
+            fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 600,
+            borderRadius: 'var(--radius-md)', textDecoration: 'none',
+            marginTop: 8,
+          }}
+        >
+          Back to projects
+        </Link>
       </div>
     );
   }
@@ -88,15 +105,18 @@ export function ProjectDetailPage() {
               <motion.button
                 layoutId="spotlight-bar"
                 key="search-trigger"
+                type="button"
                 onClick={() => openModal('command-palette')}
-                className="absolute flex items-center gap-2.5"
+                aria-label="Open command palette (Cmd+K)"
+                aria-keyshortcuts="Meta+K"
+                className="absolute flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
                 style={{
                   left: 'calc(50% - 160px)',
-                  width: 320, height: 30,
+                  width: 320, height: 32,
                   padding: '0 12px',
                   background: 'var(--color-bg-raised)',
                   border: '1px solid var(--color-border-default)',
-                  color: 'var(--color-text-disabled)',
+                  color: 'var(--color-text-secondary)',
                   fontFamily: 'var(--font-sans)',
                   fontSize: 12,
                   cursor: 'pointer',
@@ -105,9 +125,9 @@ export function ProjectDetailPage() {
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(124,140,248,0.35)'; e.currentTarget.style.background = 'var(--color-bg-overlay)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; e.currentTarget.style.background = 'var(--color-bg-raised)'; }}
               >
-                <Search style={{ width: 12, height: 12, flexShrink: 0 }} />
+                <Search style={{ width: 12, height: 12, flexShrink: 0 }} aria-hidden="true" />
                 <span style={{ flex: 1, textAlign: 'left' }}>Search or jump to...</span>
-                <kbd style={{ fontFamily: 'var(--font-mono)', fontSize: 9, background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', padding: '1px 5px', color: 'var(--color-text-disabled)', flexShrink: 0 }}>
+                <kbd aria-hidden="true" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', padding: '2px 6px', color: 'var(--color-text-secondary)', flexShrink: 0, borderRadius: 'var(--radius-sm)' }}>
                   ⌘K
                 </kbd>
               </motion.button>

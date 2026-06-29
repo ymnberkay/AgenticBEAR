@@ -57,10 +57,12 @@ export function AgentList({
           )}
         </div>
         <button
+          type="button"
           onClick={onAddAgent}
-          className="flex items-center gap-1.5"
+          aria-label="Add specialist agent"
+          className="flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
           style={{
-            height: 28,
+            height: 32,
             padding: '0 12px',
             fontSize: 12,
             fontFamily: 'var(--font-mono)',
@@ -74,15 +76,17 @@ export function AgentList({
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(124,140,248,0.4)'; e.currentTarget.style.color = '#7c8cf8'; e.currentTarget.style.background = 'rgba(124,140,248,0.06)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; e.currentTarget.style.color = 'var(--color-text-secondary)'; e.currentTarget.style.background = 'transparent'; }}
         >
-          <Plus style={{ width: 11, height: 11 }} />
+          <Plus style={{ width: 11, height: 11 }} aria-hidden="true" />
           Add Agent
         </button>
       </div>
 
       {specialists.length === 0 ? (
         <button
+          type="button"
           onClick={onAddAgent}
-          className="flex flex-col items-center justify-center group"
+          aria-label="Add your first specialist agent"
+          className="flex flex-col items-center justify-center group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
           style={{
             padding: '40px 24px',
             width: '100%',
@@ -90,6 +94,7 @@ export function AgentList({
             borderRadius: 'var(--radius-md)',
             background: 'transparent',
             transition: 'all 0.15s',
+            cursor: 'pointer',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.borderColor = 'rgba(124,140,248,0.35)';
@@ -100,12 +105,12 @@ export function AgentList({
             e.currentTarget.style.background = 'transparent';
           }}
         >
-          <Bot style={{ width: 18, height: 18, color: 'var(--color-text-disabled)', marginBottom: 10 }} />
-          <p style={{ fontSize: 12, fontFamily: 'var(--font-sans)', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
+          <Bot style={{ width: 22, height: 22, color: 'var(--color-text-secondary)', marginBottom: 10 }} aria-hidden="true" />
+          <p style={{ fontSize: 13, fontFamily: 'var(--font-sans)', color: 'var(--color-text-primary)', fontWeight: 500 }}>
             No specialist agents yet
           </p>
-          <p style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', marginTop: 4 }}>
-            click to add your first agent
+          <p style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginTop: 4 }}>
+            Click to add your first agent
           </p>
         </button>
       ) : (

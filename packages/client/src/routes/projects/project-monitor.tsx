@@ -52,9 +52,16 @@ function useProjectFeed(projectId: string) {
 }
 
 function useCountUp(target: number, ms = 700) {
-  const [v, setV] = useState(0);
-  const from = useRef(0);
+  const [v, setV] = useState(target);
+  const from = useRef(target);
+  const lastTarget = useRef(target);
   useEffect(() => {
+    // Skip animation if the value didn't really change (avoids re-animating on every refetch).
+    if (Math.abs(target - lastTarget.current) < 0.0000001) {
+      setV(target);
+      return;
+    }
+    lastTarget.current = target;
     const start = performance.now();
     const a = from.current;
     let raf = 0;
@@ -167,30 +174,41 @@ export function ProjectMonitorPage() {
   const maxAgent = Math.max(...(a?.byAgent ?? []).map((x) => x.inputTokens + x.outputTokens), 1);
 
   return (
-    <div className="flex flex-col" style={{ gap: 16, maxWidth: 1100, paddingBottom: 28 }}>
+    <div className="flex flex-col" style={{ gap: 16, maxWidth: 1100, margin: '0 auto', paddingBottom: 28 }}>
       {/* Header + range + live badge */}
       <div className="flex items-center justify-between flex-wrap" style={{ gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 18, fontWeight: 600, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: 9 }}>
-            <Activity style={{ width: 18, height: 18, color: 'var(--color-accent)' }} /> Mission Control
+            <Activity style={{ width: 18, height: 18, color: 'var(--color-accent)' }} aria-hidden="true" /> Mission Control
           </h1>
-          <p style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-tertiary)', marginTop: 3 }}>live activity + usage & cost</p>
+          <p style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginTop: 3 }}>live activity + usage & cost</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" role="group" aria-label="Time range">
           {RANGES.map((r) => {
             const on = range === r.value;
             return (
-              <button key={r.value} type="button" onClick={() => setRange(r.value)}
-                style={{ height: 28, padding: '0 11px', fontSize: 11.5, fontFamily: 'var(--font-mono)', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
-                  background: on ? 'var(--color-accent-subtle)' : 'var(--color-bg-surface)', border: `1px solid ${on ? 'var(--color-accent)' : 'var(--color-border-subtle)'}`, color: on ? 'var(--color-accent)' : 'var(--color-text-tertiary)' }}>
+              <button
+                key={r.value}
+                type="button"
+                onClick={() => setRange(r.value)}
+                aria-pressed={on}
+                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                style={{
+                  height: 32, padding: '0 12px', fontSize: 11.5,
+                  fontFamily: 'var(--font-mono)', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
+                  background: on ? 'var(--color-accent-subtle)' : 'var(--color-bg-surface)',
+                  border: `1px solid ${on ? 'var(--color-accent)' : 'var(--color-border-subtle)'}`,
+                  color: on ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                }}
+              >
                 {r.label}
               </button>
             );
           })}
-          {isFetching && <Loader2 className="animate-spin" style={{ width: 13, height: 13, color: 'var(--color-text-disabled)' }} />}
-          <span className="flex items-center gap-1.5" style={{ marginLeft: 4, fontSize: 11, fontFamily: 'var(--font-mono)', color: feed.live ? 'var(--color-success)' : 'var(--color-text-disabled)' }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: feed.live ? 'var(--color-success)' : 'var(--color-text-disabled)', animation: feed.live ? 'agentPulse 2s ease-in-out infinite' : 'none' }} />
-            {feed.live ? 'LIVE' : 'connecting…'}
+          {isFetching && <Loader2 className="animate-spin" style={{ width: 13, height: 13, color: 'var(--color-text-secondary)' }} aria-label="Refreshing" />}
+          <span aria-live="polite" className="flex items-center gap-1.5" style={{ marginLeft: 4, fontSize: 11, fontFamily: 'var(--font-mono)', color: feed.live ? 'var(--color-success)' : 'var(--color-text-secondary)' }}>
+            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: feed.live ? 'var(--color-success)' : 'var(--color-text-secondary)', animation: feed.live ? 'agentPulse 2s ease-in-out infinite' : 'none' }} />
+            {feed.live ? 'LIVE' : 'reconnecting…'}
           </span>
         </div>
       </div>

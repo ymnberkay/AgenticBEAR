@@ -24,7 +24,15 @@ export function Section({
   );
 }
 
-export const money = (n: number) => (Math.abs(n) < 0.01 ? `$${n.toFixed(6)}` : `$${n.toFixed(2)}`);
+export const money = (n: number) => {
+  // Magnitude-aware precision: tiny values get more digits, large values stay readable.
+  if (n === 0) return '$0.00';
+  const abs = Math.abs(n);
+  if (abs >= 100) return `$${n.toFixed(0)}`;
+  if (abs >= 1) return `$${n.toFixed(2)}`;
+  if (abs >= 0.01) return `$${n.toFixed(3)}`;
+  return `$${n.toFixed(4)}`;
+};
 
 export const fmtTokens = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n);
@@ -33,7 +41,7 @@ export const fmtTokens = (n: number) =>
 export function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="flex flex-col gap-1" style={{ minWidth: 84 }}>
-      <span style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>{label}</span>
+      <span style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>{label}</span>
       <span style={{ fontSize: 17, fontWeight: 600, fontFamily: 'var(--font-mono)', color: color ?? 'var(--color-text-primary)' }}>{value}</span>
     </div>
   );
@@ -64,10 +72,26 @@ export function Pager({ page, total, onPage }: { page: number; total: number; on
     color: enabled ? '#7c8cf8' : 'var(--color-border-default)',
   });
   return (
-    <div className="flex items-center justify-between" style={{ marginTop: 8, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
-      <button type="button" disabled={page <= 1} onClick={() => onPage(page - 1)} style={btn(page > 1)}>‹ prev</button>
-      <span>page {page} / {total}</span>
-      <button type="button" disabled={page >= total} onClick={() => onPage(page + 1)} style={btn(page < total)}>next ›</button>
+    <div className="flex items-center justify-between" style={{ marginTop: 8, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+      <button
+        type="button"
+        disabled={page <= 1}
+        onClick={() => onPage(page - 1)}
+        aria-label="Previous page"
+        style={{ ...btn(page > 1), minHeight: 24, padding: '4px 6px', borderRadius: 4 }}
+      >
+        ‹ prev
+      </button>
+      <span aria-live="polite">page {page} / {total}</span>
+      <button
+        type="button"
+        disabled={page >= total}
+        onClick={() => onPage(page + 1)}
+        aria-label="Next page"
+        style={{ ...btn(page < total), minHeight: 24, padding: '4px 6px', borderRadius: 4 }}
+      >
+        next ›
+      </button>
     </div>
   );
 }

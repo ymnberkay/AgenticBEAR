@@ -9,6 +9,8 @@ import {
   useDeleteProvider,
   type ProviderView,
 } from '../../api/hooks/use-providers';
+import { useToast } from '../ui/toast';
+import { Dialog } from '../ui/dialog';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -108,9 +110,12 @@ export function CustomProvidersSection() {
   const createProvider = useCreateProvider();
   const updateProvider = useUpdateProvider();
   const deleteProvider = useDeleteProvider();
+  const { show: showToast } = useToast();
 
   const [editingId, setEditingId] = useState<string | null>(null); // null = closed, '' = new
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [deleteTarget, setDeleteTarget] = useState<ProviderView | null>(null);
+  const [labelError, setLabelError] = useState('');
 
   const open = editingId !== null;
 
@@ -145,6 +150,7 @@ export function CustomProvidersSection() {
   }
 
   function save() {
+    setLabelError('');
     const payload = {
       label: form.label.trim(),
       kind: form.kind,
@@ -156,11 +162,36 @@ export function CustomProvidersSection() {
       // send only when the user typed something.
       ...(form.apiKey ? { apiKey: form.apiKey } : {}),
     };
-    if (!payload.label) return;
+    if (!payload.label) {
+      setLabelError('Give the provider a label.');
+      return;
+    }
+    // Numeric validation on costs.
+    const invalidCost = form.models.some((m) => {
+      if (m.inPer1M && !Number.isFinite(Number(m.inPer1M))) return true;
+      if (m.outPer1M && !Number.isFinite(Number(m.outPer1M))) return true;
+      return false;
+    });
+    if (invalidCost) {
+      showToast('Costs must be numbers (e.g. 3 for $3 per 1M tokens).', { variant: 'error' });
+      return;
+    }
     if (editingId) {
-      updateProvider.mutate({ id: editingId, input: payload }, { onSuccess: () => setEditingId(null) });
+      updateProvider.mutate(
+        { id: editingId, input: payload },
+        {
+          onSuccess: () => { setEditingId(null); showToast('Provider saved', { variant: 'success' }); },
+          onError: (err) => showToast(err instanceof Error ? err.message : 'Save failed', { variant: 'error' }),
+        },
+      );
     } else {
-      createProvider.mutate({ ...payload, apiKey: form.apiKey || undefined }, { onSuccess: () => setEditingId(null) });
+      createProvider.mutate(
+        { ...payload, apiKey: form.apiKey || undefined },
+        {
+          onSuccess: () => { setEditingId(null); showToast('Provider added', { variant: 'success' }); },
+          onError: (err) => showToast(err instanceof Error ? err.message : 'Create failed', { variant: 'error' }),
+        },
+      );
     }
   }
 
@@ -210,13 +241,25 @@ export function CustomProvidersSection() {
               </div>
             </div>
             <div className="flex items-center gap-1" style={{ flexShrink: 0 }}>
-              <button type="button" onClick={() => startEdit(p)} title="Edit"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-disabled)', padding: 4 }}>
-                <Pencil style={{ width: 13, height: 13 }} />
+              <button
+                type="button"
+                onClick={() => startEdit(p)}
+                aria-label={`Edit provider ${p.label}`}
+                title="Edit"
+                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: 8, borderRadius: 4, minWidth: 32, minHeight: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Pencil style={{ width: 13, height: 13 }} aria-hidden="true" />
               </button>
-              <button type="button" onClick={() => deleteProvider.mutate(p.id)} title="Delete"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-error)', padding: 4 }}>
-                <Trash2 style={{ width: 13, height: 13 }} />
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(p)}
+                aria-label={`Delete provider ${p.label}`}
+                title="Delete"
+                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-error)', padding: 8, borderRadius: 4, minWidth: 32, minHeight: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Trash2 style={{ width: 13, height: 13 }} aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -243,8 +286,22 @@ export function CustomProvidersSection() {
               </select>
             )}
 
-            <input placeholder="Label (e.g. DeepSeek)" value={form.label}
-              onChange={(e) => setForm({ ...form, label: e.target.value })} style={inputStyle} />
+            <div className="flex flex-col gap-1">
+              <label htmlFor="cp-label" className="sr-only">Label</label>
+              <input
+                id="cp-label"
+                placeholder="Label (e.g. DeepSeek)"
+                value={form.label}
+                required
+                aria-invalid={!!labelError}
+                aria-describedby={labelError ? 'cp-label-err' : undefined}
+                onChange={(e) => { setForm({ ...form, label: e.target.value }); if (labelError) setLabelError(''); }}
+                style={{ ...inputStyle, borderColor: labelError ? 'rgba(224,96,96,0.5)' : 'var(--color-border-default)' }}
+              />
+              {labelError && (
+                <span id="cp-label-err" role="alert" style={{ fontSize: 11, color: 'var(--color-error)', fontFamily: 'var(--font-mono)' }}>{labelError}</span>
+              )}
+            </div>
 
             <select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as ProviderKind })} style={{ ...inputStyle, cursor: 'pointer' }}>
               {(['openai-compatible', 'anthropic-compatible'] as ProviderKind[]).map((k) => (
@@ -255,8 +312,24 @@ export function CustomProvidersSection() {
             <input placeholder="Base URL (e.g. https://api.deepseek.com/v1)" value={form.baseUrl}
               onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} style={inputStyle} />
 
-            <input type="password" placeholder={editingId ? 'API key (leave blank to keep)' : 'API key (blank for local)'}
-              value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} style={inputStyle} />
+            <div className="flex flex-col gap-1">
+              <label htmlFor="cp-apikey" className="sr-only">API key</label>
+              <input
+                id="cp-apikey"
+                type="password"
+                placeholder={editingId ? 'API key (leave blank to keep existing)' : 'API key (blank for local)'}
+                value={form.apiKey}
+                onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
+                autoComplete="off"
+                spellCheck={false}
+                style={inputStyle}
+              />
+              {editingId && !form.apiKey && (
+                <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+                  An API key is currently set. Leave blank to keep it.
+                </span>
+              )}
+            </div>
 
             {/* Auth header style — for corporate gateways/proxies (Team/Enterprise) */}
             <div className="flex flex-col gap-1.5">
@@ -300,8 +373,28 @@ export function CustomProvidersSection() {
                 <div key={i} className="flex items-center gap-1.5">
                   <input placeholder="model id" value={m.id} onChange={(e) => updateModel(i, { id: e.target.value })} style={{ ...inputStyle, flex: 2 }} />
                   <input placeholder="label" value={m.label} onChange={(e) => updateModel(i, { label: e.target.value })} style={{ ...inputStyle, flex: 2 }} />
-                  <input placeholder="in" value={m.inPer1M} onChange={(e) => updateModel(i, { inPer1M: e.target.value })} style={{ ...inputStyle, flex: 1 }} />
-                  <input placeholder="out" value={m.outPer1M} onChange={(e) => updateModel(i, { outPer1M: e.target.value })} style={{ ...inputStyle, flex: 1 }} />
+                  <input
+                    placeholder="in $/1M"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    inputMode="decimal"
+                    value={m.inPer1M}
+                    aria-label="Input cost per million tokens"
+                    onChange={(e) => updateModel(i, { inPer1M: e.target.value })}
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                  <input
+                    placeholder="out $/1M"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    inputMode="decimal"
+                    value={m.outPer1M}
+                    aria-label="Output cost per million tokens"
+                    onChange={(e) => updateModel(i, { outPer1M: e.target.value })}
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
                   <input placeholder="lvl" type="number" min={1} max={10} value={m.level} onChange={(e) => updateModel(i, { level: e.target.value })} style={{ ...inputStyle, width: 52, flexShrink: 0 }} title="Capability level 1–10 (router)" />
                   <button type="button" onClick={() => setForm((f) => ({ ...f, models: f.models.filter((_, idx) => idx !== i) }))}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-error)', padding: 4, flexShrink: 0 }}>
@@ -331,6 +424,41 @@ export function CustomProvidersSection() {
           </div>
         )}
       </div>
+
+      <Dialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete provider"
+        description={deleteTarget ? `Remove "${deleteTarget.label}" and its stored API key. Apps using this provider will fail until reconfigured.` : undefined}
+        maxWidth="440px"
+      >
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setDeleteTarget(null)}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+            style={{ height: 36, padding: '0 14px', background: 'transparent', border: '1px solid var(--color-border-default)', color: 'var(--color-text-primary)', fontSize: 12, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!deleteTarget) return;
+              const target = deleteTarget;
+              setDeleteTarget(null);
+              deleteProvider.mutate(target.id, {
+                onSuccess: () => showToast(`Deleted "${target.label}"`, { variant: 'success' }),
+                onError: (err) => showToast(err instanceof Error ? err.message : 'Delete failed', { variant: 'error' }),
+              });
+            }}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+            style={{ height: 36, padding: '0 14px', background: '#e06060', color: '#021526', border: 'none', fontSize: 12, fontWeight: 600, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+          >
+            Delete provider
+          </button>
+        </div>
+      </Dialog>
     </section>
   );
 }

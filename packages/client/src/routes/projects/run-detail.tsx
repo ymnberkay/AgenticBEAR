@@ -1,4 +1,5 @@
-import { useParams } from '@tanstack/react-router';
+import { useParams, Link } from '@tanstack/react-router';
+import { ArrowLeft } from 'lucide-react';
 import { useRun, useRunSteps, useRunFileChanges } from '../../api/hooks/use-runs';
 import { useAgents } from '../../api/hooks/use-agents';
 import { useSSE } from '../../hooks/use-sse';
@@ -35,8 +36,22 @@ export function RunDetailPage() {
 
   if (!run) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <p className="text-[12px] text-text-disabled">Run not found</p>
+      <div className="flex flex-col items-center justify-center py-16 gap-3">
+        <p className="text-[12px] text-text-primary">Run not found</p>
+        <p className="text-[11px] text-text-secondary">The run may have been deleted or you may not have access.</p>
+        <Link
+          to="/projects/$projectId"
+          params={{ projectId }}
+          className="inline-flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+          style={{
+            height: 32, padding: '0 14px', marginTop: 4,
+            background: 'var(--color-bg-raised)', color: 'var(--color-text-primary)',
+            border: '1px solid var(--color-border-default)',
+            borderRadius: 'var(--radius-md)', fontSize: 12, textDecoration: 'none',
+          }}
+        >
+          <ArrowLeft style={{ width: 12, height: 12 }} aria-hidden="true" /> Back to project
+        </Link>
       </div>
     );
   }
@@ -45,6 +60,19 @@ export function RunDetailPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Breadcrumb */}
+      <Link
+        to="/projects/$projectId"
+        params={{ projectId }}
+        className="inline-flex items-center gap-1.5 w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+        style={{
+          fontSize: 11, fontFamily: 'var(--font-mono)',
+          color: 'var(--color-text-secondary)', textDecoration: 'none',
+          padding: '4px 6px', borderRadius: 'var(--radius-sm)',
+        }}
+      >
+        <ArrowLeft style={{ width: 11, height: 11 }} aria-hidden="true" /> Back to project
+      </Link>
       {/* Objective */}
       <div>
         <h3 className="text-[14px] font-medium text-text-primary leading-relaxed">{run.objective}</h3>

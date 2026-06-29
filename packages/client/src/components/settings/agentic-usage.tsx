@@ -31,8 +31,10 @@ export function AgenticUsage({ range }: { range: AnalyticsRange }) {
       icon={<Bot style={{ width: 13, height: 13 }} />} color="#7c8cf8" title="Agentic — Chat & Runs"
       action={<FilterSelect value={projectId} onChange={setProjectId} options={projectOptions} />}
     >
-      {!data || data.totalRuns === 0 ? (
-        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>No agentic activity in this range.</span>
+      {!data ? (
+        <span role="status" aria-live="polite" style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>Loading agentic usage…</span>
+      ) : data.totalRuns === 0 ? (
+        <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>No agentic activity in this range.</span>
       ) : (
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-6">
@@ -67,8 +69,8 @@ export function AgenticUsage({ range }: { range: AnalyticsRange }) {
               <div style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', marginBottom: 6 }}>by model</div>
               <div className="flex flex-col gap-1">
                 {data.byModel.map((m) => (
-                  <div key={m.model} className="flex items-center justify-between" style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
-                    <code style={{ wordBreak: 'break-all', color: 'var(--color-text-primary)' }}>{m.model}</code>
+                  <div key={m.model} className="flex items-center justify-between gap-2" style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+                    <code title={m.model} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--color-text-primary)', minWidth: 0 }}>{m.model}</code>
                     <span style={{ flexShrink: 0 }}>{m.calls} · ↑{fmtTokens(m.inputTokens)} ↓{fmtTokens(m.outputTokens)} · {money(m.costUsd)}</span>
                   </div>
                 ))}

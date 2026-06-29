@@ -63,11 +63,11 @@ export function ProjectAgentsPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2 }}
-        className="flex gap-5"
-        style={{ maxWidth: selectedActivity ? 1400 : 760, height: 'calc(100vh - 150px)' }}
+        className="flex gap-5 flex-wrap lg:flex-nowrap"
+        style={{ maxWidth: selectedActivity ? 1400 : 760, minHeight: 'calc(100vh - 150px)' }}
       >
         {/* Left: agent list */}
-        <div className="flex flex-col gap-6 shrink-0 overflow-y-auto" style={{ width: 264, paddingRight: 4 }}>
+        <div className="flex flex-col gap-6 shrink-0 overflow-y-auto w-full lg:w-[264px]" style={{ paddingRight: 4 }}>
           <OrchestratorView
             orchestrator={orchestrator}
             status={orchestrator ? (statuses[orchestrator.id] ?? 'idle') : 'idle'}
@@ -91,8 +91,8 @@ export function ProjectAgentsPage() {
           initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-          className="shrink-0 flex flex-col"
-          style={{ ...PANEL, width: 404 }}
+          className="shrink-0 flex flex-col w-full lg:w-[404px]"
+          style={PANEL}
         >
           <AgentDetailPanel
             agent={selectedAgent}

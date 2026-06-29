@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Copy } from 'lucide-react';
+import { Check, Copy, ChevronDown, ChevronUp } from 'lucide-react';
 
 /**
  * Lightweight, dependency-free Markdown renderer tuned for LLM output.
@@ -7,26 +7,67 @@ import { Check, Copy } from 'lucide-react';
  * # headings, - / * / 1. lists, > blockquote, [links](url), --- rules, paragraphs.
  */
 
+const SAFE_URL = /^(https?:|mailto:|tel:|\/|#)/i;
+/**
+ * Reject non-http(s)/mailto/tel/relative URLs to block javascript:/data: XSS via LLM output.
+ * Returns a safe href or `#` placeholder.
+ */
+function safeHref(href: string): string {
+  const trimmed = href.trim();
+  return SAFE_URL.test(trimmed) ? trimmed : '#';
+}
+
+const CODE_COLLAPSE_LINES = 40;
+
 function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard?.writeText(code).then(() => {
+  const [expanded, setExpanded] = useState(false);
+  const lineCount = code.split('\n').length;
+  const canCollapse = lineCount > CODE_COLLAPSE_LINES;
+  const visibleCode = canCollapse && !expanded
+    ? code.split('\n').slice(0, CODE_COLLAPSE_LINES).join('\n')
+    : code;
+  const copy = async () => {
+    try {
+      await navigator.clipboard?.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 1400);
-    });
+    } catch {
+      // ignore
+    }
   };
   return (
     <div style={{ margin: '10px 0', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)', overflow: 'hidden', background: 'var(--color-bg-inset)' }}>
       <div className="flex items-center justify-between" style={{ padding: '5px 10px', background: 'var(--color-bg-muted)', borderBottom: '1px solid var(--color-border-subtle)' }}>
-        <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-tertiary)', letterSpacing: '0.04em' }}>{lang || 'code'}</span>
-        <button type="button" onClick={copy} className="flex items-center gap-1"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: copied ? 'var(--color-success)' : 'var(--color-text-tertiary)', fontSize: 10.5, fontFamily: 'var(--font-mono)' }}>
-          {copied ? <Check style={{ width: 11, height: 11 }} /> : <Copy style={{ width: 11, height: 11 }} />}
-          {copied ? 'copied' : 'copy'}
-        </button>
+        <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', letterSpacing: '0.04em' }}>{lang || 'code'}</span>
+        <div className="flex items-center gap-2">
+          {canCollapse && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              aria-expanded={expanded}
+              aria-label={expanded ? 'Collapse code block' : 'Expand code block'}
+              className="flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', fontSize: 10.5, fontFamily: 'var(--font-mono)', padding: '4px 6px', borderRadius: 4 }}
+            >
+              {expanded ? <ChevronUp style={{ width: 11, height: 11 }} aria-hidden="true" /> : <ChevronDown style={{ width: 11, height: 11 }} aria-hidden="true" />}
+              {expanded ? `collapse (${lineCount} lines)` : `show all ${lineCount} lines`}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={copy}
+            aria-label={copied ? 'Code copied' : 'Copy code'}
+            className="flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: copied ? 'var(--color-success)' : 'var(--color-text-secondary)', fontSize: 10.5, fontFamily: 'var(--font-mono)', padding: '4px 6px', borderRadius: 4 }}
+          >
+            {copied ? <Check style={{ width: 11, height: 11 }} aria-hidden="true" /> : <Copy style={{ width: 11, height: 11 }} aria-hidden="true" />}
+            <span aria-live="polite">{copied ? 'copied' : 'copy'}</span>
+          </button>
+        </div>
       </div>
-      <pre style={{ margin: 0, padding: '11px 12px', overflowX: 'auto', fontFamily: 'var(--font-mono)', fontSize: 12.5, lineHeight: 1.55, color: 'var(--color-text-primary)' }}>
-        <code>{code}</code>
+      <pre style={{ margin: 0, padding: '11px 12px', overflowX: 'auto', maxHeight: expanded ? 600 : undefined, fontFamily: 'var(--font-mono)', fontSize: 12.5, lineHeight: 1.55, color: 'var(--color-text-primary)' }}>
+        <code>{visibleCode}</code>
       </pre>
     </div>
   );
@@ -52,7 +93,17 @@ function renderInline(text: string, keyBase: string): React.ReactNode[] {
       out.push(<em key={key}>{tok.slice(1, -1)}</em>);
     } else {
       const lm = /\[([^\]]+)\]\(([^)]+)\)/.exec(tok);
-      if (lm) out.push(<a key={key} href={lm[2]} target="_blank" rel="noreferrer" style={{ color: 'var(--color-accent)', textDecoration: 'underline' }}>{lm[1]}</a>);
+      if (lm) out.push(
+        <a
+          key={key}
+          href={safeHref(lm[2])}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'var(--color-accent)', textDecoration: 'underline', wordBreak: 'break-word' }}
+        >
+          {lm[1]}
+        </a>,
+      );
     }
     last = m.index + tok.length;
   }

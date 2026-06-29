@@ -1,4 +1,4 @@
-import { forwardRef, type InputHTMLAttributes } from 'react';
+import { forwardRef, useId, type InputHTMLAttributes } from 'react';
 import { cn } from '../../lib/cn';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -8,8 +8,13 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, helperText, className, id, ...props }, ref) => {
-    const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
+  ({ label, error, helperText, className, id, required, ...props }, ref) => {
+    const autoId = useId();
+    const inputId = id || autoId;
+    const errorId = `${inputId}-error`;
+    const helperId = `${inputId}-helper`;
+    const describedBy =
+      [error ? errorId : null, !error && helperText ? helperId : null].filter(Boolean).join(' ') || undefined;
 
     return (
       <div className="flex flex-col gap-1.5">
@@ -19,17 +24,26 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             className="text-[12.5px] font-medium text-text-secondary"
           >
             {label}
+            {required && (
+              <span aria-hidden="true" style={{ color: '#e06060', marginLeft: 2 }}>
+                *
+              </span>
+            )}
           </label>
         )}
         <input
           ref={ref}
           id={inputId}
+          required={required}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
+          aria-required={required || undefined}
           className={cn(
             'h-[38px] w-full px-3 text-[13.5px] text-text-primary placeholder:text-text-disabled',
             'transition-all duration-200',
             'focus:outline-none',
             error && 'focus:ring-error/20',
-            'disabled:opacity-35 disabled:pointer-events-none',
+            'disabled:opacity-35 disabled:pointer-events-none disabled:cursor-not-allowed',
             className,
           )}
           style={{
@@ -52,10 +66,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           {...props}
         />
         {error && (
-          <p className="text-[11.5px] text-[#e06060] font-medium">{error}</p>
+          <p id={errorId} role="alert" className="text-[11.5px] text-[#e06060] font-medium">
+            {error}
+          </p>
         )}
         {helperText && !error && (
-          <p className="text-[11.5px] text-text-tertiary">{helperText}</p>
+          <p id={helperId} className="text-[11.5px] text-text-tertiary">
+            {helperText}
+          </p>
         )}
       </div>
     );

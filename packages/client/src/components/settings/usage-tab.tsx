@@ -59,26 +59,37 @@ export function UsageTab() {
   return (
     <div className="flex flex-col" style={{ gap: 14 }}>
       {/* Range selector */}
-      <div className="flex items-center" style={{ gap: 4 }}>
+      <div className="flex items-center" style={{ gap: 4 }} role="group" aria-label="Time range">
         {RANGES.map((r) => {
           const on = range === r.value;
           return (
-            <button key={r.value} type="button" onClick={() => setRange(r.value)}
+            <button
+              key={r.value}
+              type="button"
+              onClick={() => setRange(r.value)}
+              aria-pressed={on}
+              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
               style={{
-                height: 28, padding: '0 12px', fontSize: 11.5, fontFamily: 'var(--font-mono)', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
+                height: 32, padding: '0 14px', fontSize: 11.5, fontFamily: 'var(--font-mono)', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
                 background: on ? 'var(--color-accent-subtle)' : 'var(--color-bg-surface)',
                 border: `1px solid ${on ? 'var(--color-accent)' : 'var(--color-border-subtle)'}`,
-                color: on ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
-              }}>
+                color: on ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+              }}
+            >
               {r.label}
             </button>
           );
         })}
       </div>
 
-      {!hasAny ? (
-        <div style={{ ...SURFACE, padding: '40px', textAlign: 'center', fontSize: 12.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
-          No activity in this range.
+      {!agentic || !gw ? (
+        <div style={{ ...SURFACE, padding: '40px', textAlign: 'center', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }} role="status" aria-live="polite">
+          Loading usage data…
+        </div>
+      ) : !hasAny ? (
+        <div style={{ ...SURFACE, padding: '40px', textAlign: 'center', fontSize: 12.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)' }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>No activity in this range</div>
+          <div style={{ color: 'var(--color-text-secondary)' }}>Pick a wider time range, or start a chat to generate usage.</div>
         </div>
       ) : (
         <>

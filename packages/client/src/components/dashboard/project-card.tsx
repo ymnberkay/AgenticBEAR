@@ -48,8 +48,10 @@ export function ProjectCard({ project, agentCount = 0, index = 0 }: ProjectCardP
 
   return (
     <button
+      type="button"
       onClick={() => navigate({ to: '/projects/$projectId', params: { projectId: project.id } })}
-      className="group relative flex flex-col text-left w-full overflow-hidden transition-all duration-200 animate-fade-in-up"
+      aria-label={`Open project ${project.name}, status ${status.label}`}
+      className="group relative flex flex-col text-left w-full overflow-hidden transition-all duration-200 animate-fade-in-up focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
       style={{
         animationDelay: `${index * 40}ms`,
         background: 'var(--color-bg-surface)',
@@ -57,6 +59,7 @@ export function ProjectCard({ project, agentCount = 0, index = 0 }: ProjectCardP
         borderRadius: 'var(--radius-lg)',
         padding: '18px 20px',
         minHeight: 158,
+        cursor: 'pointer',
       }}
       onMouseEnter={(e) => {
         const el = e.currentTarget;
@@ -72,6 +75,14 @@ export function ProjectCard({ project, agentCount = 0, index = 0 }: ProjectCardP
         el.style.boxShadow = 'none';
         el.style.transform = 'translateY(0)';
       }}
+      onFocus={(e) => {
+        const el = e.currentTarget;
+        el.style.borderColor = 'var(--glass-border-hover)';
+      }}
+      onBlur={(e) => {
+        const el = e.currentTarget;
+        el.style.borderColor = 'var(--color-border-subtle)';
+      }}
     >
       {/* Header row */}
       <div className="flex items-start justify-between gap-3" style={{ marginBottom: 14 }}>
@@ -81,7 +92,7 @@ export function ProjectCard({ project, agentCount = 0, index = 0 }: ProjectCardP
             <h3 className="truncate" style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', fontFamily: 'var(--font-sans)', lineHeight: 1.25 }}>
               {project.name}
             </h3>
-            <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', letterSpacing: '0.04em' }}>
               project
             </span>
           </div>
@@ -104,24 +115,29 @@ export function ProjectCard({ project, agentCount = 0, index = 0 }: ProjectCardP
       {/* Description */}
       <p
         className="flex-1 line-clamp-2"
-        style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-sans)' }}
+        style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)' }}
       >
         {project.description || 'No description'}
       </p>
 
       {/* Footer */}
       <div className="flex items-center gap-4" style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--color-border-subtle)' }}>
-        <span className="flex items-center gap-1.5" style={{ fontSize: 11, color: 'var(--color-text-disabled)', fontFamily: 'var(--font-mono)' }}>
-          <Bot style={{ width: 12, height: 12 }} />
+        <span className="flex items-center gap-1.5" style={{ fontSize: 11, color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)' }}>
+          <Bot style={{ width: 12, height: 12 }} aria-hidden="true" />
           {agentCount} {agentCount === 1 ? 'agent' : 'agents'}
         </span>
-        <span className="flex items-center gap-1.5" style={{ fontSize: 11, color: 'var(--color-text-disabled)', fontFamily: 'var(--font-mono)' }}>
-          <Clock style={{ width: 12, height: 12 }} />
+        <span
+          className="flex items-center gap-1.5"
+          style={{ fontSize: 11, color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)' }}
+          title={`Updated ${new Date(project.updatedAt).toLocaleString()}`}
+        >
+          <Clock style={{ width: 12, height: 12 }} aria-hidden="true" />
           {formatRelativeTime(project.updatedAt)}
         </span>
         <span
-          className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+          className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity duration-150"
           style={{ fontSize: 11, color: 'var(--color-accent)', fontFamily: 'var(--font-mono)' }}
+          aria-hidden="true"
         >
           open <ArrowRight style={{ width: 12, height: 12 }} />
         </span>

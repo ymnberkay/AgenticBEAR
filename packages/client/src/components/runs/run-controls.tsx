@@ -3,6 +3,8 @@ import { Play, Pause, Square, Clock } from 'lucide-react';
 import type { Run } from '@subagent/shared';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { Dialog } from '../ui/dialog';
+import { useToast } from '../ui/toast';
 import { formatDuration } from '../../lib/format';
 import { useStartRun, usePauseRun, useCancelRun } from '../../api/hooks/use-runs';
 
@@ -23,7 +25,12 @@ export function RunControls({ run }: RunControlsProps) {
   const startRun = useStartRun();
   const pauseRun = usePauseRun();
   const cancelRun = useCancelRun();
+  const { show: showToast } = useToast();
   const [elapsed, setElapsed] = useState(0);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  // Lock action buttons during the brief window between click and the run.status updating
+  // from the server, so rapid clicks can't queue multiple start/pause/cancel calls.
+  const [transitioning, setTransitioning] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
   useEffect(() => {
@@ -43,11 +50,51 @@ export function RunControls({ run }: RunControlsProps) {
     }
   }, [run.status, run.startedAt, run.completedAt]);
 
+  // Clear the transitioning lock whenever the server-reported status changes.
+  useEffect(() => {
+    setTransitioning(false);
+  }, [run.status]);
+
   const status = statusConfig[run.status] ?? statusConfig.pending;
   const isRunning = run.status === 'running';
   const isPending = run.status === 'pending';
   const isPaused = run.status === 'paused';
   const isFinished = ['completed', 'failed', 'cancelled'].includes(run.status);
+
+  const startAction = () => {
+    if (transitioning || startRun.isPending) return;
+    setTransitioning(true);
+    startRun.mutate(run.id, {
+      onError: (err) => {
+        setTransitioning(false);
+        showToast(err instanceof Error ? err.message : 'Failed to start', { variant: 'error' });
+      },
+    });
+  };
+
+  const pauseAction = () => {
+    if (transitioning || pauseRun.isPending) return;
+    setTransitioning(true);
+    pauseRun.mutate(run.id, {
+      onError: (err) => {
+        setTransitioning(false);
+        showToast(err instanceof Error ? err.message : 'Failed to pause', { variant: 'error' });
+      },
+    });
+  };
+
+  const cancelAction = () => {
+    setConfirmCancel(false);
+    if (transitioning || cancelRun.isPending) return;
+    setTransitioning(true);
+    cancelRun.mutate(run.id, {
+      onSuccess: () => showToast('Run cancelled', { variant: 'info' }),
+      onError: (err) => {
+        setTransitioning(false);
+        showToast(err instanceof Error ? err.message : 'Failed to cancel', { variant: 'error' });
+      },
+    });
+  };
 
   return (
     <div
@@ -55,13 +102,19 @@ export function RunControls({ run }: RunControlsProps) {
       style={{
         background: 'var(--color-bg-card)',
         border: '1px solid var(--color-border-default)',
+        borderRadius: 'var(--radius-md)',
       }}
     >
       <div className="flex items-center gap-2.5 min-w-0">
         <Badge variant={status.variant}>{status.label}</Badge>
         {(isRunning || isFinished) && elapsed > 0 && (
-          <div className="flex items-center gap-1 text-[11px] text-text-secondary whitespace-nowrap">
-            <Clock className="h-3 w-3 shrink-0" />
+          <div
+            className="flex items-center gap-1 text-[11px] text-text-secondary whitespace-nowrap"
+            aria-live={isRunning ? 'polite' : 'off'}
+            aria-atomic="true"
+          >
+            <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />
+            <span className="sr-only">Elapsed </span>
             {formatDuration(elapsed)}
           </div>
         )}
@@ -73,8 +126,9 @@ export function RunControls({ run }: RunControlsProps) {
             variant="primary"
             size="sm"
             icon={<Play className="h-3.5 w-3.5" />}
-            onClick={() => startRun.mutate(run.id)}
-            loading={startRun.isPending}
+            onClick={startAction}
+            loading={startRun.isPending || transitioning}
+            disabled={startRun.isPending || transitioning}
           >
             {isPaused ? 'Resume' : 'Start'}
           </Button>
@@ -85,8 +139,9 @@ export function RunControls({ run }: RunControlsProps) {
               variant="outline"
               size="sm"
               icon={<Pause className="h-3.5 w-3.5" />}
-              onClick={() => pauseRun.mutate(run.id)}
-              loading={pauseRun.isPending}
+              onClick={pauseAction}
+              loading={pauseRun.isPending || transitioning}
+              disabled={pauseRun.isPending || transitioning}
             >
               Pause
             </Button>
@@ -94,14 +149,42 @@ export function RunControls({ run }: RunControlsProps) {
               variant="danger"
               size="sm"
               icon={<Square className="h-3.5 w-3.5" />}
-              onClick={() => cancelRun.mutate(run.id)}
-              loading={cancelRun.isPending}
+              onClick={() => setConfirmCancel(true)}
+              loading={cancelRun.isPending || transitioning}
+              disabled={cancelRun.isPending || transitioning}
             >
               Cancel
             </Button>
           </>
         )}
       </div>
+
+      <Dialog
+        open={confirmCancel}
+        onClose={() => setConfirmCancel(false)}
+        title="Cancel this run?"
+        description="In-flight work will be lost. Progress so far is preserved but no further steps will execute."
+        maxWidth="420px"
+      >
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setConfirmCancel(false)}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+            style={{ height: 36, padding: '0 14px', background: 'transparent', border: '1px solid var(--color-border-default)', color: 'var(--color-text-primary)', fontSize: 12, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+          >
+            Keep running
+          </button>
+          <button
+            type="button"
+            onClick={cancelAction}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+            style={{ height: 36, padding: '0 14px', background: '#e06060', color: '#021526', border: 'none', fontSize: 12, fontWeight: 600, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+          >
+            Cancel run
+          </button>
+        </div>
+      </Dialog>
     </div>
   );
 }

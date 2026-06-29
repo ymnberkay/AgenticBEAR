@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode, useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -12,7 +12,14 @@ interface DialogProps {
   children: ReactNode;
   className?: string;
   maxWidth?: string;
+  /** If true, clicking the backdrop will NOT close the dialog (use for forms with unsaved data). */
+  disableBackdropClose?: boolean;
+  /** Selector for element to receive initial focus. Defaults to first focusable in dialog. */
+  initialFocusSelector?: string;
 }
+
+const FOCUSABLE_SELECTOR =
+  'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), iframe, [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
 
 export function Dialog({
   open,
@@ -22,11 +29,22 @@ export function Dialog({
   children,
   className,
   maxWidth = '480px',
+  disableBackdropClose = false,
+  initialFocusSelector,
 }: DialogProps) {
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const mouseDownTargetRef = useRef<EventTarget | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const titleId = useId();
+  const descId = useId();
+
   useEffect(() => {
     if (!open) return;
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
     };
     document.addEventListener('keydown', handleEsc);
     return () => document.removeEventListener('keydown', handleEsc);
@@ -43,6 +61,65 @@ export function Dialog({
     };
   }, [open]);
 
+  // Focus management: save previously focused element, focus into dialog, restore on close.
+  useEffect(() => {
+    if (!open) return;
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+    const node = contentRef.current;
+    if (!node) return;
+    const t = setTimeout(() => {
+      const target = initialFocusSelector
+        ? (node.querySelector(initialFocusSelector) as HTMLElement | null)
+        : (node.querySelector(FOCUSABLE_SELECTOR) as HTMLElement | null);
+      (target ?? node).focus();
+    }, 30);
+    return () => {
+      clearTimeout(t);
+      previouslyFocusedRef.current?.focus?.();
+    };
+  }, [open, initialFocusSelector]);
+
+  // Focus trap on Tab/Shift+Tab.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const node = contentRef.current;
+      if (!node) return;
+      const focusables = Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+        (el) => !el.hasAttribute('disabled') && el.offsetParent !== null,
+      );
+      if (focusables.length === 0) {
+        e.preventDefault();
+        node.focus();
+        return;
+      }
+      const first = focusables[0]!;
+      const last = focusables[focusables.length - 1]!;
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  const handleBackdropMouseDown = (e: React.MouseEvent) => {
+    mouseDownTargetRef.current = e.target;
+  };
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (disableBackdropClose) return;
+    // Only close if mousedown originated on backdrop too (avoids closing on text-selection drag).
+    if (mouseDownTargetRef.current === e.currentTarget && e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
   return createPortal(
     <AnimatePresence>
       {open && (
@@ -55,15 +132,22 @@ export function Dialog({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            onClick={onClose}
+            aria-hidden="true"
           />
           {/* Container — clicking empty area closes the dialog */}
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            onClick={onClose}
+            onMouseDown={handleBackdropMouseDown}
+            onClick={handleBackdropClick}
           >
             <motion.div
-              className={cn('w-full flex flex-col', className)}
+              ref={contentRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={title ? titleId : undefined}
+              aria-describedby={description ? descId : undefined}
+              tabIndex={-1}
+              className={cn('w-full flex flex-col focus:outline-none', className)}
               style={{
                 maxWidth,
                 maxHeight: '90vh',
@@ -76,6 +160,7 @@ export function Dialog({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header (optional) */}
@@ -86,21 +171,24 @@ export function Dialog({
                 >
                   <div className="min-w-0 flex-1">
                     {title && (
-                      <h2 className="text-[16px] font-bold text-text-primary tracking-tight">
+                      <h2 id={titleId} className="text-[16px] font-bold text-text-primary tracking-tight">
                         {title}
                       </h2>
                     )}
                     {description && (
-                      <p className="mt-1 text-[13px] text-text-tertiary">
+                      <p id={descId} className="mt-1 text-[13px] text-text-tertiary">
                         {description}
                       </p>
                     )}
                   </div>
                   <button
+                    type="button"
                     onClick={onClose}
-                    className="p-1.5 text-text-tertiary hover:bg-white/[0.06] hover:text-text-primary transition-all duration-200 shrink-0 ml-3"
+                    aria-label="Close dialog"
+                    className="p-1.5 text-text-tertiary hover:bg-white/[0.06] hover:text-text-primary transition-all duration-200 shrink-0 ml-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8] rounded"
+                    style={{ minWidth: 32, minHeight: 32 }}
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </div>
               )}

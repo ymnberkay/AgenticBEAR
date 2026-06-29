@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { ModelConfig } from '@subagent/shared';
 import { useModelOptions, encodeModelValue, decodeModelValue } from '../../hooks/use-model-options';
 
@@ -10,6 +11,7 @@ export function ModelConfigForm({ config, onChange }: ModelConfigFormProps) {
   const groups = useModelOptions();
   const currentValue = encodeModelValue(config.model, config.providerId);
   const currentModel = groups.flatMap((g) => g.options).find((o) => o.value === currentValue);
+  const modelId = useId();
 
   return (
     <div>
@@ -19,7 +21,7 @@ export function ModelConfigForm({ config, onChange }: ModelConfigFormProps) {
           fontWeight: 600,
           textTransform: 'uppercase',
           letterSpacing: '0.08em',
-          color: 'var(--color-text-disabled)',
+          color: 'var(--color-text-secondary)',
           marginBottom: '10px',
         }}
       >
@@ -29,6 +31,7 @@ export function ModelConfigForm({ config, onChange }: ModelConfigFormProps) {
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
           <label
+            htmlFor={modelId}
             style={{
               fontSize: '12.5px',
               fontWeight: 600,
@@ -39,6 +42,7 @@ export function ModelConfigForm({ config, onChange }: ModelConfigFormProps) {
           </label>
           <div className="relative">
             <select
+              id={modelId}
               value={currentValue}
               onChange={(e) => {
                 const { model, providerId } = decodeModelValue(e.target.value);
@@ -46,7 +50,7 @@ export function ModelConfigForm({ config, onChange }: ModelConfigFormProps) {
                 // custom providerId — otherwise a Claude model would keep an old Azure/etc. provider.
                 onChange({ ...config, model, providerId: providerId ?? null });
               }}
-              className="w-full appearance-none pr-8 focus:outline-none transition-all duration-200"
+              className="w-full appearance-none pr-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8] transition-all duration-200"
               style={{
                 height: '40px',
                 padding: '0 12px',
@@ -89,7 +93,7 @@ export function ModelConfigForm({ config, onChange }: ModelConfigFormProps) {
         {currentModel && (
           <div
             className="flex items-center gap-3"
-            style={{ fontSize: '10px', color: 'var(--color-text-disabled)', paddingLeft: '2px' }}
+            style={{ fontSize: '10.5px', color: 'var(--color-text-secondary)', paddingLeft: '2px' }}
           >
             {currentModel.contextWindow ? (
               <>

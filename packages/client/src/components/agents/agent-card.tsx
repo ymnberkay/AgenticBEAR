@@ -30,8 +30,14 @@ export function AgentCard({ agent, status = 'idle', selected = false, onClick, o
 
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={cn('group relative flex flex-col text-left w-full transition-all duration-200 cursor-pointer', status === 'running' && 'agent-running')}
+      aria-label={`${agent.name}, ${agent.role}${status === 'running' ? ', running' : status === 'completed' ? ', completed' : ''}`}
+      aria-pressed={selected}
+      className={cn(
+        'group relative flex flex-col text-left w-full transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]',
+        status === 'running' && 'agent-running',
+      )}
       style={{
         gap: 11,
         background: selected ? `${agent.color}12` : 'var(--color-bg-card)',
@@ -68,14 +74,16 @@ export function AgentCard({ agent, status = 'idle', selected = false, onClick, o
           {status === 'completed' && <Check className="h-3.5 w-3.5 animate-fade-in" style={{ color: 'var(--color-success)' }} />}
           {onEdit && (
             <button
+              type="button"
               onClick={handleEdit}
+              aria-label={`Edit agent ${agent.name}`}
               title="Edit"
-              className="flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-150"
-              style={{ height: 24, width: 24, borderRadius: 'var(--radius-sm)', color: 'var(--color-text-disabled)', border: '1px solid transparent' }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; e.currentTarget.style.background = 'var(--color-bg-raised)'; e.currentTarget.style.color = 'var(--color-text-secondary)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
+              className="flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+              style={{ height: 28, width: 28, borderRadius: 'var(--radius-sm)', color: 'var(--color-text-secondary)', border: '1px solid transparent' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; e.currentTarget.style.background = 'var(--color-bg-raised)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-secondary)'; }}
             >
-              <Pencil className="h-3 w-3" />
+              <Pencil className="h-3 w-3" aria-hidden="true" />
             </button>
           )}
         </div>

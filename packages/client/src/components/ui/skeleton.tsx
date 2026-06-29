@@ -10,8 +10,9 @@ interface SkeletonProps {
 export function Skeleton({ className, width, height, rounded }: SkeletonProps) {
   return (
     <div
+      aria-hidden="true"
       className={cn(
-        'animate-pulse',
+        'animate-pulse motion-reduce:animate-none',
         rounded ? 'rounded-full' : '',
         className,
       )}
@@ -26,9 +27,15 @@ export function Skeleton({ className, width, height, rounded }: SkeletonProps) {
   );
 }
 
-export function SkeletonText({ lines = 3, className }: { lines?: number; className?: string }) {
+export function SkeletonText({ lines = 3, className, label = 'Loading content' }: { lines?: number; className?: string; label?: string }) {
   return (
-    <div className={cn('flex flex-col gap-2', className)}>
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label={label}
+      aria-busy="true"
+      className={cn('flex flex-col gap-2', className)}
+    >
       {Array.from({ length: lines }).map((_, i) => (
         <Skeleton
           key={i}
@@ -36,6 +43,7 @@ export function SkeletonText({ lines = 3, className }: { lines?: number; classNa
           className={i === lines - 1 ? 'w-2/3' : 'w-full'}
         />
       ))}
+      <span className="sr-only">{label}…</span>
     </div>
   );
 }

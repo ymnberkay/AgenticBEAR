@@ -175,9 +175,32 @@ function AuthGate() {
   }, []);
 
   if (!authed || !getToken()) return <LoginPage onSuccess={() => setAuthed(true)} />;
-  if (me.isError) return <LoginPage onSuccess={() => { setAuthed(true); me.refetch(); }} />;
+  if (me.isError) return <LoginPage onSuccess={() => { setAuthed(true); me.refetch(); }} notice="Your session has expired. Please sign in again." />;
   if (me.isLoading) {
-    return <div className="h-screen flex items-center justify-center" style={{ background: 'var(--color-bg-base)', color: 'var(--color-text-disabled)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>loading…</div>;
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="h-screen flex flex-col items-center justify-center gap-3"
+        style={{ background: 'var(--color-bg-base)' }}
+      >
+        <div
+          aria-hidden="true"
+          style={{
+            width: 44,
+            height: 44,
+            border: '2px solid var(--color-border-subtle)',
+            borderTopColor: 'var(--color-accent)',
+            borderRadius: '50%',
+            animation: 'spin 0.9s linear infinite',
+          }}
+        />
+        <span style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          AgenticBEAR · loading workspace…
+        </span>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
   }
   return <RouterProvider router={router} />;
 }
