@@ -79,10 +79,17 @@ const projectMonitorRoute = createRoute({
   component: ProjectMonitorPage,
 });
 
-
 const projectActivityRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: '/activity',
+  validateSearch: (search: Record<string, unknown>) => ({
+    action: (search.action as string) || undefined,
+    userId: (search.userId as string) || undefined,
+    search: (search.search as string) || undefined,
+    from: (search.from as string) || undefined,
+    to: (search.to as string) || undefined,
+    page: search.page ? Number(search.page) : undefined,
+  }),
   component: ProjectActivityPage,
 });
 
@@ -153,17 +160,19 @@ const routeTree = rootRoute.addChildren([
   modelsRoute,
 ]);
 
-// Create router
-const router = createRouter({ routeTree });
+const router = createRouter({
+  routeTree,
+  defaultPreload: false,
+});
 
-// Register types
 declare module '@tanstack/react-router' {
   interface Register {
     router: typeof router;
   }
 }
 
-/** Gate the whole app behind login; verifies the stored token via /api/auth/me. */
+// ── Auth gate ──────────────────────────────────────────────────────────────────
+
 function AuthGate() {
   const [authed, setAuthed] = useState(!!getToken());
   const me = useMe();

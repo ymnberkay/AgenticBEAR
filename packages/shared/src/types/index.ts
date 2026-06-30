@@ -94,3 +94,5 @@ export type {
   ProjectDocument,
   CreateProjectDocumentInput,
 } from './document.js';
+
+export * from './integration.js';

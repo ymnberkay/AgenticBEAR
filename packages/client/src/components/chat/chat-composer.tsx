@@ -57,6 +57,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, streaming, age
         ref={ref}
         id={textareaId}
         value={shownValue}
+        disabled={streaming}
         onChange={(e) => onChange(e.target.value)}
         onPaste={onPaste}
         onKeyDown={(e) => {
@@ -65,13 +66,15 @@ export function ChatComposer({ value, onChange, onSend, onAttach, streaming, age
             if (canSend) onSend();
           }
         }}
-        placeholder={voice.listening ? 'Listening…' : 'Message your agent · Enter to send · Shift+Enter for newline'}
+        placeholder={streaming ? 'Agent is working… please wait' : voice.listening ? 'Listening…' : 'Message your agent · Enter to send · Shift+Enter for newline'}
         rows={1}
         aria-label="Message"
+        aria-disabled={streaming || undefined}
         style={{
           width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent',
           padding: '13px 14px 4px', fontSize: 14, lineHeight: 1.55, color: 'var(--color-text-primary)',
           fontFamily: 'var(--font-sans)', maxHeight: 220, overflowY: 'auto',
+          cursor: streaming ? 'not-allowed' : 'text', opacity: streaming ? 0.6 : 1,
         }}
       />
       <div className="flex items-center justify-between" style={{ padding: '6px 8px 7px 10px' }}>
@@ -81,6 +84,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, streaming, age
           <select
             id={agentSelectId}
             value={agentId}
+            disabled={streaming}
             onChange={(e) => onAgentChange(e.target.value)}
             title={agents.find((a) => a.id === agentId)?.name}
             className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"

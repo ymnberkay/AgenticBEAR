@@ -12,6 +12,8 @@ export interface ToolEvent {
   agent?: string;
   task?: string;
   summary?: string;
+  /** For run_command — the actual shell command, so the UI can show what's running. */
+  command?: string;
 }
 
 /** A chat-staged file op awaiting the user's Approve/Reject (id known only after the turn). */
@@ -70,7 +72,7 @@ export async function streamChat(
       try {
         const obj = JSON.parse(payload) as {
           delta?: string; done?: boolean; error?: string; servedModel?: string; filesWritten?: number;
-          tool?: { name: string; args: unknown };
+          tool?: { name: string; args?: { command?: string } };
           toolResult?: { name: string; summary: string };
           write?: { path: string; operation: string };
           pendingWrite?: { path: string; operation: string };
@@ -79,7 +81,7 @@ export async function streamChat(
         };
         if (obj.error) handlers.onError?.(obj.error);
         else if (obj.delta) handlers.onDelta?.(obj.delta);
-        else if (obj.tool) handlers.onTool?.({ kind: 'tool', name: obj.tool.name });
+        else if (obj.tool) handlers.onTool?.({ kind: 'tool', name: obj.tool.name, command: obj.tool.args?.command });
         else if (obj.toolResult) handlers.onTool?.({ kind: 'toolResult', name: obj.toolResult.name, summary: obj.toolResult.summary });
         else if (obj.write) handlers.onTool?.({ kind: 'write', path: obj.write.path, operation: obj.write.operation });
         else if (obj.pendingWrite) handlers.onTool?.({ kind: 'pendingWrite', path: obj.pendingWrite.path, operation: obj.pendingWrite.operation });

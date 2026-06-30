@@ -61,7 +61,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     invalidateMcpCache(agent.projectId);
     // Sistem promptu / model değiştiyse bu agent'ın L1 cache namespace'ini temizle.
     if (request.body.systemPrompt !== undefined || request.body.modelConfig !== undefined) {
-      void invalidateNamespace(namespaceFor(agent.role, agent.slug));
+      void invalidateNamespace(namespaceFor({ projectId: agent.projectId, role: agent.role, agentSlug: agent.slug, providerId: agent.modelConfig.providerId ?? undefined, model: agent.modelConfig.model }));
     }
     const user = (request as AuthedRequest).authUser as User | undefined;
     await activityLogRepo.record({ projectId: agent.projectId, userId: user?.id, username: user?.username, action: 'agent.update', target: agent.name });
@@ -133,7 +133,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     }
     if (existing) {
       invalidateMcpCache(existing.projectId);
-      void invalidateNamespace(namespaceFor(existing.role, existing.slug));
+      void invalidateNamespace(namespaceFor({ projectId: existing.projectId, role: existing.role, agentSlug: existing.slug, providerId: existing.modelConfig.providerId ?? undefined, model: existing.modelConfig.model }));
       const user = (request as AuthedRequest).authUser as User | undefined;
       await activityLogRepo.record({ projectId: existing.projectId, userId: user?.id, username: user?.username, action: 'agent.delete', target: existing.name });
     }

@@ -28,7 +28,43 @@ const MAX_ITERS = 10;
 const MAX_DEPTH = 1;
 const DELEGATE = 'delegate_to_agent';
 
-type FileOp = 'create' | 'modify' | 'delete';
+// ── Anti-runaway guards ───────────────────────────────────────────────────────
+// Each loop iteration re-sends the whole (growing) message history, so without bounds a
+// stuck/looping model can balloon to 1M+ input tokens before the iteration cap trips.
+/** Hard cap on cumulative INPUT tokens per turn. Once crossed, the next call drops tools to force a final answer. */
+const MAX_TURN_INPUT_TOKENS = 200_000;
+/** Per-call message-context budget (chars). Older TOOL results beyond this are elided so big file dumps aren't re-billed every iteration. ~30k tokens. */
+const MAX_CONTEXT_CHARS = 120_000;
+/** Same tool call (name+args) more than this many times → refuse to re-run it (breaks loops). */
+const MAX_SAME_CALL = 2;
+
+/** Stable signature for a tool call, for loop detection. */
+function callSignature(name: string, args: Record<string, unknown>): string {
+  return `${name}:${JSON.stringify(args, Object.keys(args ?? {}).sort())}`;
+}
+
+/**
+ * Keep the system prompt + recent turns intact, but elide the CONTENT of older `tool` results
+ * once the char budget is spent — newest first. Stops the history from re-sending (and re-billing)
+ * large file dumps on every iteration, which is the main driver of the 1M-token blowups.
+ */
+function trimHistory(messages: ChatTurn[]): ChatTurn[] {
+  let budget = MAX_CONTEXT_CHARS;
+  const out: ChatTurn[] = [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    const len = (m.content ?? '').length;
+    if (m.role === 'tool' && len > 0 && budget <= 0) {
+      out.push({ ...m, content: '[earlier tool result elided to save context]' });
+    } else {
+      out.push(m);
+      budget -= len;
+    }
+  }
+  return out.reverse();
+}
+
+type FileOp = 'create' | 'modify' | 'delete' | 'command';
 interface FileWrite { path: string; previousContent: string | null; content: string; operation: FileOp; agentId: string }
 
 export type LoopEvent =
@@ -121,6 +157,34 @@ async function pickModelForTask(
 }
 
 /**
+ * Identity anchor — pins the agent's name + actual configured model so it answers "which model
+ * are you?" correctly. Some models (notably DeepSeek-V3, trained partly on Claude/GPT transcripts)
+ * otherwise claim to be "Claude" whenever a system prompt is present. This is a model-self-id quirk,
+ * not a routing issue; the anchor keeps the stated identity honest to the configured model.
+ */
+function identityLine(agent: Agent): string {
+  return (
+    `## Identity\n` +
+    `You are an AI agent named "${agent.name}" running on the model \`${agent.modelConfig.model}\`. ` +
+    `If asked which model or provider you are, answer with this exact model id. ` +
+    `Do NOT claim to be Claude, GPT, Gemini, or any other model unless that string literally matches your model id above.`
+  );
+}
+
+/**
+ * Response discipline — keep chat answers tight AND stop agents from "deferring": a turn must end
+ * with the work actually done (or an honest, final answer), never with "I'm examining…/awaiting
+ * results…" which leaves the user thinking work continues when the turn has already ended.
+ */
+const RESPONSE_DISCIPLINE =
+  `## Response discipline\n` +
+  `- Do the work NOW with your tools in this same turn; you will not get a later turn to "continue".\n` +
+  `- Never reply that you are "examining", "looking into it", "working on it", or "awaiting results". ` +
+  `Either perform the action and report the concrete result, or state plainly that you cannot.\n` +
+  `- Keep replies short: a direct answer plus a one-to-three sentence summary of what you actually did. ` +
+  `No restating the plan, no filler, no apologies.`;
+
+/**
  * `isCoordinator` → the agent only delegates (no file tools): it must route work to specialists.
  * Otherwise the agent gets the workspace file tools and does the work itself.
  */
@@ -142,7 +206,10 @@ function toolGuidance(workspacePath: string, isCoordinator: boolean): string {
     `- \`write_file(path, content)\` — create/modify files (paths RELATIVE to the workspace)\n` +
     `- \`read_file(path)\` — inspect a file\n` +
     `- \`list_files()\` — see the structure\n` +
+    `- \`delete_file(path)\` — remove a file\n` +
+    `- \`run_command(command)\` — run a shell command in the workspace dir (builds, tests, deps, git, logs), e.g. \`npm run build\`. Synchronous with a timeout — don't start long-lived servers.\n` +
     `When asked to build or change code, ACTUALLY write the files with write_file — do not just describe them. ` +
+    `Use run_command to compile/test and read the output before reporting success. ` +
     `Read before overwriting when unsure. When finished, give a short summary of what you did.`
   );
 }
@@ -215,7 +282,7 @@ function cacheRequestFor(agent: Agent, systemPrompt: string, messages: ChatTurn[
     messages: messages
       .filter((m): m is ChatTurn & { content: string } => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
       .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-    meta: { role: agent.role, agentSlug: agent.slug, cacheable: true, callKind: 'agent' },
+    meta: { role: agent.role, agentSlug: agent.slug, projectId: agent.projectId, cacheable: true, callKind: 'agent' },
   };
 }
 
@@ -282,7 +349,7 @@ async function runTurnInner(opts: RunTurnOpts): Promise<RunTurnResult> {
 
   // L4 — append the output-minimization directive (off by default) to trim output tokens.
   const minimize = minimizeDirective();
-  const systemPrompt = [await withProjectKnowledge(agent.systemPrompt, projectId), toolGuidance(workspacePath, isCoordinator), minimize]
+  const systemPrompt = [identityLine(agent), await withProjectKnowledge(agent.systemPrompt, projectId), toolGuidance(workspacePath, isCoordinator), RESPONSE_DISCIPLINE, minimize]
     .filter(Boolean)
     .join('\n\n');
 
@@ -334,7 +401,14 @@ async function runTurnInner(opts: RunTurnOpts): Promise<RunTurnResult> {
     costUsd: totalActual, baselineCostUsd: totalBaseline, cacheHit: false,
   });
 
+  const callCounts = new Map<string, number>();
   for (let iter = 0; iter < MAX_ITERS; iter++) {
+    // On the last iteration, or once the input-token budget is spent, drop tools so the model
+    // MUST return a final text answer instead of spinning up more tool calls (anti-runaway).
+    const forceFinal = iter === MAX_ITERS - 1 || totalIn >= MAX_TURN_INPUT_TOKENS;
+    if (forceFinal && totalIn >= MAX_TURN_INPUT_TOKENS) {
+      log.warn(`Agent "${agent.name}" hit the per-turn input budget (${totalIn} tok) — forcing a final answer`);
+    }
     const res = await completeWithTools(
       {
         providerId: served.providerId,
@@ -342,9 +416,9 @@ async function runTurnInner(opts: RunTurnOpts): Promise<RunTurnResult> {
         maxTokens: agent.modelConfig.maxTokens,
         temperature: agent.modelConfig.temperature,
         systemPrompt,
-        messages,
+        messages: trimHistory(messages),
       },
-      tools,
+      forceFinal ? [] : tools,
     );
     totalIn += res.inputTokens;
     totalOut += res.outputTokens;
@@ -375,7 +449,14 @@ async function runTurnInner(opts: RunTurnOpts): Promise<RunTurnResult> {
       onEvent?.({ type: 'tool', name: tc.name, args: tc.args });
       let resultStr: string;
 
-      if (tc.name === DELEGATE) {
+      // Loop breaker: if the model repeats the exact same call, refuse to re-run it.
+      const sig = callSignature(tc.name, tc.args);
+      const seen = (callCounts.get(sig) ?? 0) + 1;
+      callCounts.set(sig, seen);
+
+      if (seen > MAX_SAME_CALL) {
+        resultStr = `You already ran ${tc.name} with identical arguments ${seen - 1} time(s); it will not run again. Continue with different work or give your final answer.`;
+      } else if (tc.name === DELEGATE) {
         const ref = String(tc.args.agent ?? '');
         const spec = specialists.find((s) => s.slug === ref || s.id === ref || s.name === ref);
         if (!spec) {

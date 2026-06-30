@@ -191,7 +191,8 @@ describe('L1 — semantic cache', () => {
     await costMiddleware.complete(req(), { executor: exec }); // hit
     expect(calls()).toBe(1);
 
-    await semanticCache.invalidateNamespace('specialist:frontend');
+    // Namespace now includes project/provider/model — build it the same way the request resolves.
+    await semanticCache.invalidateNamespace(semanticCache.namespaceFor({ role: 'specialist', agentSlug: 'frontend', model: 'claude-sonnet-4-20250514' }));
     const r = await costMiddleware.complete(req(), { executor: exec }); // tekrar miss
     expect(r.cacheHit).toBe(false);
     expect(calls()).toBe(2);

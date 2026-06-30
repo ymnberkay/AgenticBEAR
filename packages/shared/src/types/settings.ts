@@ -1,5 +1,3 @@
-import type { ClaudeModel } from './agent.js';
-
 /** A custom DLP rule: a regex pattern that, when matched in an outgoing prompt, is redacted/blocked. */
 export interface DlpRule {
   /** Shown in the [REDACTED:label] marker + the UI. */
@@ -22,12 +20,7 @@ export interface Settings {
   apiKey: string;
   openAiApiKey: string;
   geminiApiKey: string;
-  defaultModel: ClaudeModel;
-  defaultMaxTokens: number;
   theme: 'dark' | 'light';
-  defaultWorkspacePath: string;
-  maxConcurrentAgents: number;
-  autoSaveInterval: number;
   /** Org-defined DLP patterns, applied (on top of built-in secret/PII rules) at the egress guard. */
   dlpCustomRules: DlpRule[];
   /** Models (served-model ids) for which the DLP egress guard is skipped. */
@@ -40,12 +33,7 @@ export interface UpdateSettingsInput {
   apiKey?: string;
   openAiApiKey?: string;
   geminiApiKey?: string;
-  defaultModel?: ClaudeModel;
-  defaultMaxTokens?: number;
   theme?: 'dark' | 'light';
-  defaultWorkspacePath?: string;
-  maxConcurrentAgents?: number;
-  autoSaveInterval?: number;
   dlpCustomRules?: DlpRule[];
   dlpDisabledModels?: string[];
   modelLimits?: Record<string, ModelLimit>;

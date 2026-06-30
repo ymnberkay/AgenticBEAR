@@ -52,6 +52,19 @@ describe('agent-loop — tool-use', () => {
     expect(res.text).toMatch(/limit/i);
   });
 
+  it('force-finishes (drops tools) once the per-turn input-token budget is exceeded', async () => {
+    // Model keeps calling a tool, but each call reports a huge input-token count.
+    completeMock.mockImplementation(async (_req: unknown, tools: unknown[]) => {
+      if (!tools || tools.length === 0) return step({ text: 'wrapped up under budget' }); // forced final → answer
+      return { ...step({ toolCalls: [{ id: 'x', name: 'read_file', args: { path: 'big.txt' } }] }), inputTokens: 250_000 };
+    });
+
+    const res = await runAgentTurn({ agent: agent(), projectId: 'p1', workspacePath: ws, messages: [{ role: 'user', content: 'go' }] });
+
+    expect(res.text).toBe('wrapped up under budget'); // got a real answer, not the iteration-limit fallback
+    expect(res.iterations).toBeLessThan(10);           // stopped early instead of spinning to the cap
+  });
+
   it('orchestrator delegates to a specialist and gets its result', async () => {
     agentRepoMock.findByProjectId.mockReturnValue([agent({ id: 's1', slug: 'backend', name: 'backend' })]);
     completeMock

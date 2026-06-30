@@ -64,7 +64,7 @@ export const costConfig = {
    * directive into agentic system prompts so coding agents write less over-engineered code →
    * fewer OUTPUT tokens. off (default, no behavior change) | lite (short nudge) | full (ladder).
    */
-  outputMinimize: envStr<'off' | 'lite' | 'full'>('COST_OUTPUT_MINIMIZE', 'off'),
+  outputMinimize: envStr<'off' | 'lite' | 'full'>('COST_OUTPUT_MINIMIZE', 'lite'),
 
   /**
    * Exact-match cache for READ-ONLY agent tool results (read_file/list_files), keyed by

@@ -5,7 +5,6 @@ import { Button } from '../ui/button';
 import { FolderPickerInput } from '../ui/folder-picker';
 import { useToast } from '../ui/toast';
 import { useCreateProject } from '../../api/hooks/use-projects';
-import { useSettings } from '../../api/hooks/use-settings';
 
 interface QuickCreateDialogProps {
   open: boolean;
@@ -24,26 +23,19 @@ export function QuickCreateDialog({ open, onClose }: QuickCreateDialogProps) {
   const [workspacePath, setWorkspacePath] = useState('');
   const [error, setError] = useState('');
   const createProject = useCreateProject();
-  const { data: settings } = useSettings();
   const { show: showToast } = useToast();
 
-  // Reset state and prefill workspace path when the dialog opens.
+  // Reset state after the dialog closes so the next open is clean.
   useEffect(() => {
-    if (open) {
-      if (!workspacePath && settings?.defaultWorkspacePath) {
-        setWorkspacePath(settings.defaultWorkspacePath);
-      }
-    } else {
-      // Reset after closing so the next open is clean.
-      const t = setTimeout(() => {
-        setName('');
-        setDescription('');
-        setWorkspacePath('');
-        setError('');
-      }, 200);
-      return () => clearTimeout(t);
-    }
-  }, [open, settings, workspacePath]);
+    if (open) return;
+    const t = setTimeout(() => {
+      setName('');
+      setDescription('');
+      setWorkspacePath('');
+      setError('');
+    }, 200);
+    return () => clearTimeout(t);
+  }, [open]);
 
   const workspacePathError = useMemo(() => {
     const p = workspacePath.trim();

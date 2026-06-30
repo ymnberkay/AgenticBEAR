@@ -20,6 +20,19 @@ import { scanAndRedact, dlpActiveForModel } from '../security/dlp.js';
 
 const log = createLogger('llm:tools');
 
+// Some models (notably the "deepseek-v4" proxies) leak their internal tool-call markup into the
+// text content as `<｜｜DSML｜｜tool_calls> … </｜｜DSML｜｜tool_calls>` (fullwidth ｜ = U+FF5C) instead
+// of using the structured tool_calls field. Strip it so the chat shows clean prose.
+const DSML_BAR = '｜';
+const DSML_BLOCK = new RegExp(`<${DSML_BAR}+DSML${DSML_BAR}+tool_calls>[\\s\\S]*?(?:</${DSML_BAR}+DSML${DSML_BAR}+tool_calls>|$)`, 'g');
+const DSML_TAG = new RegExp(`</?${DSML_BAR}+DSML${DSML_BAR}+[^>]*>`, 'g');
+
+/** Remove leaked tool-call markup from assistant text; collapse the blank lines it leaves behind. */
+export function stripLeakedToolMarkup(text: string): string {
+  if (!text || !text.includes('DSML')) return text;
+  return text.replace(DSML_BLOCK, '').replace(DSML_TAG, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 /** JSON-schema tool definition exposed to the model. */
 export interface ToolDef {
   name: string;
@@ -170,7 +183,7 @@ async function callAnthropicTools(req: ToolCompletionRequest, provider: Resolved
     else if (block.type === 'tool_use') toolCalls.push({ id: block.id, name: block.name, args: (block.input ?? {}) as Record<string, unknown> });
   }
   return {
-    text,
+    text: stripLeakedToolMarkup(text),
     toolCalls,
     stopReason: res.stop_reason,
     inputTokens: res.usage.input_tokens,
@@ -246,7 +259,7 @@ async function callOpenAITools(req: ToolCompletionRequest, provider: ResolvedPro
     return { id: tc.id, name: tc.function.name, args };
   });
   return {
-    text: msg?.content ?? '',
+    text: stripLeakedToolMarkup(msg?.content ?? ''),
     toolCalls,
     stopReason: data.choices[0]?.finish_reason ?? null,
     inputTokens: data.usage?.prompt_tokens ?? 0,

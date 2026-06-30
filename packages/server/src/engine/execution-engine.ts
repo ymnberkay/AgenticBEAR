@@ -9,7 +9,6 @@ import { agentRepo } from '../db/repositories/agent.repo.js';
 import { runRepo } from '../db/repositories/run.repo.js';
 import { taskRepo } from '../db/repositories/task.repo.js';
 import { memoryRepo } from '../db/repositories/memory.repo.js';
-import { settingsRepo } from '../db/repositories/settings.repo.js';
 import { activityLogRepo } from '../db/repositories/activity-log.repo.js';
 import { workspaceService } from '../services/workspace.service.js';
 import { recordQuotaUsage } from '../services/quota.service.js';
@@ -18,6 +17,9 @@ import { createLogger } from '../utils/logger.js';
 import type { Run, Task, Agent } from '@subagent/shared';
 
 const log = createLogger('engine');
+
+/** Max specialists run in parallel within a run (was a global setting; now a fixed default). */
+const MAX_CONCURRENT_AGENTS = 3;
 
 // Track active runs for pause/cancel
 const activeRuns = new Map<string, { paused: boolean; cancelled: boolean }>();
@@ -45,7 +47,6 @@ export const executionEngine = {
     // Provider-agnostic: keys are resolved per-agent by the unified client (built-in
     // Anthropic/OpenAI/Gemini from Settings/env, or a custom provider's own key).
     // No hard Anthropic-key requirement — a call only fails if its own provider lacks a key.
-    const settings = await settingsRepo.getSettings();
     const claudeService = new ClaudeService();
 
     // Initialize tracking
@@ -168,7 +169,7 @@ export const executionEngine = {
       const queue = new TaskQueue();
       queue.addTasks(createdTasks);
 
-      const maxConcurrent = settings.maxConcurrentAgents;
+      const maxConcurrent = MAX_CONCURRENT_AGENTS;
 
       while (!queue.isAllDone()) {
         const state = activeRuns.get(runId);

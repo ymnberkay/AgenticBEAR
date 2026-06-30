@@ -1,6 +1,15 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { resolve, dirname, sep } from 'node:path';
 import { buildFileTree, type TreeNode } from '../utils/file-tree.js';
+
+export interface CommandResult {
+  stdout: string;
+  stderr: string;
+  /** Process exit code; null if it was killed (e.g. timeout). */
+  code: number | null;
+  timedOut: boolean;
+}
 
 /**
  * Ensures the resolved path is within the workspace root.
@@ -36,5 +45,28 @@ export const workspaceService = {
   deleteFile(workspacePath: string, relativePath: string): void {
     const absPath = assertWithinWorkspace(workspacePath, relativePath);
     if (existsSync(absPath)) rmSync(absPath, { recursive: false });
+  },
+
+  /**
+   * Run a shell command with the workspace as the working directory (for builds, tests, logs).
+   * Uses a login shell so PATH/nvm are available; bounded by a timeout + output cap. This is
+   * arbitrary command execution scoped to the project's workspace dir.
+   */
+  runCommand(workspacePath: string, command: string, timeoutMs = 120_000): CommandResult {
+    const cwd = resolve(workspacePath);
+    const shell = process.env.SHELL || '/bin/bash';
+    const res = spawnSync(shell, ['-lc', command], {
+      cwd,
+      timeout: timeoutMs,
+      maxBuffer: 5 * 1024 * 1024,
+      encoding: 'utf-8',
+    });
+    const timedOut = (res.error as NodeJS.ErrnoException | undefined)?.code === 'ETIMEDOUT' || res.signal === 'SIGTERM';
+    return {
+      stdout: res.stdout ?? '',
+      stderr: res.stderr ?? (res.error ? String(res.error.message) : ''),
+      code: res.status,
+      timedOut,
+    };
   },
 };

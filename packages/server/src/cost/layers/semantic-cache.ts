@@ -15,7 +15,7 @@ import { createLogger } from '../../utils/logger.js';
 import { costConfig } from '../config.js';
 import { getEmbedder } from '../embedding.js';
 import { QdrantStore } from '../vector-store.js';
-import { canonicalText, namespaceOf, promptHash } from '../hash.js';
+import { canonicalText, namespaceOf, promptHash, agentNamespace } from '../hash.js';
 import { poolFor, cheapest } from './model-select.js';
 import type { CachePayload, Classifier, Embedder, LlmRequest, LlmResult, VectorStore } from '../types.js';
 
@@ -194,6 +194,12 @@ export async function invalidateNamespace(namespace: string): Promise<void> {
 }
 
 /** namespaceOf ile tutarlı namespace üreticisi (invalidation çağıranları için). */
-export function namespaceFor(role: string, agentSlug?: string): string {
-  return agentSlug ? `${role}:${agentSlug}` : role;
+export function namespaceFor(opts: {
+  projectId?: string;
+  role: string;
+  agentSlug?: string;
+  providerId?: string;
+  model?: string;
+}): string {
+  return agentNamespace(opts);
 }

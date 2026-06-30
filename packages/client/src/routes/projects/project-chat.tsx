@@ -5,26 +5,36 @@ import { Plus, Trash2, BookOpen, Upload, FolderTree, X, MessageSquarePlus, Panel
 import { useAgents } from '../../api/hooks/use-agents';
 import { useDocuments, useCreateDocument, useDeleteDocument } from '../../api/hooks/use-documents';
 import { useFileTree, workspaceKeys } from '../../api/hooks/use-workspace';
-import { useApplyFileChange, useRejectFileChange } from '../../api/hooks/use-file-changes';
+import { useApplyFileChange, useRejectFileChange, usePendingFileChanges } from '../../api/hooks/use-file-changes';
 import { FileTree } from '../../components/workspace/file-tree';
 import { FileViewer } from '../../components/workspace/file-viewer';
-import { streamChat, type ChatMessage, type ToolEvent, type PendingChange } from '../../api/chat';
+import { streamChat, type ChatMessage, type ToolEvent } from '../../api/chat';
+import type { FileChange } from '@subagent/shared';
 import { ChatMessage as ChatBubble } from '../../components/chat/chat-message';
 import { ChatComposer } from '../../components/chat/chat-composer';
 import { useConversations, type ChatEntry } from '../../components/chat/use-conversations';
 import { useToast } from '../../components/ui/toast';
 import { Dialog } from '../../components/ui/dialog';
 
-/** Human-readable one-liner for a tool event (shown as an activity chip). */
+/**
+ * A short present-tense status for a tool event (shown as a live activity chip). Labels are
+ * intentionally generic so consecutive same-kind steps (e.g. reading several files) collapse
+ * into a single line instead of repeating "read a file" over and over.
+ */
 function activityLine(e: ToolEvent): string | null {
   switch (e.kind) {
-    case 'write': return `${e.operation === 'modify' ? 'edited' : e.operation === 'delete' ? 'deleted' : 'wrote'} ${e.path}`;
-    case 'pendingWrite': return `proposed ${e.operation === 'delete' ? 'deletion of' : e.operation === 'modify' ? 'edit to' : 'new file'} ${e.path} — awaiting approval`;
-    case 'delegate': return `→ delegated to ${e.agent}${e.task ? `: ${e.task.length > 70 ? `${e.task.slice(0, 67)}…` : e.task}` : ''}`;
+    case 'write': return e.operation === 'delete' ? 'Deleting files' : e.operation === 'modify' ? 'Editing files' : 'Writing files';
+    case 'pendingWrite': return e.operation === 'command'
+      ? `Proposing command: ${(e.path ?? '').length > 56 ? `${(e.path ?? '').slice(0, 53)}…` : e.path}`
+      : 'Proposing file changes';
+    case 'delegate': return `Delegating to ${e.agent}`;
     case 'tool':
-      if (e.name === 'read_file') return 'read a file';
-      if (e.name === 'list_files') return 'listed files';
-      return `${e.name}`;
+      if (e.name === 'read_file') return 'Reading files';
+      if (e.name === 'list_files') return 'Listing files';
+      if (e.name === 'delete_file') return 'Deleting files';
+      if (e.name === 'write_file') return 'Writing files';
+      if (e.name === 'run_command') return e.command ? `Running: ${e.command.length > 60 ? `${e.command.slice(0, 57)}…` : e.command}` : 'Running a command';
+      return `Running ${e.name}`;
     default: return null;
   }
 }
@@ -52,16 +62,18 @@ export function ProjectChatPage() {
   const { data: fileTree, isLoading: treeLoading } = useFileTree(projectId);
   const applyChange = useApplyFileChange(projectId);
   const rejectChange = useRejectFileChange(projectId);
+  const { data: pending = [] } = usePendingFileChanges(projectId); // server-backed → survives navigation
 
+  const draftKey = `agb_chat_draft_${projectId}`;
   const conv = useConversations(projectId);
   const [messages, setMessages] = useState<ChatEntry[]>(conv.active?.messages ?? []);
-  const [input, setInput] = useState('');
+  // Draft persists across navigating away/back (restored on remount).
+  const [input, setInput] = useState(() => { try { return localStorage.getItem(draftKey) ?? ''; } catch { return ''; } });
   const [streaming, setStreaming] = useState(false);
   const [agentId, setAgentId] = useState('');
   const [railOpen, setRailOpen] = useState(true);
   const [panel, setPanel] = useState<null | 'knowledge' | 'workspace'>(null);
   const [changed, setChanged] = useState<Map<string, 'create' | 'modify'>>(new Map());
-  const [pending, setPending] = useState<PendingChange[]>([]);
   const [viewerPath, setViewerPath] = useState<string | null>(null);
   const [docName, setDocName] = useState('');
   const [docContent, setDocContent] = useState('');
@@ -89,7 +101,10 @@ export function ProjectChatPage() {
   }, [agentList, conv.activeId]);
 
   // Load messages when switching conversations.
-  useEffect(() => { setMessages(conv.active?.messages ?? []); setChanged(new Map()); setPending([]); /* eslint-disable-next-line */ }, [conv.activeId]);
+  useEffect(() => { setMessages(conv.active?.messages ?? []); setChanged(new Map()); /* eslint-disable-next-line */ }, [conv.activeId]);
+
+  // Persist the composer draft so it survives navigating away and back.
+  useEffect(() => { try { localStorage.setItem(draftKey, input); } catch { /* quota */ } }, [draftKey, input]);
 
   // Smart auto-scroll: only follow the latest message when the user is already near the bottom.
   useEffect(() => {
@@ -136,13 +151,16 @@ export function ProjectChatPage() {
       onDelta: (t) => setLast((last) => ({ ...last, content: last.content + t })),
       onTool: (e) => {
         const line = activityLine(e);
-        if (line) setLast((last) => ({ ...last, activity: [...(last.activity ?? []), line] }));
+        if (line) setLast((last) => {
+          const act = last.activity ?? [];
+          if (act[act.length - 1] === line) return last; // collapse consecutive same-kind steps
+          return { ...last, activity: [...act, line] };
+        });
         if (e.kind === 'write' && e.path) {
           touched.push(e.path);
           setChanged((prev) => new Map(prev).set(e.path!, (e.operation as 'create' | 'modify') ?? 'modify'));
         }
       },
-      onPending: (p) => setPending((prev) => [...prev, p]),
       onError: (m) => {
         setStreamError(m);
         showToast(m, { variant: 'error' });
@@ -153,6 +171,9 @@ export function ProjectChatPage() {
     // Persist the finished turn into the conversation store.
     conv.update(id, work, agentId);
 
+    // The turn may have staged file changes for approval — refresh the server-backed pending bar.
+    queryClient.invalidateQueries({ queryKey: ['file-changes', 'pending', projectId] });
+
     if (touched.length > 0) {
       queryClient.invalidateQueries({ queryKey: workspaceKeys.fileTree(projectId) });
       for (const p of touched) queryClient.invalidateQueries({ queryKey: workspaceKeys.fileContent(projectId, p) });
@@ -160,32 +181,44 @@ export function ProjectChatPage() {
     }
   }
 
-  function approve(p: PendingChange) {
+  function approve(p: FileChange) {
     applyChange.mutate(p.id, {
-      onSuccess: () => {
-        setPending((prev) => prev.filter((x) => x.id !== p.id));
-        if (p.operation !== 'delete') setChanged((prev) => new Map(prev).set(p.path, p.operation === 'modify' ? 'modify' : 'create'));
-        setPanel('workspace');
+      onSuccess: (res) => {
+        if (p.operation === 'command') {
+          // Surface the command output inline in the conversation.
+          const id = conv.activeId ?? conv.startNew(agentId);
+          const out = res.commandOutput ?? '(no output)';
+          const next: ChatEntry[] = [...messages, { role: 'assistant', content: `\`\`\`\n$ ${p.filePath}\n${out}\n\`\`\`` }];
+          setMessages(next);
+          conv.update(id, next, agentId);
+        } else {
+          setChanged((prev) => new Map(prev).set(p.filePath, p.operation === 'modify' ? 'modify' : 'create'));
+          setPanel('workspace');
+        }
       },
-      onError: (err) => showToast(err instanceof Error ? err.message : `Failed to apply ${p.path}`, { variant: 'error' }),
+      onError: (err) => showToast(err instanceof Error ? err.message : `Failed to apply ${p.filePath}`, { variant: 'error' }),
     });
   }
-  function reject(p: PendingChange) {
+  function reject(p: FileChange) {
     rejectChange.mutate(p.id, {
-      onSuccess: () => setPending((prev) => prev.filter((x) => x.id !== p.id)),
-      onError: (err) => showToast(err instanceof Error ? err.message : `Failed to reject ${p.path}`, { variant: 'error' }),
+      onError: (err) => showToast(err instanceof Error ? err.message : `Failed to reject ${p.filePath}`, { variant: 'error' }),
     });
   }
-  const approveAll = () => {
-    const count = pending.length;
-    if (count === 0) return;
-    Promise.allSettled(pending.map((p) => new Promise<void>((resolve, reject) => {
-      applyChange.mutate(p.id, { onSuccess: () => resolve(), onError: () => reject() });
-    }))).then((results) => {
-      const failed = results.filter((r) => r.status === 'rejected').length;
-      if (failed === 0) showToast(`Applied ${count} change${count === 1 ? '' : 's'}`, { variant: 'success' });
-      else showToast(`${count - failed} applied, ${failed} failed`, { variant: 'error' });
-    });
+  const approveAll = async () => {
+    const items = [...pending];
+    if (items.length === 0) return;
+    let failed = 0;
+    for (const p of items) {
+      try {
+        await applyChange.mutateAsync(p.id);
+        if (p.operation !== 'delete') setChanged((prev) => new Map(prev).set(p.filePath, p.operation === 'modify' ? 'modify' : 'create'));
+      } catch {
+        failed++;
+      }
+    }
+    setPanel('workspace');
+    if (failed === 0) showToast(`Applied ${items.length} change${items.length === 1 ? '' : 's'}`, { variant: 'success' });
+    else showToast(`${items.length - failed} applied, ${failed} failed`, { variant: 'error' });
   };
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -412,7 +445,7 @@ export function ProjectChatPage() {
               <div style={{ maxWidth: 760, width: '100%', margin: '0 auto 10px', background: 'var(--color-bg-surface)', border: '1px solid rgba(124,140,248,0.4)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
                 <div className="flex items-center justify-between" style={{ padding: '8px 12px', borderBottom: '1px solid var(--color-border-subtle)' }}>
                   <span className="flex items-center gap-2" style={{ fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
-                    <FileWarning style={{ width: 13, height: 13, color: 'var(--color-accent)' }} /> {pending.length} file change{pending.length === 1 ? '' : 's'} need approval
+                    <FileWarning style={{ width: 13, height: 13, color: 'var(--color-accent)' }} /> {pending.length} change{pending.length === 1 ? '' : 's'} need approval
                   </span>
                   <button type="button" onClick={approveAll} disabled={applyChange.isPending}
                     style={{ height: 24, padding: '0 10px', fontSize: 11, fontWeight: 600, background: 'var(--color-accent)', color: '#021526', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}>
@@ -421,15 +454,22 @@ export function ProjectChatPage() {
                 </div>
                 <div className="flex flex-col">
                   {pending.map((p) => {
-                    const op = p.operation === 'delete' ? 'delete' : p.operation === 'modify' ? 'edit' : 'create';
-                    const opColor = p.operation === 'delete' ? 'var(--color-error)' : p.operation === 'modify' ? 'var(--color-warning)' : 'var(--color-success)';
+                    const isCmd = p.operation === 'command';
+                    const op = isCmd ? 'run' : p.operation === 'delete' ? 'delete' : p.operation === 'modify' ? 'edit' : 'create';
+                    const opColor = isCmd ? 'var(--color-accent)' : p.operation === 'delete' ? 'var(--color-error)' : p.operation === 'modify' ? 'var(--color-warning)' : 'var(--color-success)';
                     return (
                       <div key={p.id} className="flex items-center gap-2" style={{ padding: '7px 12px', borderTop: '1px solid var(--color-border-subtle)' }}>
                         <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'var(--font-mono)', color: opColor, width: 46, flexShrink: 0 }}>{op}</span>
-                        <button type="button" onClick={() => setViewerPath(p.path)} className="truncate" title="Preview"
-                          style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)', minWidth: 0 }}>
-                          {p.path}
-                        </button>
+                        {isCmd ? (
+                          <span className="truncate" title={p.filePath} style={{ flex: 1, fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)', minWidth: 0 }}>
+                            $ {p.filePath}
+                          </span>
+                        ) : (
+                          <button type="button" onClick={() => setViewerPath(p.filePath)} className="truncate" title="Preview"
+                            style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)', minWidth: 0 }}>
+                            {p.filePath}
+                          </button>
+                        )}
                         <button type="button" onClick={() => approve(p)} disabled={applyChange.isPending} title="Approve" className="flex items-center gap-1"
                           style={{ height: 24, padding: '0 9px', fontSize: 10.5, fontWeight: 600, background: 'var(--color-success-subtle)', color: 'var(--color-success)', border: '1px solid rgba(109,181,138,0.4)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', flexShrink: 0 }}>
                           <Check style={{ width: 11, height: 11 }} /> Approve

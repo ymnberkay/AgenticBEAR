@@ -38,8 +38,24 @@ describe('agent-tools — sandboxed file tools', () => {
     expect(existsSync(join(ws, '../escape.txt'))).toBe(false);
   });
 
-  it('exposes the file tool defs', () => {
-    expect(fileToolDefs().map((t) => t.name)).toEqual(['write_file', 'read_file', 'list_files', 'delete_file']);
+  it('exposes the file tool defs (incl. run_command when shell is enabled)', () => {
+    expect(fileToolDefs().map((t) => t.name)).toEqual(['write_file', 'read_file', 'list_files', 'delete_file', 'run_command']);
+  });
+
+  it('run_command executes a shell command in the workspace and returns its output + exit code', () => {
+    const r = executeFileTool(ws, 'run_command', { command: 'echo hello-from-shell' });
+    expect(r.result).toContain('hello-from-shell');
+    expect(r.result).toMatch(/exit 0/);
+    expect(r.write).toBeUndefined(); // commands are not file writes
+  });
+
+  it('stageOnly run_command does NOT execute — it stages the command for approval', () => {
+    const marker = join(ws, 'ran.txt');
+    const r = executeFileTool(ws, 'run_command', { command: `touch ${marker}` }, { stageOnly: true });
+    expect(existsSync(marker)).toBe(false);              // not run
+    expect(r.write?.operation).toBe('command');
+    expect(r.write?.path).toBe(`touch ${marker}`);       // command stored as the "path"
+    expect(r.result).toMatch(/staged/i);
   });
 
   it('stageOnly write does NOT touch disk but returns the proposed change', () => {
@@ -47,7 +63,7 @@ describe('agent-tools — sandboxed file tools', () => {
     expect(existsSync(join(ws, 'staged.ts'))).toBe(false);          // not written
     expect(r.write?.operation).toBe('create');
     expect(r.write?.content).toBe('pending');
-    expect(r.result).toMatch(/pending user approval/i);
+    expect(r.result).toMatch(/staged.*approval/i);
   });
 
   it('delete_file removes a file; stageOnly delete leaves it in place', () => {

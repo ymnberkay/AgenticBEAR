@@ -7,12 +7,7 @@ interface SettingsRow {
   api_key: string;
   openai_api_key: string;
   gemini_api_key: string;
-  default_model: string;
-  default_max_tokens: number;
   theme: string;
-  default_workspace_path: string;
-  max_concurrent_agents: number;
-  auto_save_interval: number;
   dlp_custom_rules: string | null;
   dlp_disabled_models: string | null;
   model_limits_json: string | null;
@@ -50,12 +45,7 @@ function rowToSettings(row: SettingsRow): Settings {
     apiKey: row.api_key,
     openAiApiKey: row.openai_api_key ?? '',
     geminiApiKey: row.gemini_api_key ?? '',
-    defaultModel: row.default_model as Settings['defaultModel'],
-    defaultMaxTokens: row.default_max_tokens,
     theme: row.theme as Settings['theme'],
-    defaultWorkspacePath: row.default_workspace_path,
-    maxConcurrentAgents: row.max_concurrent_agents,
-    autoSaveInterval: row.auto_save_interval,
     dlpCustomRules: parseRules(row.dlp_custom_rules),
     dlpDisabledModels: parseStrArray(row.dlp_disabled_models),
     modelLimits: parseModelLimits(row.model_limits_json),
@@ -68,19 +58,16 @@ export const settingsRepo = {
     const row = await db.prepare('SELECT * FROM settings WHERE id = 1').get<SettingsRow>();
 
     if (!row) {
+      // Removed/dormant columns (default_model, default_max_tokens, default_workspace_path,
+      // max_concurrent_agents, auto_save_interval) keep their NOT NULL DB defaults.
       await db.prepare(`
-        INSERT INTO settings (id, api_key, openai_api_key, gemini_api_key, default_model, default_max_tokens, theme, default_workspace_path, max_concurrent_agents, auto_save_interval)
-        VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO settings (id, api_key, openai_api_key, gemini_api_key, theme)
+        VALUES (1, ?, ?, ?, ?)
       `).run(
         DEFAULT_SETTINGS.apiKey,
         DEFAULT_SETTINGS.openAiApiKey,
         DEFAULT_SETTINGS.geminiApiKey,
-        DEFAULT_SETTINGS.defaultModel,
-        DEFAULT_SETTINGS.defaultMaxTokens,
         DEFAULT_SETTINGS.theme,
-        DEFAULT_SETTINGS.defaultWorkspacePath,
-        DEFAULT_SETTINGS.maxConcurrentAgents,
-        DEFAULT_SETTINGS.autoSaveInterval,
       );
 
       return { ...DEFAULT_SETTINGS };
@@ -96,27 +83,18 @@ export const settingsRepo = {
     const apiKey = input.apiKey ?? current.apiKey;
     const openAiApiKey = input.openAiApiKey ?? current.openAiApiKey;
     const geminiApiKey = input.geminiApiKey ?? current.geminiApiKey;
-    const defaultModel = input.defaultModel ?? current.defaultModel;
-    const defaultMaxTokens = input.defaultMaxTokens ?? current.defaultMaxTokens;
     const theme = input.theme ?? current.theme;
-    const defaultWorkspacePath = input.defaultWorkspacePath ?? current.defaultWorkspacePath;
-    const maxConcurrentAgents = input.maxConcurrentAgents ?? current.maxConcurrentAgents;
-    const autoSaveInterval = input.autoSaveInterval ?? current.autoSaveInterval;
     const dlpCustomRules = input.dlpCustomRules ?? current.dlpCustomRules;
     const dlpDisabledModels = input.dlpDisabledModels ?? current.dlpDisabledModels;
     const modelLimits = input.modelLimits ?? current.modelLimits;
 
     await db.prepare(`
       UPDATE settings
-      SET api_key = ?, openai_api_key = ?, gemini_api_key = ?,
-          default_model = ?, default_max_tokens = ?, theme = ?,
-          default_workspace_path = ?, max_concurrent_agents = ?, auto_save_interval = ?,
+      SET api_key = ?, openai_api_key = ?, gemini_api_key = ?, theme = ?,
           dlp_custom_rules = ?, dlp_disabled_models = ?, model_limits_json = ?
       WHERE id = 1
     `).run(
-      apiKey, openAiApiKey, geminiApiKey,
-      defaultModel, defaultMaxTokens, theme,
-      defaultWorkspacePath, maxConcurrentAgents, autoSaveInterval,
+      apiKey, openAiApiKey, geminiApiKey, theme,
       JSON.stringify(dlpCustomRules ?? []), JSON.stringify(dlpDisabledModels ?? []),
       JSON.stringify(modelLimits ?? {}),
     );

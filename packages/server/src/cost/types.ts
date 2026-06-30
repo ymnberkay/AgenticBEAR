@@ -21,6 +21,8 @@ export interface CallMeta {
   role?: string;
   /** Namespace çözünürlüğünü artırmak için (örn. agent slug). */
   agentSlug?: string;
+  /** Cache namespace'ini projeye göre ayırır (farklı projelerdeki aynı-isimli agent'lar çakışmasın). */
+  projectId?: string;
   /** Çağrının türü; routing/classification gibi çağrılar router'a sokulmaz. */
   callKind?: 'agent' | 'orchestration' | 'documentation' | 'routing' | 'classification' | 'gateway';
   /**

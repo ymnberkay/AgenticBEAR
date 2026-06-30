@@ -55,7 +55,8 @@ export interface FileChange {
   runStepId: string;
   runId: string;
   filePath: string;
-  operation: 'create' | 'modify' | 'delete';
+  /** 'command' = a staged shell command awaiting approval (filePath holds the command string). */
+  operation: 'create' | 'modify' | 'delete' | 'command';
   previousContent: string | null;
   newContent: string;
   agentId: string;

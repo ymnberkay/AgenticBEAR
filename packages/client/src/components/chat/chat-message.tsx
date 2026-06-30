@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import { Loader2, Wrench, FileEdit, ArrowRightLeft, FileSearch, Copy, Check } from 'lucide-react';
+import { Loader2, Wrench, FileEdit, ArrowRightLeft, FileSearch, Terminal, Copy, Check } from 'lucide-react';
 import { Markdown } from './markdown';
 import type { ChatEntry } from './use-conversations';
 
-/** Pick an icon for an activity line by its leading marker. */
+/** Pick an icon for an activity line (matches the present-tense labels from activityLine). */
 function ActivityIcon({ line }: { line: string }) {
   const s = { width: 12, height: 12, flexShrink: 0 } as const;
-  if (line.includes('wrote') || line.includes('edited')) return <FileEdit style={{ ...s, color: 'var(--color-warning)' }} aria-hidden="true" />;
-  if (line.startsWith('→') || line.includes('delegated')) return <ArrowRightLeft style={{ ...s, color: 'var(--color-accent)' }} aria-hidden="true" />;
-  if (line.includes('read') || line.includes('listed')) return <FileSearch style={{ ...s, color: 'var(--color-text-secondary)' }} aria-hidden="true" />;
+  if (/^(Writing|Editing|Deleting|Proposing)/.test(line)) return <FileEdit style={{ ...s, color: 'var(--color-warning)' }} aria-hidden="true" />;
+  if (/^Delegating/.test(line)) return <ArrowRightLeft style={{ ...s, color: 'var(--color-accent)' }} aria-hidden="true" />;
+  if (/^(Reading|Listing)/.test(line)) return <FileSearch style={{ ...s, color: 'var(--color-text-secondary)' }} aria-hidden="true" />;
+  if (/^Running[:\s]/.test(line) || /^Running a command/.test(line)) return <Terminal style={{ ...s, color: 'var(--color-success)' }} aria-hidden="true" />;
   return <Wrench style={{ ...s, color: 'var(--color-text-secondary)' }} aria-hidden="true" />;
 }
 
@@ -64,20 +65,24 @@ export function ChatMessage({ entry, agentName, agentColor, streaming }: Props) 
         )}
       </div>
 
-      {/* Tool / agent activity (assistant only) */}
+      {/* Tool / agent activity (assistant only). The last step shows a live spinner while the
+          turn is still running and no final text has arrived yet — i.e. work is ongoing. */}
       {!isUser && entry.activity && entry.activity.length > 0 && (
         <div className="flex flex-col" style={{ gap: 4, marginBottom: 2 }}>
-          {entry.activity.map((line, j) => (
-            <div
-              key={j}
-              title={line}
-              className="flex items-center gap-2"
-              style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', padding: '4px 9px', background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)', width: 'fit-content', maxWidth: '100%' }}
-            >
-              <ActivityIcon line={line} />
-              <span className="truncate">{line.replace(/^[^\w\s]+\s?/, '')}</span>
-            </div>
-          ))}
+          {entry.activity.map((line, j) => {
+            const isActive = !!streaming && !entry.content && j === entry.activity!.length - 1;
+            return (
+              <div
+                key={j}
+                title={line}
+                className="flex items-center gap-2"
+                style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', padding: '4px 9px', background: 'var(--color-bg-surface)', border: `1px solid ${isActive ? 'var(--glass-border-hover)' : 'var(--color-border-subtle)'}`, borderRadius: 'var(--radius-sm)', width: 'fit-content', maxWidth: '100%' }}
+              >
+                {isActive ? <Loader2 className="animate-spin" style={{ width: 12, height: 12, flexShrink: 0, color: 'var(--color-accent)' }} aria-hidden="true" /> : <ActivityIcon line={line} />}
+                <span className="truncate">{line}{isActive ? '…' : ''}</span>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -93,7 +98,7 @@ export function ChatMessage({ entry, agentName, agentColor, streaming }: Props) 
         </div>
       ) : entry.content ? (
         <Markdown text={entry.content} />
-      ) : streaming ? (
+      ) : streaming && (!entry.activity || entry.activity.length === 0) ? (
         <div className="flex items-center gap-2" style={{ color: 'var(--color-text-secondary)', fontSize: 13 }} role="status" aria-live="polite">
           <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} aria-hidden="true" />
           <span style={{ fontFamily: 'var(--font-mono)' }}>thinking…</span>

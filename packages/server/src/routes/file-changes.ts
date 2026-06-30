@@ -37,10 +37,24 @@ export async function fileChangeRoutes(app: FastifyInstance): Promise<void> {
       if (!run || run.projectId !== projectId) return reply.status(404).send({ error: true, message: 'Change not in this project' });
       const project = await projectRepo.findById(projectId);
       if (!project) return reply.status(404).send({ error: true, message: 'Project not found' });
+      // Without a workspace dir, a write would land in the server's cwd — refuse loudly instead.
+      if (!project.workspacePath || !project.workspacePath.trim()) {
+        return reply.status(400).send({ error: true, message: 'This project has no workspace directory configured. Set one in Project → Settings, then retry.' });
+      }
 
+      let commandOutput: string | undefined;
       try {
-        if (change.operation === 'delete') workspaceService.deleteFile(project.workspacePath, change.filePath);
-        else workspaceService.writeFile(project.workspacePath, change.filePath, change.newContent);
+        if (change.operation === 'command') {
+          // The command string is stored in filePath; run it now that the user approved.
+          const r = workspaceService.runCommand(project.workspacePath, change.filePath);
+          const combined = [r.stdout, r.stderr].filter(Boolean).join('\n').trim();
+          const status = r.timedOut ? 'timed out' : `exit ${r.code ?? 'null'}`;
+          commandOutput = `[${status}]\n${combined || '(no output)'}`;
+        } else if (change.operation === 'delete') {
+          workspaceService.deleteFile(project.workspacePath, change.filePath);
+        } else {
+          workspaceService.writeFile(project.workspacePath, change.filePath, change.newContent);
+        }
       } catch (err) {
         log.error('apply file change failed', err);
         return reply.status(500).send({ error: true, message: err instanceof Error ? err.message : 'apply failed' });
@@ -49,10 +63,11 @@ export async function fileChangeRoutes(app: FastifyInstance): Promise<void> {
       const updated = await taskRepo.setFileChangeStatus(id, 'applied');
       const user = (request as AuthedRequest).authUser as User | undefined;
       await activityLogRepo.record({
-        projectId, userId: user?.id, username: user?.username, action: 'file.apply',
+        projectId, userId: user?.id, username: user?.username,
+        action: change.operation === 'command' ? 'command.run' : 'file.apply',
         target: change.filePath, detail: change.operation,
       });
-      return reply.send(updated);
+      return reply.send({ ...updated, commandOutput });
     },
   );
 

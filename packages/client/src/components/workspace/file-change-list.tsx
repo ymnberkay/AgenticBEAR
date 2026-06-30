@@ -18,19 +18,24 @@ export function FileChangeList({ changes, agents }: FileChangeListProps) {
   const [filter, setFilter] = useState<'all' | 'create' | 'modify' | 'delete'>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
 
+  // 'command' ops are chat-approval shell commands, not file diffs — exclude them from this view.
+  const fileChanges = useMemo(
+    () => (changes ?? []).filter((c): c is typeof c & { operation: 'create' | 'modify' | 'delete' } => c.operation !== 'command'),
+    [changes],
+  );
+
   const counts = useMemo(() => {
     const c = { create: 0, modify: 0, delete: 0 };
-    for (const change of changes ?? []) c[change.operation]++;
+    for (const change of fileChanges) c[change.operation]++;
     return c;
-  }, [changes]);
+  }, [fileChanges]);
 
   const filtered = useMemo(() => {
-    if (!changes) return [];
-    if (filter === 'all') return changes;
-    return changes.filter((c) => c.operation === filter);
-  }, [changes, filter]);
+    if (filter === 'all') return fileChanges;
+    return fileChanges.filter((c) => c.operation === filter);
+  }, [fileChanges, filter]);
 
-  if (!changes || changes.length === 0) {
+  if (fileChanges.length === 0) {
     return (
       <div className="py-10 text-center flex flex-col items-center gap-2">
         <FileText style={{ width: 20, height: 20, color: 'var(--color-text-secondary)' }} aria-hidden="true" />
@@ -49,7 +54,7 @@ export function FileChangeList({ changes, agents }: FileChangeListProps) {
       {/* Filter chips */}
       <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="Filter by operation">
         {([
-          { id: 'all' as const, label: `All (${changes.length})` },
+          { id: 'all' as const, label: `All (${fileChanges.length})` },
           { id: 'create' as const, label: `+ ${counts.create}` },
           { id: 'modify' as const, label: `~ ${counts.modify}` },
           { id: 'delete' as const, label: `- ${counts.delete}` },
