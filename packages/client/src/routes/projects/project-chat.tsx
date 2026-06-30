@@ -8,6 +8,7 @@ import { useFileTree, workspaceKeys } from '../../api/hooks/use-workspace';
 import { useApplyFileChange, useRejectFileChange, usePendingFileChanges } from '../../api/hooks/use-file-changes';
 import { FileTree } from '../../components/workspace/file-tree';
 import { FileViewer } from '../../components/workspace/file-viewer';
+import { DiffView } from '../../components/workspace/diff-view';
 import { streamChat, type ChatMessage, type ToolEvent } from '../../api/chat';
 import type { FileChange } from '@subagent/shared';
 import { ChatMessage as ChatBubble } from '../../components/chat/chat-message';
@@ -34,6 +35,7 @@ function activityLine(e: ToolEvent): string | null {
       if (e.name === 'delete_file') return 'Deleting files';
       if (e.name === 'write_file') return 'Writing files';
       if (e.name === 'run_command') return e.command ? `Running: ${e.command.length > 60 ? `${e.command.slice(0, 57)}…` : e.command}` : 'Running a command';
+      if (e.name === 'documenting') return 'Documenting changes';
       return `Running ${e.name}`;
     default: return null;
   }
@@ -75,6 +77,7 @@ export function ProjectChatPage() {
   const [panel, setPanel] = useState<null | 'knowledge' | 'workspace'>(null);
   const [changed, setChanged] = useState<Map<string, 'create' | 'modify'>>(new Map());
   const [viewerPath, setViewerPath] = useState<string | null>(null);
+  const [diffChange, setDiffChange] = useState<FileChange | null>(null); // staged-change diff preview
   const [docName, setDocName] = useState('');
   const [docContent, setDocContent] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<
@@ -465,7 +468,7 @@ export function ProjectChatPage() {
                             $ {p.filePath}
                           </span>
                         ) : (
-                          <button type="button" onClick={() => setViewerPath(p.filePath)} className="truncate" title="Preview"
+                          <button type="button" onClick={() => setDiffChange(p)} className="truncate" title="View diff"
                             style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)', minWidth: 0 }}>
                             {p.filePath}
                           </button>
@@ -587,6 +590,19 @@ export function ProjectChatPage() {
       >
         <div style={{ height: '70vh', minHeight: 320 }}>
           {viewerPath && <FileViewer projectId={projectId} filePath={viewerPath} />}
+        </div>
+      </Dialog>
+
+      {/* Staged-change diff overlay (before/after for a pending approval) */}
+      <Dialog
+        open={!!diffChange}
+        onClose={() => setDiffChange(null)}
+        title={diffChange ? `${diffChange.operation} · ${diffChange.filePath}` : undefined}
+        maxWidth="900px"
+        className="!max-h-[85vh]"
+      >
+        <div style={{ height: '70vh', minHeight: 320 }}>
+          {diffChange && <DiffView previousContent={diffChange.previousContent} newContent={diffChange.newContent} />}
         </div>
       </Dialog>
 

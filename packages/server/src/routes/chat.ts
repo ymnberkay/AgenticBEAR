@@ -74,6 +74,69 @@ async function recordChatStep(projectId: string, agent: Agent, lastUser: string,
   return pending;
 }
 
+/** The project's Documentation agent, if one exists (by template, then name/slug heuristic). */
+export async function findDocumentationAgent(projectId: string): Promise<Agent | undefined> {
+  const agents = await agentRepo.findByProjectId(projectId);
+  return (
+    agents.find((a) => a.templateId === 'tmpl_documentation') ??
+    agents.find((a) => /document/i.test(a.name) || /document/i.test(a.slug))
+  );
+}
+
+interface AutoDocArgs {
+  projectId: string;
+  project: { workspacePath: string };
+  chattedAgent: Agent;
+  lastUser: string;
+  result: RunTurnResult;
+  attribution: { userId?: string | null; username?: string | null; groupId?: string | null };
+  send: (obj: unknown) => void;
+}
+
+/**
+ * After a change-making chat turn, run the project's Documentation agent to record what changed —
+ * staged for approval alongside the code. Best-effort: never breaks the main turn. Returns the
+ * doc's pending file changes (so the caller can surface them in the approval bar).
+ */
+async function maybeAutoDocument(args: AutoDocArgs): Promise<FileChange[]> {
+  const { projectId, project, chattedAgent, lastUser, result, attribution, send } = args;
+  // Only when actual FILE changes were proposed (commands don't need docs).
+  const fileChanges = result.pendingWrites.filter((w) => w.operation !== 'command');
+  if (fileChanges.length === 0) return [];
+
+  try {
+    const docAgent = await findDocumentationAgent(projectId);
+    if (!docAgent || docAgent.id === chattedAgent.id) return []; // none, or we ARE the doc agent
+
+    send({ tool: { name: 'documenting' } }); // live "Documenting changes" activity chip
+    const changeList = fileChanges.map((w) => `- ${w.operation} ${w.path}`).join('\n');
+    const docTask =
+      `The team just proposed these changes to the project (pending the user's approval):\n${changeList}\n\n` +
+      `User request: ${lastUser}\nWorker summary: ${result.text || '(none)'}\n\n` +
+      `Create or update a concise documentation file (prefer updating README.md, else docs/CHANGES.md) ` +
+      `recording WHAT changed and WHY. Use write_file. Keep it brief.`;
+
+    const docResult = await runAgentTurn({
+      agent: docAgent, projectId, workspacePath: project.workspacePath,
+      messages: [{ role: 'user', content: docTask }],
+      label: 'Document changes', requireApproval: true,
+      onEvent: (e) => {
+        // Surface the doc agent's tool activity + staged file, but NOT its prose (keep the main answer clean).
+        if (e.type === 'tool') send({ tool: { name: e.name, args: e.args } });
+        else if (e.type === 'toolResult') send({ toolResult: { name: e.name, summary: e.summary } });
+        else if (e.type === 'pendingWrite') send({ pendingWrite: { path: e.path, operation: e.operation } });
+      },
+    });
+
+    const docPending = await recordChatStep(projectId, docAgent, 'Document changes', docResult, attribution);
+    await recordQuotaUsage(attribution.groupId ?? null, docResult.inputTokens, docResult.outputTokens, docResult.costUsd);
+    return docPending;
+  } catch (err) {
+    log.warn('auto-documentation failed (non-fatal)', err);
+    return [];
+  }
+}
+
 export async function chatRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Params: { projectId: string }; Body: ChatBody }>(
     '/api/projects/:projectId/chat',
@@ -127,11 +190,19 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
           projectId, userId: user?.id, username: user?.username, action: 'chat.message',
           target: agent.name, detail: lastUser.length > 120 ? `${lastUser.slice(0, 117)}…` : lastUser,
         });
+
+        // ── Auto-documentation: if this turn proposed FILE changes and the project has a
+        //    Documentation agent, have it document them — staged into the same approval batch. ──
+        const docPending = await maybeAutoDocument({
+          projectId, project, chattedAgent: agent, lastUser, result,
+          attribution: { userId: user?.id, username: user?.username, groupId }, send,
+        });
+
         // Surface staged changes (with their ids) so the user can Approve/Reject.
-        for (const p of pending) {
+        for (const p of [...pending, ...docPending]) {
           send({ pending: { id: p.id, path: p.filePath, operation: p.operation } });
         }
-        send({ done: true, servedModel: result.servedModel, filesWritten: result.filesWritten.length, pending: pending.length });
+        send({ done: true, servedModel: result.servedModel, filesWritten: result.filesWritten.length, pending: pending.length + docPending.length });
         raw.write('data: [DONE]\n\n');
         raw.end();
       } catch (err) {

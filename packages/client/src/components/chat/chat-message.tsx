@@ -6,7 +6,7 @@ import type { ChatEntry } from './use-conversations';
 /** Pick an icon for an activity line (matches the present-tense labels from activityLine). */
 function ActivityIcon({ line }: { line: string }) {
   const s = { width: 12, height: 12, flexShrink: 0 } as const;
-  if (/^(Writing|Editing|Deleting|Proposing)/.test(line)) return <FileEdit style={{ ...s, color: 'var(--color-warning)' }} aria-hidden="true" />;
+  if (/^(Writing|Editing|Deleting|Proposing|Documenting)/.test(line)) return <FileEdit style={{ ...s, color: 'var(--color-warning)' }} aria-hidden="true" />;
   if (/^Delegating/.test(line)) return <ArrowRightLeft style={{ ...s, color: 'var(--color-accent)' }} aria-hidden="true" />;
   if (/^(Reading|Listing)/.test(line)) return <FileSearch style={{ ...s, color: 'var(--color-text-secondary)' }} aria-hidden="true" />;
   if (/^Running[:\s]/.test(line) || /^Running a command/.test(line)) return <Terminal style={{ ...s, color: 'var(--color-success)' }} aria-hidden="true" />;
