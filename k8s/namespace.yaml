@@ -1,0 +1,8 @@
+# AgenticBEAR namespace. All resources live here so you can delete the whole
+# app with a single `kubectl delete namespace agenticbear`.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agenticbear
+  labels:
+    app.kubernetes.io/name: agenticbear

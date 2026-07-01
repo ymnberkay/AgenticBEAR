@@ -5,13 +5,19 @@ import { useConnections, useCreateConnection, useDeleteConnection, useUpdateConn
 import { useMe } from '../../api/hooks/use-auth';
 import { Section, inputStyle } from './ui';
 
-const KIND_LABEL: Record<IntegrationKind, string> = { github: 'GitHub Issues', jira: 'Jira', azure_devops: 'Azure Boards' };
+const KIND_LABEL: Record<IntegrationKind, string> = {
+  github: 'GitHub Issues',
+  jira: 'Jira',
+  azure_devops: 'Azure Boards',
+  sonarqube: 'SonarQube / SonarCloud',
+};
 
 /** Per-kind config fields + base URL + token guidance. */
 const KIND_SPEC: Record<IntegrationKind, { baseUrlPlaceholder: string; fields: { key: string; label: string; placeholder: string }[]; tokenHelp: string }> = {
   github: { baseUrlPlaceholder: 'https://api.github.com', fields: [{ key: 'owner', label: 'Owner', placeholder: 'org-or-user' }, { key: 'repo', label: 'Repo', placeholder: 'repository' }], tokenHelp: 'GitHub PAT (repo scope).' },
   jira: { baseUrlPlaceholder: 'https://your.atlassian.net', fields: [{ key: 'projectKey', label: 'Project key', placeholder: 'ENG' }, { key: 'email', label: 'Account email', placeholder: 'you@org.com' }], tokenHelp: 'Jira API token.' },
   azure_devops: { baseUrlPlaceholder: 'https://dev.azure.com/your-org', fields: [{ key: 'project', label: 'Project', placeholder: 'MyProject' }], tokenHelp: 'Azure DevOps PAT (Work Items: read & write).' },
+  sonarqube: { baseUrlPlaceholder: 'https://sonarcloud.io', fields: [], tokenHelp: 'SonarQube user token (Read only on projects to scan is sufficient).' },
 };
 
 export function IntegrationsTab({ onSaved }: { onSaved: (msg: string) => void }) {

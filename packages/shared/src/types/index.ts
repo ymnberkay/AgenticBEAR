@@ -1,6 +1,8 @@
 export type {
   Project,
   ProjectStatus,
+  WorkspaceSource,
+  GitCloneStatus,
   CreateProjectInput,
   UpdateProjectInput,
 } from './project.js';
@@ -14,6 +16,9 @@ export type {
   AgentPermissions,
   CreateAgentInput,
   UpdateAgentInput,
+  ExternalAgentConfig,
+  ExternalAgentAuthType,
+  ExternalAgentPayloadShape,
 } from './agent.js';
 
 export type {

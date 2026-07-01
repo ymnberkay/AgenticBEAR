@@ -11,6 +11,8 @@ import { runRepo } from '../db/repositories/run.repo.js';
 import { projectRepo } from '../db/repositories/project.repo.js';
 import { activityLogRepo } from '../db/repositories/activity-log.repo.js';
 import { workspaceService } from '../services/workspace.service.js';
+import { resolveProjectWorkspace, gitCommit, gitPush } from '../services/git-workspace.service.js';
+import { agentRepo } from '../db/repositories/agent.repo.js';
 import type { AuthedRequest } from '../middleware/require-auth.js';
 import { createLogger } from '../utils/logger.js';
 
@@ -37,23 +39,45 @@ export async function fileChangeRoutes(app: FastifyInstance): Promise<void> {
       if (!run || run.projectId !== projectId) return reply.status(404).send({ error: true, message: 'Change not in this project' });
       const project = await projectRepo.findById(projectId);
       if (!project) return reply.status(404).send({ error: true, message: 'Project not found' });
-      // Without a workspace dir, a write would land in the server's cwd — refuse loudly instead.
-      if (!project.workspacePath || !project.workspacePath.trim()) {
+      // Resolve the actual workspace directory (local path or git clone mirror).
+      const wsPath = resolveProjectWorkspace(project);
+      if (!wsPath || !wsPath.trim()) {
         return reply.status(400).send({ error: true, message: 'This project has no workspace directory configured. Set one in Project → Settings, then retry.' });
+      }
+      // Git-source projects that haven't been cloned yet have a would-be path but no directory.
+      if (project.workspaceSource === 'git' && project.gitCloneStatus !== 'ready') {
+        return reply.status(400).send({ error: true, message: 'The project git repository has not been cloned yet. Clone it from Project → Settings, then retry.' });
       }
 
       let commandOutput: string | undefined;
       try {
         if (change.operation === 'command') {
           // The command string is stored in filePath; run it now that the user approved.
-          const r = workspaceService.runCommand(project.workspacePath, change.filePath);
+          const r = workspaceService.runCommand(wsPath, change.filePath);
           const combined = [r.stdout, r.stderr].filter(Boolean).join('\n').trim();
           const status = r.timedOut ? 'timed out' : `exit ${r.code ?? 'null'}`;
           commandOutput = `[${status}]\n${combined || '(no output)'}`;
+        } else if (change.operation === 'git_commit') {
+          // filePath holds the commit message; project.workspaceSource must be 'git'.
+          if (project.workspaceSource !== 'git') {
+            return reply.status(400).send({ error: true, message: 'Cannot git_commit on a local-source project.' });
+          }
+          const author = await agentRepo.findById(change.agentId);
+          const r = await gitCommit(project, change.filePath, author?.name ?? 'Agent', 'noreply@agenticbear.local');
+          commandOutput = r.ok ? `Committed as ${r.sha?.slice(0, 8) ?? '(unknown sha)'}.` : `Commit failed: ${r.error}`;
+          if (!r.ok) return reply.status(500).send({ error: true, message: r.error ?? 'Commit failed' });
+        } else if (change.operation === 'git_push') {
+          if (project.workspaceSource !== 'git') {
+            return reply.status(400).send({ error: true, message: 'Cannot git_push on a local-source project.' });
+          }
+          const branch = change.filePath.trim() || undefined;
+          const r = await gitPush(project, branch);
+          commandOutput = r.ok ? `Pushed to origin/${branch ?? project.gitDefaultBranch}.` : `Push failed: ${r.error}`;
+          if (!r.ok) return reply.status(500).send({ error: true, message: r.error ?? 'Push failed' });
         } else if (change.operation === 'delete') {
-          workspaceService.deleteFile(project.workspacePath, change.filePath);
+          workspaceService.deleteFile(wsPath, change.filePath);
         } else {
-          workspaceService.writeFile(project.workspacePath, change.filePath, change.newContent);
+          workspaceService.writeFile(wsPath, change.filePath, change.newContent);
         }
       } catch (err) {
         log.error('apply file change failed', err);
@@ -62,10 +86,13 @@ export async function fileChangeRoutes(app: FastifyInstance): Promise<void> {
 
       const updated = await taskRepo.setFileChangeStatus(id, 'applied');
       const user = (request as AuthedRequest).authUser as User | undefined;
+      const action = change.operation === 'command' ? 'command.run'
+        : change.operation === 'git_commit' ? 'git.commit'
+        : change.operation === 'git_push' ? 'git.push'
+        : 'file.apply';
       await activityLogRepo.record({
         projectId, userId: user?.id, username: user?.username,
-        action: change.operation === 'command' ? 'command.run' : 'file.apply',
-        target: change.filePath, detail: change.operation,
+        action, target: change.filePath, detail: change.operation,
       });
       return reply.send({ ...updated, commandOutput });
     },

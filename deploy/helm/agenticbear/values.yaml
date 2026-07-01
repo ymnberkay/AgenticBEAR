@@ -15,25 +15,27 @@ imagePullSecrets: []
 
 # ── Application server (API + OpenAI-compatible gateway + static UI, one port) ──
 server:
-  replicaCount: 1
+  replicaCount: 1               # keep at 1 — RWO PVC + git-workspace state is single-writer
   port: 3001
   resources:
-    requests: { cpu: 100m, memory: 256Mi }
-    limits:   { cpu: "1",  memory: 1Gi }
-  # /data (HOME) is just bookkeeping (port file / unused sqlite dir in PG mode) → ephemeral emptyDir.
-  # /workspace holds the files agents write during runs; persist it with a PVC.
+    requests: { cpu: 200m, memory: 512Mi }
+    limits:   { cpu: "2",  memory: 2Gi }
+  # /data is emptyDir — port file + short-lived scratch. **Nothing important** lives there.
+  # /workspace is the PVC that persists:
+  #   - git-workspace clones (per-project, redirected via AGB_WORKSPACES_ROOT env)
+  #   - files agents write during runs
   workspace:
     persist: true
-    size: 5Gi
+    size: 10Gi
     storageClass: ""          # "" = cluster default
   podAnnotations: {}
   nodeSelector: {}
   tolerations: []
   affinity: {}
-  # Extra raw env vars (e.g. COST_* tuning flags) merged into the server container.
+  # Raw env vars merged into the server container — override anything below without templating.
   extraEnv: {}
-  #  COST_LAYER_SEMANTIC_CACHE: "true"
-  #  COST_SEMANTIC_THRESHOLD: "0.90"
+  #  COST_SEMANTIC_THRESHOLD: "0.92"
+  #  AGENT_SHELL: "off"
 
 # ── Auth / bootstrap (the first admin is seeded on first boot) ──
 auth:
@@ -51,6 +53,41 @@ providerKeys:
   openai: ""           # OPENAI_API_KEY
   gemini: ""           # GEMINI_API_KEY
   voyage: ""           # VOYAGE_API_KEY (embeddings for L1 cache)
+
+# ── Cost middleware knobs. Individual layers toggle here without editing the
+#    ConfigMap by hand. Set to empty string to inherit server defaults. ──
+cost:
+  layers:
+    compression: "true"     # L0 — deterministic context compression
+    semanticCache: "true"   # L1 — needs Qdrant (bundled or external)
+    router: "true"          # L2 — cheap-model routing
+    promptCache: "true"     # L3 — provider prompt cache credit
+    outputMin: "true"       # L4 — "be brief" system directive
+  # L1 tuning
+  embeddingProvider: "gemini"          # gemini | voyage | openai | local
+  semanticThreshold: "0.95"
+  semanticTtlSeconds: "86400"
+  # L2 router — cheap classifier model
+  routerCheapModel: "claude-haiku-4-5-20251001"
+  # L3 provider prompt cache TTL (Anthropic accepts 5m/1h)
+  promptCacheTtl: "5m"
+
+# ── Data-loss prevention (secret + PII scan on egress) ──
+dlp:
+  enabled: "true"           # true → scan & redact; false → bypass entirely
+  secrets: "true"
+  pii: "true"
+  block: "false"            # true → return 422 instead of redacting
+
+# ── Inbound issue-tracker pull scheduler (SonarQube / Azure Boards / etc.) ──
+issuePull:
+  # Milliseconds between polls. 0 disables the scheduler entirely.
+  intervalMs: "300000"
+
+# ── Agent runtime toggles ──
+agent:
+  # "off" → agents lose the `run_command` tool (can't spawn shells). Default on.
+  shell: "on"
 
 # ── Bundled Postgres ──
 postgres:
@@ -93,7 +130,14 @@ service:
 ingress:
   enabled: false
   className: ""
-  annotations: {}
+  # SSE-safe defaults — chat streaming and gateway `/v1/chat/completions` streams
+  # need proxy-buffering off, or responses hang for 10-30 seconds. Merge with
+  # your own annotations rather than replacing them wholesale.
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "25m"   # room for external-agent image uploads
   host: agenticbear.local
   tls: []                      # [{ secretName: agb-tls, hosts: [agenticbear.local] }]
 

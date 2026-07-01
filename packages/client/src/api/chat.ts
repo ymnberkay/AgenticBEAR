@@ -4,6 +4,12 @@ export interface ChatMessage {
   content: string;
 }
 
+/** Image attachment sent alongside the CURRENT user message (external agents with vision). */
+export interface ChatImage {
+  dataUrl: string;
+  name?: string;
+}
+
 export interface ToolEvent {
   kind: 'tool' | 'toolResult' | 'write' | 'delegate' | 'pendingWrite';
   name?: string;
@@ -36,6 +42,7 @@ export async function streamChat(
   agentId: string,
   messages: ChatMessage[],
   handlers: StreamHandlers,
+  opts: { images?: ChatImage[] } = {},
 ): Promise<void> {
   let res: Response;
   try {
@@ -43,7 +50,7 @@ export async function streamChat(
     res = await fetch(`/api/projects/${projectId}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ agentId, messages }),
+      body: JSON.stringify({ agentId, messages, ...(opts.images && opts.images.length > 0 ? { images: opts.images } : {}) }),
     });
   } catch (e) {
     handlers.onError?.(e instanceof Error ? e.message : 'network error');
@@ -71,7 +78,7 @@ export async function streamChat(
       if (payload === '[DONE]') return;
       try {
         const obj = JSON.parse(payload) as {
-          delta?: string; done?: boolean; error?: string; servedModel?: string; filesWritten?: number;
+          delta?: string; done?: boolean; error?: string | { message: string }; servedModel?: string; filesWritten?: number;
           tool?: { name: string; args?: { command?: string } };
           toolResult?: { name: string; summary: string };
           write?: { path: string; operation: string };
@@ -79,7 +86,7 @@ export async function streamChat(
           pending?: { id: string; path: string; operation: string } | number;
           delegate?: { agent: string; task: string };
         };
-        if (obj.error) handlers.onError?.(obj.error);
+        if (obj.error) handlers.onError?.(typeof obj.error === 'string' ? obj.error : (obj.error.message ?? 'Unknown error'));
         else if (obj.delta) handlers.onDelta?.(obj.delta);
         else if (obj.tool) handlers.onTool?.({ kind: 'tool', name: obj.tool.name, command: obj.tool.args?.command });
         else if (obj.toolResult) handlers.onTool?.({ kind: 'toolResult', name: obj.toolResult.name, summary: obj.toolResult.summary });

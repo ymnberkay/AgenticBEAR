@@ -382,6 +382,34 @@ ALTER TABLE integration_connections ADD COLUMN labels_vocabulary_json TEXT NOT N
 ALTER TABLE project_integrations ADD COLUMN last_pull_at TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS idx_issues_external ON issues(connection_id, external_id);`,
 
+  '028_project_sonarqube_key.sql': `-- Per-project SonarQube project key. Only meaningful when the project is linked
+-- to a 'sonarqube' integration_connection. Empty means "not linked yet".
+ALTER TABLE projects ADD COLUMN sonarqube_project_key TEXT NOT NULL DEFAULT '';`,
+
+  '029_external_agents.sql': `-- External agents: HTTP proxy to a team-built endpoint (OpenAI-compatible /chat/completions).
+-- Only meaningful when agents.role='external'. Legacy agents (role in orchestrator/specialist)
+-- leave all these columns empty.
+ALTER TABLE agents ADD COLUMN ext_endpoint_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE agents ADD COLUMN ext_auth_type TEXT NOT NULL DEFAULT 'none';
+ALTER TABLE agents ADD COLUMN ext_header_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE agents ADD COLUMN ext_secret TEXT NOT NULL DEFAULT '';
+ALTER TABLE agents ADD COLUMN ext_default_model TEXT NOT NULL DEFAULT '';
+ALTER TABLE agents ADD COLUMN ext_supports_images INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE agents ADD COLUMN ext_supports_streaming INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE agents ADD COLUMN ext_payload_shape TEXT NOT NULL DEFAULT 'openai';`,
+
+  '027_project_git_workspace.sql': `-- Git-backed project workspaces. Local workspaces stay untouched; a project can
+-- opt into 'git' source and the server clones the repo into a local mirror. PAT/token comes from
+-- an existing integration_connections row (typically the GitHub or Azure DevOps connection).
+ALTER TABLE projects ADD COLUMN workspace_source TEXT NOT NULL DEFAULT 'local';
+ALTER TABLE projects ADD COLUMN git_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE projects ADD COLUMN git_connection_id TEXT;
+ALTER TABLE projects ADD COLUMN git_default_branch TEXT NOT NULL DEFAULT 'main';
+ALTER TABLE projects ADD COLUMN git_local_path TEXT NOT NULL DEFAULT '';
+ALTER TABLE projects ADD COLUMN git_last_clone_at TEXT NOT NULL DEFAULT '';
+ALTER TABLE projects ADD COLUMN git_clone_status TEXT NOT NULL DEFAULT 'not_cloned';
+ALTER TABLE projects ADD COLUMN git_clone_error TEXT NOT NULL DEFAULT '';`,
+
   '026_project_goals.sql': `-- Project goals: high-level objectives the user can hand off to the orchestrator.
 CREATE TABLE IF NOT EXISTS project_goals (
   id TEXT PRIMARY KEY,
@@ -422,7 +450,7 @@ function toDialect(sql: string, driver: 'sqlite' | 'postgres'): string {
   return sql.replace(/datetime\('now'\)/g, "now()::text");
 }
 
-const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql', '007_gateway.sql', '008_gateway_key_scope.sql', '009_agent_canvas_and_knowledge.sql', '010_run_step_breakdown.sql', '011_run_step_compression.sql', '012_gateway_key_expiry.sql', '013_gateway_key_cache_scope.sql', '014_settings_dlp_rules.sql', '015_users.sql', '016_settings_dlp_disabled_models.sql', '017_provider_auth.sql', '018_governance.sql', '019_group_usage.sql', '020_activity_log.sql', '021_enabled_models.sql', '022_org_profile.sql', '023_issues_integrations.sql', '024_curation_and_key_limits.sql', '025_issue_labels_and_pull.sql', '026_project_goals.sql'];
+const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql', '007_gateway.sql', '008_gateway_key_scope.sql', '009_agent_canvas_and_knowledge.sql', '010_run_step_breakdown.sql', '011_run_step_compression.sql', '012_gateway_key_expiry.sql', '013_gateway_key_cache_scope.sql', '014_settings_dlp_rules.sql', '015_users.sql', '016_settings_dlp_disabled_models.sql', '017_provider_auth.sql', '018_governance.sql', '019_group_usage.sql', '020_activity_log.sql', '021_enabled_models.sql', '022_org_profile.sql', '023_issues_integrations.sql', '024_curation_and_key_limits.sql', '025_issue_labels_and_pull.sql', '026_project_goals.sql', '027_project_git_workspace.sql', '028_project_sonarqube_key.sql', '029_external_agents.sql'];
 
 let db: Db | undefined;
 

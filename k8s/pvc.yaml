@@ -1,0 +1,23 @@
+# Persistent data for the app pod: the git-workspace clones (per-project
+# mirrors) plus the SQLite file if you're not using Postgres.
+#
+# Sizing rule of thumb:
+#   1 GiB seed + 200 MiB per git-backed project you plan to host.
+#   If you're using Postgres, drop this to ~2 GiB — only workspaces stay here.
+#
+# ReadWriteOnce is fine because the Deployment below uses replicas: 1 (the
+# app is stateful — SQLite / workspace file writes coordinate through the
+# local filesystem, not the DB). Use RWX only if you know why.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agenticbear-data
+  namespace: agenticbear
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  # Uncomment + set to your cluster's SSD-backed StorageClass.
+  # storageClassName: standard-rwo

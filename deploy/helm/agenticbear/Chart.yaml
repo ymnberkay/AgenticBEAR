@@ -1,15 +1,38 @@
 apiVersion: v2
 name: agenticbear
-description: AgenticBEAR — multi-agent orchestration platform with a built-in Postgres + Qdrant (self-contained).
+description: |
+  AgenticBEAR — multi-agent orchestration platform with a built-in Postgres +
+  Qdrant. One `helm install` gets you: API + OpenAI-compatible gateway + UI +
+  git-backed workspaces + SonarQube/Azure/Jira/GitHub issue integrations +
+  external-agent proxy. Bundled DB + vector store are opt-out via values.
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+# Bump chart minor when defaults/values change; bump app when the container behavior changes.
+version: 0.2.0
+appVersion: "0.2.0"
 keywords:
   - agents
   - llm
   - gateway
+  - openai-compatible
   - postgres
   - qdrant
+  - sonarqube
+  - orchestration
 home: https://github.com/ymnberkay/AgenticBEAR
+sources:
+  - https://github.com/ymnberkay/AgenticBEAR
+annotations:
+  # Change log surfaced by `helm show chart` and Artifact Hub.
+  artifacthub.io/changes: |
+    - kind: fixed
+      description: git-workspace clones now persist across pod restarts (AGB_WORKSPACES_ROOT → PVC).
+    - kind: added
+      description: SSE-safe ingress annotations by default (proxy-buffering off).
+    - kind: added
+      description: cost-layer / DLP / issue-pull / agent-shell knobs exposed in values.yaml.
+    - kind: changed
+      description: deployment strategy set to Recreate to match RWO PVC + single-writer model.
+    - kind: added
+      description: startupProbe so cold migrations don't kill the pod early.
 maintainers:
   - name: AgenticBEAR

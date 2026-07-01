@@ -1,0 +1,99 @@
+# AgenticBEAR deployment.
+#
+# Single replica is intentional:
+#   - When you use SQLite: replicas > 1 breaks (each pod would open its own file).
+#   - When you use Postgres: the git-workspace mirror is per-pod on the PVC. Two
+#     pods would each try to attach the ReadWriteOnce PVC and only one would win.
+#
+# If you outgrow one replica, first split the app into (a) API/UI stateless
+# pods behind the LB and (b) a small "workspace" statefulset that owns clone
+# state. That's a v2 refactor.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agenticbear
+  namespace: agenticbear
+  labels:
+    app.kubernetes.io/name: agenticbear
+    app.kubernetes.io/component: app
+spec:
+  replicas: 1
+  strategy:
+    # Recreate — we own a RWO PVC and can't overlap pods on it.
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: agenticbear
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: agenticbear
+        app.kubernetes.io/component: app
+    spec:
+      # Non-root; the built-in `node` user in the Debian slim image is uid 1000.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: agenticbear
+          # Set this to your registry + tag. Rebuild + push, then `kubectl set image` or apply.
+          image: ghcr.io/ymnberkay/agenticbear:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3001
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: agenticbear-config
+            - secretRef:
+                name: agenticbear-secrets
+          # Extra one-off knobs go here; anything from the ConfigMap can be
+          # overridden with a plain `env:` entry.
+          env:
+            - name: HOME
+              value: "/data"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+          # readiness → don't send traffic until the DB migration finishes
+          # (init routes are added after `initDb()` completes).
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false     # tmp/, /tmp askpass scripts, etc.
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: agenticbear-data

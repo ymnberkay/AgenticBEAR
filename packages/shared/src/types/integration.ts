@@ -6,7 +6,7 @@
  * tracker (GitHub Issues / Jira / Azure Boards) and the external id/url are stored back on the issue.
  */
 
-export type IntegrationKind = 'github' | 'jira' | 'azure_devops';
+export type IntegrationKind = 'github' | 'jira' | 'azure_devops' | 'sonarqube';
 export type IssueKind = 'issue' | 'bug' | 'task' | 'vulnerability' | 'improvement';
 export type IssueStatus = 'open' | 'in_progress' | 'closed';
 export type IssuePriority = 'low' | 'medium' | 'high' | 'critical';

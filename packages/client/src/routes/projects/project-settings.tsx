@@ -1,15 +1,16 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from '@tanstack/react-router';
-import { Trash2, Copy, Check, Settings, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { Trash2, Copy, Check, Settings, Wifi, WifiOff, AlertTriangle, FolderOpen, GitBranch, Download, ExternalLink, Loader2 } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useProject, useUpdateProject, useDeleteProject } from '../../api/hooks/use-projects';
+import { useConnections } from '../../api/hooks/use-integrations';
 import { FolderPickerInput } from '../../components/ui/folder-picker';
 import { useToast } from '../../components/ui/toast';
 import { Dialog } from '../../components/ui/dialog';
 import { Skeleton } from '../../components/ui/skeleton';
-import { apiGet } from '../../api/client';
+import { apiGet, apiPost } from '../../api/client';
 import { ProjectSharing } from '../../components/settings/project-sharing';
-import type { ProjectStatus } from '@subagent/shared';
+import type { ProjectStatus, WorkspaceSource, Project } from '@subagent/shared';
 
 const fieldStyle: React.CSSProperties = {
   width: '100%',
@@ -51,7 +52,25 @@ export function ProjectSettingsPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [workspacePath, setWorkspacePath] = useState('');
+  const [workspaceSource, setWorkspaceSource] = useState<WorkspaceSource>('local');
+  const [gitUrl, setGitUrl] = useState('');
+  const [gitConnectionId, setGitConnectionId] = useState<string>('');
+  const [gitDefaultBranch, setGitDefaultBranch] = useState('main');
+  const [sonarqubeProjectKey, setSonarqubeProjectKey] = useState('');
   const [status, setStatus] = useState<ProjectStatus>('active');
+  const { data: connections } = useConnections();
+  const queryClient = useQueryClient();
+  const gitCandidates = (connections ?? []).filter((c) => (c.kind === 'github' || c.kind === 'azure_devops') && c.hasCredentials && c.enabled);
+
+  const cloneProject = useMutation({
+    mutationFn: () => apiPost<Project>(`/api/projects/${projectId}/git/clone`, {}),
+    onSuccess: (p) => {
+      queryClient.setQueryData(['project', projectId], p);
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      showToast('Repository cloned.', { variant: 'success' });
+    },
+    onError: (err) => showToast(err instanceof Error ? err.message : 'Clone failed', { variant: 'error' }),
+  });
   const [copied, setCopied] = useState<'id' | 'url' | 'claude' | 'codex' | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmName, setConfirmName] = useState('');
@@ -78,6 +97,11 @@ export function ProjectSettingsPage() {
       setDescription(project.description);
       setWorkspacePath(project.workspacePath ?? '');
       setStatus(project.status);
+      setWorkspaceSource(project.workspaceSource ?? 'local');
+      setGitUrl(project.gitUrl ?? '');
+      setGitConnectionId(project.gitConnectionId ?? '');
+      setGitDefaultBranch(project.gitDefaultBranch || 'main');
+      setSonarqubeProjectKey(project.sonarqubeProjectKey ?? '');
     }
   }, [project]);
 
@@ -87,9 +111,14 @@ export function ProjectSettingsPage() {
       name !== project.name ||
       description !== project.description ||
       workspacePath !== (project.workspacePath ?? '') ||
-      status !== project.status
+      status !== project.status ||
+      workspaceSource !== (project.workspaceSource ?? 'local') ||
+      gitUrl !== (project.gitUrl ?? '') ||
+      (gitConnectionId || null) !== (project.gitConnectionId ?? null) ||
+      gitDefaultBranch !== (project.gitDefaultBranch || 'main') ||
+      sonarqubeProjectKey !== (project.sonarqubeProjectKey ?? '')
     );
-  }, [project, name, description, workspacePath, status]);
+  }, [project, name, description, workspacePath, status, workspaceSource, gitUrl, gitConnectionId, gitDefaultBranch, sonarqubeProjectKey]);
 
   // Warn before navigating away with unsaved changes.
   useEffect(() => {
@@ -123,8 +152,16 @@ export function ProjectSettingsPage() {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (workspaceSource === 'git' && !gitUrl.trim()) {
+      showToast('Git URL is required when workspace source is Git.', { variant: 'error' });
+      return;
+    }
     updateProject.mutate(
-      { id: projectId, name, description, workspacePath, status },
+      {
+        id: projectId, name, description, workspacePath, status,
+        workspaceSource, gitUrl, gitConnectionId: gitConnectionId || null, gitDefaultBranch,
+        sonarqubeProjectKey,
+      },
       {
         onSuccess: () => showToast('Project settings saved', { variant: 'success' }),
         onError: (err) => showToast(err instanceof Error ? err.message : 'Failed to save settings', { variant: 'error' }),
@@ -200,17 +237,200 @@ export function ProjectSettingsPage() {
               />
             </div>
 
+            {/* Workspace source: local path OR git repo */}
             <div>
-              <FieldLabel>Workspace Path</FieldLabel>
-              <FolderPickerInput
-                value={workspacePath}
-                onChange={setWorkspacePath}
-                inputStyle={{ ...fieldStyle, height: 38, padding: '0 12px', fontFamily: 'var(--font-mono)', fontSize: 12 }}
-              />
-              <p style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginTop: 6 }}>
-                Agents will read and write files in this directory.
-              </p>
+              <FieldLabel>Workspace source</FieldLabel>
+              <div role="group" aria-label="Workspace source" className="flex items-center" style={{ gap: 2, padding: 3, background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderRadius: 999, width: 'fit-content' }}>
+                {([
+                  { v: 'local' as const, label: 'Local path', icon: FolderOpen, hint: 'A directory on this machine' },
+                  { v: 'git'   as const, label: 'Git repository', icon: GitBranch, hint: 'Cloned and mirrored by the server' },
+                ]).map((o) => {
+                  const on = workspaceSource === o.v;
+                  const Icon = o.icon;
+                  return (
+                    <button
+                      key={o.v}
+                      type="button"
+                      onClick={() => setWorkspaceSource(o.v)}
+                      aria-pressed={on}
+                      title={o.hint}
+                      className="flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                      style={{
+                        height: 30, padding: '0 12px', fontSize: 12, fontFamily: 'var(--font-mono)',
+                        background: on ? 'linear-gradient(180deg, rgba(124,140,248,0.22), rgba(124,140,248,0.10))' : 'transparent',
+                        border: on ? '1px solid rgba(124,140,248,0.4)' : '1px solid transparent',
+                        color: on ? '#7c8cf8' : 'var(--color-text-secondary)',
+                        borderRadius: 999, cursor: on ? 'default' : 'pointer', fontWeight: on ? 600 : 500,
+                        transition: 'background .15s, color .15s, border-color .15s',
+                      }}
+                    >
+                      <Icon style={{ width: 12, height: 12 }} /> {o.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+
+            {workspaceSource === 'local' ? (
+              <div>
+                <FieldLabel>Workspace path</FieldLabel>
+                <FolderPickerInput
+                  value={workspacePath}
+                  onChange={setWorkspacePath}
+                  inputStyle={{ ...fieldStyle, height: 38, padding: '0 12px', fontFamily: 'var(--font-mono)', fontSize: 12 }}
+                />
+                <p style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginTop: 6 }}>
+                  Agents will read and write files in this directory.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <FieldLabel htmlFor="git-url">Git URL</FieldLabel>
+                  <input
+                    id="git-url"
+                    type="text"
+                    placeholder="https://github.com/acme/app.git"
+                    value={gitUrl}
+                    onChange={(e) => setGitUrl(e.target.value)}
+                    style={{ ...fieldStyle, height: 38, padding: '0 12px', fontFamily: 'var(--font-mono)', fontSize: 12 }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(124,140,248,0.5)'; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
+                  />
+                  <p style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginTop: 6 }}>
+                    HTTPS URL. SSH URLs are not supported in this version.
+                  </p>
+                </div>
+
+                <div className="grid" style={{ gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+                  <div>
+                    <FieldLabel htmlFor="git-connection">Auth (PAT from integration)</FieldLabel>
+                    <select
+                      id="git-connection"
+                      value={gitConnectionId}
+                      onChange={(e) => setGitConnectionId(e.target.value)}
+                      style={{ ...fieldStyle, height: 38, padding: '0 12px', cursor: 'pointer', appearance: 'none' }}
+                    >
+                      <option value="" style={{ background: '#031d38' }}>None (public repo)</option>
+                      {gitCandidates.map((c) => (
+                        <option key={c.id} value={c.id} style={{ background: '#031d38' }}>
+                          {c.label} · {c.kind === 'github' ? 'GitHub' : 'Azure DevOps'}
+                        </option>
+                      ))}
+                    </select>
+                    {gitCandidates.length === 0 && (
+                      <p style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', marginTop: 6 }}>
+                        No credentialed GitHub / Azure DevOps integrations. Add one under Settings → Integrations to enable private repos.
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <FieldLabel htmlFor="git-branch">Default branch</FieldLabel>
+                    <input
+                      id="git-branch"
+                      type="text"
+                      value={gitDefaultBranch}
+                      onChange={(e) => setGitDefaultBranch(e.target.value)}
+                      style={{ ...fieldStyle, height: 38, padding: '0 12px', fontFamily: 'var(--font-mono)', fontSize: 12 }}
+                    />
+                  </div>
+                </div>
+
+                {/* Clone status + action */}
+                <div className="flex items-center justify-between gap-3 flex-wrap" style={{
+                  padding: '10px 12px',
+                  background: 'var(--color-bg-base)',
+                  border: '1px solid var(--color-border-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                }}>
+                  <div className="flex items-center gap-2" style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+                    {project.gitCloneStatus === 'ready' ? (
+                      <>
+                        <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-success)' }} />
+                        <span>Cloned {project.gitLastCloneAt ? `· ${new Date(project.gitLastCloneAt).toLocaleString()}` : ''}</span>
+                        {project.gitLocalPath && (
+                          <span style={{ color: 'var(--color-text-disabled)' }}>
+                            · <code style={{ fontFamily: 'inherit', fontSize: 10.5 }}>{project.gitLocalPath}</code>
+                          </span>
+                        )}
+                      </>
+                    ) : project.gitCloneStatus === 'cloning' ? (
+                      <>
+                        <Loader2 className="animate-spin" style={{ width: 12, height: 12, color: 'var(--color-accent)' }} />
+                        <span>Cloning…</span>
+                      </>
+                    ) : project.gitCloneStatus === 'error' ? (
+                      <>
+                        <AlertTriangle style={{ width: 12, height: 12, color: 'var(--color-error)' }} />
+                        <span style={{ color: 'var(--color-error)' }}>Clone failed</span>
+                        {project.gitCloneError && (
+                          <span style={{ color: 'var(--color-text-disabled)' }}>· {project.gitCloneError.slice(0, 140)}</span>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-text-disabled)' }} />
+                        <span>Not cloned yet. Save the settings above, then clone.</span>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => cloneProject.mutate()}
+                    disabled={cloneProject.isPending || isDirty || !gitUrl.trim()}
+                    title={isDirty ? 'Save settings first' : project.gitCloneStatus === 'ready' ? 'Re-clone: existing local changes will be discarded' : 'Clone into the server-side mirror'}
+                    className="flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                    style={{
+                      height: 30, padding: '0 12px', fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-mono)',
+                      color: cloneProject.isPending || isDirty || !gitUrl.trim() ? 'var(--color-text-disabled)' : '#021526',
+                      background: cloneProject.isPending || isDirty || !gitUrl.trim() ? 'var(--color-bg-surface)' : 'var(--color-accent)',
+                      border: '1px solid ' + (cloneProject.isPending || isDirty || !gitUrl.trim() ? 'var(--color-border-subtle)' : 'transparent'),
+                      borderRadius: 'var(--radius-md)',
+                      cursor: cloneProject.isPending ? 'wait' : (isDirty || !gitUrl.trim() ? 'not-allowed' : 'pointer'),
+                    }}
+                  >
+                    <Download className={cloneProject.isPending ? 'animate-pulse' : ''} style={{ width: 12, height: 12 }} />
+                    {cloneProject.isPending ? 'cloning…' : (project.gitCloneStatus === 'ready' ? 'Re-clone' : 'Clone now')}
+                  </button>
+                </div>
+                {project.gitUrl && (
+                  <a
+                    href={project.gitUrl.replace(/\.git$/, '')}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', textDecoration: 'none' }}
+                  >
+                    Open in browser <ExternalLink style={{ width: 10, height: 10 }} />
+                  </a>
+                )}
+              </>
+            )}
+
+            {/* SonarQube link */}
+            {(() => {
+              const sqConn = (connections ?? []).find((c) => c.kind === 'sonarqube' && c.enabled && c.hasCredentials);
+              return (
+                <div>
+                  <FieldLabel htmlFor="project-sq-key">SonarQube project key</FieldLabel>
+                  <input
+                    id="project-sq-key"
+                    type="text"
+                    placeholder={sqConn ? 'e.g. acme_web_app' : 'Add a SonarQube integration under Settings → Integrations first'}
+                    value={sonarqubeProjectKey}
+                    onChange={(e) => setSonarqubeProjectKey(e.target.value)}
+                    disabled={!sqConn}
+                    style={{ ...fieldStyle, height: 38, padding: '0 12px', fontFamily: 'var(--font-mono)', fontSize: 12, opacity: sqConn ? 1 : 0.6 }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(124,140,248,0.5)'; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
+                  />
+                  <p style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginTop: 6 }}>
+                    {sqConn
+                      ? <>Linked to <b style={{ color: 'var(--color-accent)' }}>{sqConn.label}</b>. Agents can then run <code>sonarqube_scan_findings()</code> to pull findings into Issues.</>
+                      : 'No SonarQube integration configured. Add one under Settings → Integrations to enable scanning.'}
+                  </p>
+                </div>
+              );
+            })()}
 
             <div>
               <FieldLabel htmlFor="project-status">Status</FieldLabel>

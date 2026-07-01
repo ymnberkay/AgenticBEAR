@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { projectRepo } from '../db/repositories/project.repo.js';
 import { workspaceService } from '../services/workspace.service.js';
+import { resolveProjectWorkspace } from '../services/git-workspace.service.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -34,7 +35,7 @@ export async function workspaceRoutes(app: FastifyInstance): Promise<void> {
     }
 
     try {
-      const tree = workspaceService.getFileTree(project.workspacePath);
+      const tree = workspaceService.getFileTree(resolveProjectWorkspace(project));
       return reply.send(tree);
     } catch (error) {
       return reply.status(500).send({
@@ -59,7 +60,7 @@ export async function workspaceRoutes(app: FastifyInstance): Promise<void> {
       }
 
       try {
-        const content = workspaceService.readFile(project.workspacePath, filePath);
+        const content = workspaceService.readFile(resolveProjectWorkspace(project), filePath);
         return reply.send({ path: filePath, content });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -91,7 +92,7 @@ export async function workspaceRoutes(app: FastifyInstance): Promise<void> {
       }
 
       try {
-        workspaceService.writeFile(project.workspacePath, filePath, content);
+        workspaceService.writeFile(resolveProjectWorkspace(project), filePath, content);
         return reply.send({ path: filePath, success: true });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

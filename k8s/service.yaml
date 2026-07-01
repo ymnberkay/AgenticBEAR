@@ -1,0 +1,18 @@
+# ClusterIP service in front of the app pod. Ingress terminates TLS and
+# forwards http traffic to this port.
+apiVersion: v1
+kind: Service
+metadata:
+  name: agenticbear
+  namespace: agenticbear
+  labels:
+    app.kubernetes.io/name: agenticbear
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: agenticbear
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

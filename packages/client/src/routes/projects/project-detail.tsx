@@ -1,5 +1,6 @@
 import { Outlet, useParams, Link } from '@tanstack/react-router';
 import { Settings, Search } from 'lucide-react';
+import { BranchPill } from '../../components/layout/branch-pill';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useProject } from '../../api/hooks/use-projects';
 import { ProjectNav } from '../../components/layout/project-nav';
@@ -97,6 +98,7 @@ export function ProjectDetailPage() {
             >
               {status.label}
             </span>
+            <BranchPill project={project} />
           </div>
 
           {/* Center: search bar */}

@@ -33,7 +33,25 @@ The first run auto-applies DB migrations and seeds an admin user.
    then open http://localhost:8080/
 {{- end }}
 
-3) Gateway (OpenAI-compatible) base URL once port-forwarded:
-     http://localhost:8080/v1
-   Create a gateway key in Settings → API Keys, then point any OpenAI SDK at it.
+3) Gateway (OpenAI-compatible) — same host, `/v1` path:
+{{- if .Values.ingress.enabled }}
+     https://{{ .Values.ingress.host }}/v1
+{{- else }}
+     http://localhost:8080/v1     (after `kubectl port-forward` from step 2)
+{{- end }}
+   Create a gateway key in Gateway → API Keys, then point any OpenAI SDK at it.
+
+4) First login
+     User: {{ .Values.auth.adminUsername }}
+{{- if eq .Values.auth.adminPassword "admin" }}
+     Pass: admin        ← ⚠ default password; change it after login.
+{{- else }}
+     Pass: (auth.adminPassword you set)
+{{- end }}
+   Then rotate in Settings → Users, and for real deployments set a strong
+   auth.secret via `helm upgrade` to invalidate any existing tokens.
+
+5) Recover the AUTH_SECRET after install (needed to decrypt existing sessions):
+     kubectl -n {{ .Release.Namespace }} get secret {{ include "agenticbear.secretName" . }} \
+       -o jsonpath='{.data.AUTH_SECRET}' | base64 -d
 ──────────────────────────────────────────────────────────────────────────

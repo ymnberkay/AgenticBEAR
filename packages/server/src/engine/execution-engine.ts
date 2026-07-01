@@ -5,6 +5,7 @@ import { tokenTracker } from '../services/token-tracker.service.js';
 import { buildAgentContext, buildProjectContext } from './context-builder.js';
 import { TaskQueue } from './task-queue.js';
 import { projectRepo } from '../db/repositories/project.repo.js';
+import { resolveProjectWorkspace } from '../services/git-workspace.service.js';
 import { agentRepo } from '../db/repositories/agent.repo.js';
 import { runRepo } from '../db/repositories/run.repo.js';
 import { taskRepo } from '../db/repositories/task.repo.js';
@@ -66,7 +67,7 @@ export const executionEngine = {
     try {
       // Step 1: Orchestrator decomposes the objective
       log.info('Decomposing objective...');
-      const projectContext = await buildProjectContext(project.workspacePath);
+      const projectContext = await buildProjectContext(resolveProjectWorkspace(project));
 
       const decomposition = await decomposeObjective(
         claudeService,
@@ -202,7 +203,7 @@ export const executionEngine = {
 
         // Execute ready tasks (up to maxConcurrent)
         const batch = readyTasks.slice(0, maxConcurrent);
-        const promises = batch.map((task) => this.executeOneTask(claudeService, runId, project.id, task, project.workspacePath, queue));
+        const promises = batch.map((task) => this.executeOneTask(claudeService, runId, project.id, task, resolveProjectWorkspace(project), queue));
 
         await Promise.allSettled(promises);
 
@@ -232,7 +233,7 @@ export const executionEngine = {
 
         if (docAgent) {
           await this.runDocumentationStep(
-            claudeService, runId, run, project.workspacePath, createdTasks, docAgent,
+            claudeService, runId, run, resolveProjectWorkspace(project), createdTasks, docAgent,
           );
         }
       }

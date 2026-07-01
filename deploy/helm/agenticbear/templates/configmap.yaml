@@ -7,13 +7,42 @@ metadata:
 data:
   NODE_ENV: "production"
   PORT: {{ .Values.server.port | quote }}
+  # Postgres when bundled or externalDatabase.url set; otherwise fallback SQLite.
+  {{- if or .Values.postgres.enabled .Values.externalDatabase.url }}
   DB_DRIVER: "postgres"
+  {{- else }}
+  DB_DRIVER: "sqlite"
+  {{- end }}
   HOME: "/data"
   DB_PATH: "/data/.subagent-manager/data.db"
   AUTH_ADMIN_USERNAME: {{ .Values.auth.adminUsername | quote }}
   AUTH_TOKEN_TTL_HOURS: {{ .Values.auth.tokenTtlHours | quote }}
-  COST_QDRANT_URL: {{ include "agenticbear.qdrantUrl" . | quote }}
-  COST_QDRANT_COLLECTION: {{ .Values.qdrant.collection | quote }}
+
+  # ── Cost middleware ──
+  COST_LAYER_COMPRESSION:    {{ .Values.cost.layers.compression    | quote }}
+  COST_LAYER_SEMANTIC_CACHE: {{ .Values.cost.layers.semanticCache  | quote }}
+  COST_LAYER_ROUTER:         {{ .Values.cost.layers.router         | quote }}
+  COST_LAYER_PROMPT_CACHE:   {{ .Values.cost.layers.promptCache    | quote }}
+  COST_LAYER_OUTPUT_MIN:     {{ .Values.cost.layers.outputMin      | quote }}
+  COST_EMBEDDING_PROVIDER:   {{ .Values.cost.embeddingProvider     | quote }}
+  COST_SEMANTIC_THRESHOLD:   {{ .Values.cost.semanticThreshold     | quote }}
+  COST_SEMANTIC_TTL_SECONDS: {{ .Values.cost.semanticTtlSeconds    | quote }}
+  COST_ROUTER_CHEAP_MODEL:   {{ .Values.cost.routerCheapModel      | quote }}
+  COST_PROMPT_CACHE_TTL:     {{ .Values.cost.promptCacheTtl        | quote }}
+  COST_QDRANT_URL:           {{ include "agenticbear.qdrantUrl" .  | quote }}
+  COST_QDRANT_COLLECTION:    {{ .Values.qdrant.collection          | quote }}
+
+  # ── DLP ──
+  DLP_ENABLED: {{ .Values.dlp.enabled | quote }}
+  DLP_SECRETS: {{ .Values.dlp.secrets | quote }}
+  DLP_PII:     {{ .Values.dlp.pii     | quote }}
+  DLP_BLOCK:   {{ .Values.dlp.block   | quote }}
+
+  # ── Issue-tracker inbound pull ──
+  ISSUE_PULL_INTERVAL_MS: {{ .Values.issuePull.intervalMs | quote }}
+
+  # ── Agent runtime ──
+  AGENT_SHELL: {{ .Values.agent.shell | quote }}
   {{- range $k, $v := .Values.server.extraEnv }}
   {{ $k }}: {{ $v | quote }}
   {{- end }}

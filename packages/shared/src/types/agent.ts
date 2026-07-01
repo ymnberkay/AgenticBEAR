@@ -1,4 +1,34 @@
-export type AgentRole = 'orchestrator' | 'specialist';
+/**
+ * Agent roles:
+ *   orchestrator → routes work to specialists
+ *   specialist   → performs work, may use tools
+ *   external     → HTTP proxy to a team-built endpoint (image processor, RAG service, …).
+ *                  Does NOT participate in delegation trees; only user-selectable in chat.
+ */
+export type AgentRole = 'orchestrator' | 'specialist' | 'external';
+
+/** How we authenticate against an external agent endpoint. */
+export type ExternalAgentAuthType = 'none' | 'bearer' | 'header';
+
+/** Wire-shape the external endpoint expects. v1: OpenAI /chat/completions only. */
+export type ExternalAgentPayloadShape = 'openai';
+
+/** Fields attached to an agent when role === 'external'. Ignored for the other roles. */
+export interface ExternalAgentConfig {
+  endpointUrl: string;
+  authType: ExternalAgentAuthType;
+  /** Header name to send the secret under when authType='header'. Ignored otherwise. */
+  headerName: string;
+  /** Whether an auth secret is stored (the actual token is never returned). */
+  hasSecret: boolean;
+  /** String we send as the OpenAI `model` field. Empty → use agent.name. */
+  defaultModel: string;
+  /** True → composer allows image attachments (OpenAI image_url shape). */
+  supportsImages: boolean;
+  /** True → we parse SSE frames; false → wait for a JSON body. */
+  supportsStreaming: boolean;
+  payloadShape: ExternalAgentPayloadShape;
+}
 
 /**
  * Model identifier. Historically a fixed union of Anthropic/OpenAI ids; now a free
@@ -66,6 +96,8 @@ export interface Agent {
   /** Canvas coordinates for a visual agent graph (optional). */
   xAxis?: number | null;
   yAxis?: number | null;
+  /** Present only for role='external'. Absent (undefined) for orchestrator/specialist. */
+  external?: ExternalAgentConfig;
   createdAt: string;
   updatedAt: string;
 }
@@ -83,6 +115,8 @@ export interface CreateAgentInput {
   icon?: string;
   xAxis?: number | null;
   yAxis?: number | null;
+  /** Required when role === 'external'. `secret` is stored and returned as hasSecret only. */
+  external?: Partial<ExternalAgentConfig> & { secret?: string };
 }
 
 export interface UpdateAgentInput {
@@ -95,4 +129,6 @@ export interface UpdateAgentInput {
   icon?: string;
   xAxis?: number | null;
   yAxis?: number | null;
+  /** Only meaningful for external agents. Send `secret: ''` to clear it, omit to keep. */
+  external?: Partial<ExternalAgentConfig> & { secret?: string };
 }

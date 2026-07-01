@@ -1,0 +1,81 @@
+# Example production overlay for AgenticBEAR.
+#
+# Layer on top of values.yaml:
+#   helm upgrade --install agb deploy/helm/agenticbear \
+#     -f deploy/helm/agenticbear/values.yaml \
+#     -f deploy/helm/agenticbear/values-production.yaml \
+#     --namespace agb --create-namespace \
+#     --set image.repository=<registry>/agenticbear \
+#     --set image.tag=<sha-or-semver>
+#
+# Anything you don't want to commit (passwords, tokens) goes in a separate
+# `--set` / `--set-file` on the command line or a sealed secret.
+
+image:
+  repository: ghcr.io/ymnberkay/agenticbear   # ← your registry
+  pullPolicy: IfNotPresent
+
+server:
+  resources:
+    requests: { cpu: 500m, memory: 1Gi }
+    limits:   { cpu: "4",  memory: 4Gi }
+  workspace:
+    persist: true
+    size: 50Gi
+    storageClass: standard-rwo          # ← pin to your SSD class
+
+# ── Prod hardening ─────────────────────────────────────────────────────────
+auth:
+  # Change ALL of these before rolling live. Store real passwords via --set or a
+  # separate values file that never gets committed.
+  adminUsername: admin
+  adminPassword: "REPLACE-ME"
+  tokenTtlHours: 24
+  # Generate: node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
+  secret: "REPLACE-ME-WITH-A-RANDOM-48-BYTE-STRING"
+
+# Managed DB is strongly recommended for prod. Bundled Postgres is fine for pilots.
+postgres:
+  enabled: false
+externalDatabase:
+  url: "postgres://agb:REPLACE-ME@postgres-prod.internal:5432/agenticbear?sslmode=require"
+
+# Qdrant bundled is fine — small footprint, single writer.
+qdrant:
+  enabled: true
+  persistence:
+    size: 50Gi
+    storageClass: standard-rwo
+
+# ── DLP: block instead of redact once you've verified rules ────────────────
+dlp:
+  enabled: "true"
+  block: "false"     # flip to "true" after you're confident nothing legitimate hits the rules
+
+# ── Ingress + TLS ─────────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: nginx
+  host: agenticbear.your-company.com
+  annotations:
+    # SSE-safe defaults are inherited from values.yaml; add or override here.
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  tls:
+    - secretName: agenticbear-tls
+      hosts:
+        - agenticbear.your-company.com
+
+# Pin the pods to a node pool if you keep GPU / burst nodes elsewhere.
+server:
+  nodeSelector: {}
+  tolerations: []
+  # Example: hard-anti-affinity from Postgres so an eviction doesn't take both.
+  # affinity:
+  #   podAntiAffinity:
+  #     requiredDuringSchedulingIgnoredDuringExecution:
+  #       - labelSelector:
+  #           matchExpressions:
+  #             - key: app.kubernetes.io/component
+  #               operator: In
+  #               values: [postgres]
+  #         topologyKey: kubernetes.io/hostname

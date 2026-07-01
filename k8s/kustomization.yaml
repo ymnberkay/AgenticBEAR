@@ -1,0 +1,26 @@
+# Kustomize entry point — `kubectl apply -k k8s/`.
+#
+# The commented `postgres.yaml` is only for quick-start clusters that don't
+# already have a managed DB. Uncomment to bundle it, comment to skip.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: agenticbear
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  # - secret.yaml            # copy secret.example.yaml → secret.yaml, then uncomment
+  - pvc.yaml
+  # - postgres.yaml          # uncomment for the bundled in-cluster Postgres
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: agenticbear
+
+# You can override the image tag per-cluster with a kustomize overlay, e.g.:
+#   images:
+#     - name: ghcr.io/ymnberkay/agenticbear
+#       newTag: 1.2.3

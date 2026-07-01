@@ -1,0 +1,103 @@
+# Optional in-cluster Postgres for quick-start / dev clusters.
+#
+# For production, use a managed DB (RDS / Cloud SQL / Neon / whatever) and
+# skip this file — just point DATABASE_URL in the Secret at that DB.
+#
+# This is a single-instance StatefulSet with a 20 GiB PVC. Fine for small
+# teams, NOT a highly-available setup. If you need HA, swap this out for
+# zalando-postgres-operator or CloudNativePG.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-credentials
+  namespace: agenticbear
+type: Opaque
+stringData:
+  POSTGRES_USER: "agenticbear"
+  POSTGRES_PASSWORD: "changeme-in-real-deployments"
+  POSTGRES_DB: "agenticbear"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: agenticbear
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: agenticbear
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: db
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+              name: postgres
+          envFrom:
+            - secretRef:
+                name: postgres-credentials
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - $(POSTGRES_USER)
+                - -d
+                - $(POSTGRES_DB)
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - $(POSTGRES_USER)
+                - -d
+                - $(POSTGRES_DB)
+            initialDelaySeconds: 30
+            periodSeconds: 30
+  volumeClaimTemplates:
+    - metadata:
+        name: pgdata
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi
+        # storageClassName: standard-rwo   # uncomment to pin to a class

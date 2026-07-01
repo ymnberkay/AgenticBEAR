@@ -24,7 +24,83 @@ import { createLogger } from '../utils/logger.js';
 import { fileToolDefs, executeFileTool, FILE_TOOL_NAMES } from './agent-tools.js';
 import { createProjectIssue } from './issue.service.js';
 import { goalRepo } from '../db/repositories/goal.repo.js';
+import { projectRepo } from '../db/repositories/project.repo.js';
+import * as gitWs from './git-workspace.service.js';
+import { scanSonarQubeFindings } from './sonarqube-scan.service.js';
 import type { IssueKind, IssuePriority, GoalPriority } from '@subagent/shared';
+
+/** Names of the git tools handled by `runGitTool`. Keep in sync with agent-tools.ts. */
+const GIT_TOOL_NAMES = new Set(['git_status', 'git_branch', 'git_checkout', 'git_diff', 'git_commit', 'git_push']);
+
+/**
+ * Execute a git tool with the project + agent already resolved. Every git tool short-circuits
+ * if the project isn't git-backed, so agents on local-source projects get a clear error and
+ * don't accidentally run git commands against the user's own working directory.
+ */
+async function runGitTool(name: string, args: Record<string, unknown>, projectId: string, agentName: string): Promise<string> {
+  const project = await projectRepo.findById(projectId);
+  if (!project) return 'Error: project not found.';
+  if (project.workspaceSource !== 'git') {
+    return `Error: ${name} is only available for git-backed projects. This project uses a local workspace directory.`;
+  }
+  if (project.gitCloneStatus !== 'ready') {
+    return `Error: the project's git repository is not cloned yet (status: ${project.gitCloneStatus}). Ask the user to clone it from Project → Settings, then retry.`;
+  }
+  try {
+    switch (name) {
+      case 'git_status': {
+        const r = await gitWs.gitStatus(project);
+        if (!r.ok || !r.status) return `git status failed: ${r.error ?? 'unknown error'}`;
+        const s = r.status;
+        if (s.entries.length === 0) return `On branch ${s.branch}${s.ahead ? ` (ahead ${s.ahead})` : ''}${s.behind ? ` (behind ${s.behind})` : ''}. Working tree clean.`;
+        const lines = s.entries.slice(0, 200).map((e) => `${e.index}${e.work} ${e.path}`);
+        return `On branch ${s.branch}${s.ahead ? ` (ahead ${s.ahead})` : ''}${s.behind ? ` (behind ${s.behind})` : ''}. ${s.entries.length} change(s):\n${lines.join('\n')}${s.entries.length > 200 ? '\n…[truncated]' : ''}`;
+      }
+      case 'git_branch': {
+        const create = args.create === true;
+        const branch = String(args.name ?? '').trim();
+        if (create) {
+          if (!branch) return 'Error: name is required when create=true.';
+          const r = await gitWs.gitCheckoutBranch(project, branch, true);
+          return r.ok ? `Created + checked out branch ${branch}.` : `Failed to create branch: ${r.error}`;
+        }
+        const r = await gitWs.gitBranches(project);
+        if (!r.ok || !r.branches) return `git branch failed: ${r.error}`;
+        const b = r.branches;
+        return `Current: ${b.current || '(detached)'}\nLocal (${b.local.length}): ${b.local.join(', ') || '(none)'}\nRemote (${b.remote.length}): ${b.remote.join(', ') || '(none)'}`;
+      }
+      case 'git_checkout': {
+        const branch = String(args.branch ?? '').trim();
+        if (!branch) return 'Error: branch is required.';
+        const r = await gitWs.gitCheckoutBranch(project, branch, false);
+        return r.ok ? `Switched to branch ${branch}.` : `Failed to switch: ${r.error}`;
+      }
+      case 'git_diff': {
+        const path = args.path ? String(args.path).trim() || undefined : undefined;
+        const r = await gitWs.gitDiff(project, path);
+        if (!r.ok) return `git diff failed: ${r.error}`;
+        const d = (r.diff ?? '').trim();
+        if (!d) return 'No unstaged changes.';
+        return d.length > 8000 ? `${d.slice(0, 8000)}\n…[truncated]` : d;
+      }
+      case 'git_commit': {
+        const message = String(args.message ?? '').trim();
+        if (!message) return 'Error: message is required.';
+        const r = await gitWs.gitCommit(project, message, agentName, 'noreply@agenticbear.local');
+        return r.ok ? `Committed as ${r.sha?.slice(0, 8) ?? '(unknown sha)'}.` : `Commit failed: ${r.error}`;
+      }
+      case 'git_push': {
+        const branch = args.branch ? String(args.branch).trim() : undefined;
+        const r = await gitWs.gitPush(project, branch);
+        return r.ok ? `Pushed to origin/${branch ?? project.gitDefaultBranch}.` : `Push failed: ${r.error}`;
+      }
+      default:
+        return `Unknown git tool: ${name}`;
+    }
+  } catch (e) {
+    return `git tool ${name} threw: ${e instanceof Error ? e.message : String(e)}`;
+  }
+}
 
 const log = createLogger('agent-loop');
 const MAX_ITERS = 10;
@@ -67,7 +143,7 @@ function trimHistory(messages: ChatTurn[]): ChatTurn[] {
   return out.reverse();
 }
 
-type FileOp = 'create' | 'modify' | 'delete' | 'command';
+type FileOp = 'create' | 'modify' | 'delete' | 'command' | 'git_commit' | 'git_push';
 interface FileWrite { path: string; previousContent: string | null; content: string; operation: FileOp; agentId: string }
 
 export type LoopEvent =
@@ -217,6 +293,7 @@ function toolGuidance(workspacePath: string, isCoordinator: boolean): string {
     `- \`delete_file(path)\` — remove a file\n` +
     `- \`run_command(command)\` — run a shell command in the workspace dir (builds, tests, deps, git, logs), e.g. \`npm run build\`. Synchronous with a timeout — don't start long-lived servers.\n` +
     `- \`create_issue(title, description, kind, priority, labels)\` — file an issue for findings (security vulns, bugs, QA failures, follow-ups). It's recorded in the project and synced to the linked tracker (Jira/GitHub/Azure) if configured; \`labels\` are free-form tags that ride along to the tracker. Security/QA agents: file an issue for each significant finding.\n` +
+    `- \`sonarqube_scan_findings(severities?, since?, limit?)\` — pull open findings from the project's linked SonarQube project and file each new one as an Issue. Read-only (does not run a scan). Skips already-imported findings. Use this when the user asks to "test with SonarQube" / "sonarqube taraması yap".\n` +
     `- \`add_project_goal(title, description, priority)\` — record a high-level project objective (what the project should accomplish) so the user can later hand a batch of goals back to the orchestrator. Use this when decomposing a vague request into clear sub-objectives rather than into low-level issues.\n` +
     `**Default to acting.** If the request implies a change (add/fix/refactor/update/implement/build), DO it with ` +
     `\`write_file\`/\`delete_file\`/\`run_command\` — do NOT just describe it or paste code into the chat. ` +
@@ -507,6 +584,56 @@ async function runTurnInner(opts: RunTurnOpts): Promise<RunTurnResult> {
           } catch (e) {
             resultStr = `Failed to add goal: ${e instanceof Error ? e.message : String(e)}`;
           }
+        }
+      } else if (tc.name === 'sonarqube_scan_findings') {
+        try {
+          const severitiesArg = tc.args.severities;
+          const severities = Array.isArray(severitiesArg)
+            ? (severitiesArg as string[]).filter((s) => ['BLOCKER', 'CRITICAL', 'MAJOR', 'MINOR', 'INFO'].includes(s)) as ('BLOCKER' | 'CRITICAL' | 'MAJOR' | 'MINOR' | 'INFO')[]
+            : undefined;
+          const since = typeof tc.args.since === 'string' ? tc.args.since : undefined;
+          const limit = typeof tc.args.limit === 'number' ? tc.args.limit : undefined;
+          const r = await scanSonarQubeFindings(projectId, { severities, since, limit });
+          if (r.errors.length && r.imported === 0) {
+            resultStr = `SonarQube scan failed: ${r.errors[0]}`;
+          } else {
+            const parts: string[] = [];
+            parts.push(`Imported ${r.imported} new SonarQube finding${r.imported === 1 ? '' : 's'}`);
+            if (r.skipped > 0) parts.push(`skipped ${r.skipped} already-imported`);
+            if (r.errors.length) parts.push(`${r.errors.length} error${r.errors.length === 1 ? '' : 's'} (first: ${r.errors[0]})`);
+            if (r.imports.length > 0) {
+              const sample = r.imports.slice(0, 5).map((i) => `- [${i.severity}] ${i.title}`).join('\n');
+              parts.push(`\nSample:\n${sample}${r.imports.length > 5 ? `\n… + ${r.imports.length - 5} more` : ''}`);
+            }
+            resultStr = parts.join('. ') + '.';
+          }
+        } catch (e) {
+          resultStr = `SonarQube scan errored: ${e instanceof Error ? e.message : String(e)}`;
+        }
+      } else if (GIT_TOOL_NAMES.has(tc.name)) {
+        // Destructive git actions (commit / push) get staged in chat mode so the user can approve.
+        // Read-only ones (status / branch / diff / checkout) run immediately either way.
+        if (opts.requireApproval && (tc.name === 'git_commit' || tc.name === 'git_push')) {
+          const message = tc.name === 'git_commit' ? String(tc.args.message ?? '').trim() : String(tc.args.branch ?? '').trim();
+          if (tc.name === 'git_commit' && !message) {
+            resultStr = 'Error: message is required.';
+          } else {
+            const label = tc.name === 'git_commit'
+              ? `commit: ${message.split('\n')[0]!.slice(0, 100)}`
+              : `push origin/${message || '(current branch)'}`;
+            const w: FileWrite = {
+              path: message,
+              previousContent: null,
+              content: '',
+              operation: tc.name,
+              agentId: agent.id,
+            };
+            pendingWrites.push(w);
+            onEvent?.({ type: 'pendingWrite', path: label, operation: tc.name, agentId: w.agentId });
+            resultStr = `Staged ${tc.name} for the user's approval: ${label}. Consider this DONE — do not re-issue it. Continue with other work or give your final summary.`;
+          }
+        } else {
+          resultStr = await runGitTool(tc.name, tc.args, projectId, agent.name);
         }
       } else if (tc.name === DELEGATE) {
         const ref = String(tc.args.agent ?? '');

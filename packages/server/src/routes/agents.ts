@@ -8,6 +8,7 @@ import { invalidateMcpCache } from '../mcp/server.js';
 import { invalidateNamespace, namespaceFor } from '../cost/layers/semantic-cache.js';
 import type { AuthedRequest } from '../middleware/require-auth.js';
 import type { CreateAgentInput, UpdateAgentInput, User } from '@subagent/shared';
+import { testExternalAgent } from '../services/external-agent.service.js';
 
 export async function agentRoutes(app: FastifyInstance): Promise<void> {
   // List agents by project
@@ -66,6 +67,15 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     const user = (request as AuthedRequest).authUser as User | undefined;
     await activityLogRepo.record({ projectId: agent.projectId, userId: user?.id, username: user?.username, action: 'agent.update', target: agent.name });
     return reply.send(agent);
+  });
+
+  // Test an external agent — sends a "ping" and returns latency + sample response.
+  app.post<{ Params: { id: string } }>('/api/agents/:id/test', async (request, reply) => {
+    const agent = await agentRepo.findById(request.params.id);
+    if (!agent) return reply.status(404).send({ error: true, message: 'Agent not found' });
+    if (agent.role !== 'external') return reply.status(400).send({ error: true, message: 'Only external agents can be tested' });
+    const result = await testExternalAgent(request.params.id);
+    return reply.send(result);
   });
 
   // Get tasks for an agent

@@ -13,6 +13,8 @@ import { projectRepo } from '../db/repositories/project.repo.js';
 import { runRepo } from '../db/repositories/run.repo.js';
 import { taskRepo } from '../db/repositories/task.repo.js';
 import { runAgentTurn, type RunTurnResult } from '../services/agent-loop.service.js';
+import { resolveProjectWorkspace } from '../services/git-workspace.service.js';
+import { callExternalAgent, type ExternalMessage } from '../services/external-agent.service.js';
 import type { ChatTurn } from '../llm/tool-client.js';
 import { createLogger } from '../utils/logger.js';
 import type { Agent, User, FileChange } from '@subagent/shared';
@@ -22,9 +24,15 @@ import { activityLogRepo } from '../db/repositories/activity-log.repo.js';
 
 const log = createLogger('chat');
 
+/** Client-shape image attachment. Data-URIs are the only allowed shape (base64). */
+interface ChatImage { dataUrl: string; name?: string }
+
 interface ChatBody {
   agentId: string;
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  /** Attachments for the CURRENT (last) user message. Ignored for external agents that don't
+   *  support images. Silently discarded for orchestrator/specialist agents (no vision path v1). */
+  images?: ChatImage[];
 }
 
 /**
@@ -85,7 +93,7 @@ export async function findDocumentationAgent(projectId: string): Promise<Agent |
 
 interface AutoDocArgs {
   projectId: string;
-  project: { workspacePath: string };
+  project: import('@subagent/shared').Project;
   chattedAgent: Agent;
   lastUser: string;
   result: RunTurnResult;
@@ -117,7 +125,7 @@ async function maybeAutoDocument(args: AutoDocArgs): Promise<FileChange[]> {
       `recording WHAT changed and WHY. Use write_file. Keep it brief.`;
 
     const docResult = await runAgentTurn({
-      agent: docAgent, projectId, workspacePath: project.workspacePath,
+      agent: docAgent, projectId, workspacePath: resolveProjectWorkspace(project),
       messages: [{ role: 'user', content: docTask }],
       label: 'Document changes', requireApproval: true,
       onEvent: (e) => {
@@ -164,15 +172,60 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
 
       const turns: ChatTurn[] = messages.map((m) => ({ role: m.role, content: m.content }));
       const lastUser = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
+      const images = Array.isArray(request.body?.images) ? request.body!.images : [];
 
       reply.hijack();
       const raw = reply.raw;
       raw.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
       const send = (obj: unknown) => raw.write(`data: ${JSON.stringify(obj)}\n\n`);
 
+      // ── External agent branch — role='external' bypasses the internal tool loop and proxies to the team's endpoint ──
+      if (agent.role === 'external') {
+        try {
+          // Rehydrate the secret alongside the agent (already have the row via findById, need withSecret).
+          const agentWithSecret = await agentRepo.findByIdWithSecret(agent.id);
+          if (!agentWithSecret) {
+            send({ error: { message: 'External agent could not be loaded.' } });
+            raw.write('data: [DONE]\n\n');
+            raw.end();
+            return;
+          }
+          // Attach images to the LAST user turn only, using OpenAI multimodal shape.
+          const extMessages: ExternalMessage[] = messages.map((m, i) => {
+            const isLastUser = i === messages.length - 1 && m.role === 'user' && images.length > 0 && agentWithSecret.external?.supportsImages;
+            if (!isLastUser) return { role: m.role, content: m.content };
+            const parts = [
+              { type: 'text' as const, text: m.content },
+              ...images.map((im) => ({ type: 'image_url' as const, image_url: { url: im.dataUrl } })),
+            ];
+            return { role: m.role, content: parts };
+          });
+          await callExternalAgent({
+            agent: agentWithSecret,
+            messages: extMessages,
+            systemPrompt: agent.systemPrompt || undefined,
+            wantStream: agentWithSecret.external?.supportsStreaming ?? true,
+            onDelta: (delta) => send({ delta }),
+            onError: (message) => send({ error: { message } }),
+          });
+          await activityLogRepo.record({
+            projectId, userId: user?.id, username: user?.username, action: 'chat.external',
+            target: agent.name, detail: lastUser.length > 120 ? `${lastUser.slice(0, 117)}…` : lastUser,
+          });
+        } catch (err) {
+          log.error('external agent chat failed', err);
+          send({ error: { message: err instanceof Error ? err.message : 'External agent failed' } });
+        } finally {
+          send({ done: true, servedModel: agent.external?.defaultModel || agent.name, filesWritten: 0, pending: 0 });
+          raw.write('data: [DONE]\n\n');
+          raw.end();
+        }
+        return;
+      }
+
       try {
         const result = await runAgentTurn({
-          agent, projectId, workspacePath: project.workspacePath, messages: turns,
+          agent, projectId, workspacePath: resolveProjectWorkspace(project), messages: turns,
           label: lastUser,
           requireApproval: true, // chat file writes/deletes are staged for user approval
           onEvent: (e) => {

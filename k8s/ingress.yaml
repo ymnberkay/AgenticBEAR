@@ -1,0 +1,35 @@
+# Ingress — expose the app on a real hostname with TLS.
+#
+# Assumes:
+#   - nginx-ingress controller (adjust ingressClassName if you use traefik/gce/etc)
+#   - cert-manager for automatic TLS (edit the clusterIssuer name to yours)
+# If you don't have cert-manager, drop the annotation + the `tls:` block and
+# terminate TLS at the load balancer instead.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: agenticbear
+  namespace: agenticbear
+  annotations:
+    # Uncomment the appropriate line for your setup:
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # nginx.ingress.kubernetes.io/proxy-body-size: "25m"   # for image attachments
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "600"   # for long chat streams
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"      # SSE needs this off
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - agenticbear.example.com   # ← change me
+      secretName: agenticbear-tls
+  rules:
+    - host: agenticbear.example.com  # ← change me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: agenticbear
+                port:
+                  number: 80

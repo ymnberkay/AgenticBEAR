@@ -7,6 +7,8 @@ import { OrchestratorView } from '../../components/agents/orchestrator-view';
 import { AgentList } from '../../components/agents/agent-list';
 import { AgentBuilder } from '../../components/agents/agent-builder';
 import { AgentDetailPanel, ActivityDetailPanel } from '../../components/agents/agent-detail-panel';
+import { ExternalAgentList } from '../../components/agents/external-agent-list';
+import { ExternalAgentBuilder } from '../../components/agents/external-agent-builder';
 import { Dialog } from '../../components/ui/dialog';
 import { useAgentStatus } from '../../hooks/use-agent-status';
 import { useAgentStatusStore } from '../../stores/agent-status.store';
@@ -17,7 +19,9 @@ export function ProjectAgentsPage() {
   const statuses = useAgentStatusStore((s) => s.statuses);
 
   const [showBuilder, setShowBuilder] = useState(false);
+  const [showExternalBuilder, setShowExternalBuilder] = useState(false);
   const [editingAgent, setEditingAgent] = useState<Agent | undefined>(undefined);
+  const [editingExternal, setEditingExternal] = useState<Agent | undefined>(undefined);
   const [selectedAgent, setSelectedAgent] = useState<Agent | undefined>(undefined);
   const [selectedActivity, setSelectedActivity] = useState<AgentActivity | undefined>(undefined);
 
@@ -148,6 +152,20 @@ export function ProjectAgentsPage() {
         onViewAgent={handleViewAgent}
         onEditAgent={handleEditAgent}
       />
+
+      <ExternalAgentList
+        agents={agents}
+        onAdd={() => { setEditingExternal(undefined); setShowExternalBuilder(true); }}
+        onEdit={(a) => { setEditingExternal(a); setShowExternalBuilder(true); }}
+      />
+
+      <Dialog
+        open={showExternalBuilder}
+        onClose={() => setShowExternalBuilder(false)}
+        maxWidth="620px"
+      >
+        <ExternalAgentBuilder projectId={projectId} agent={editingExternal} onClose={() => setShowExternalBuilder(false)} />
+      </Dialog>
 
       <Dialog
         open={showBuilder}

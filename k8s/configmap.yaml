@@ -1,0 +1,24 @@
+# Non-secret application config. Anything in here is safe to commit — pair it
+# with the Secret in secret.example.yaml for tokens / API keys / DB creds.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agenticbear-config
+  namespace: agenticbear
+data:
+  NODE_ENV: "production"
+  PORT: "3001"
+
+  # ── Cost middleware layers (all on by default) ───────────────────────────
+  COST_LAYER_COMPRESSION: "true"
+  COST_LAYER_SEMANTIC_CACHE: "true"
+  COST_LAYER_ROUTER: "true"
+  COST_LAYER_PROMPT_CACHE: "true"
+  COST_LAYER_OUTPUT_MIN: "true"
+
+  # ── Inbound issue-pull scheduler (SonarQube / Azure Boards). ─────────────
+  # Set to "0" if you don't want the periodic tick.
+  ISSUE_PULL_INTERVAL_MS: "300000"
+
+  # ── Where the SQLite file lives (unused when DATABASE_URL is set). ───────
+  DB_PATH: "/data/.subagent-manager/data.db"

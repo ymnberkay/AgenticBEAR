@@ -1,16 +1,49 @@
+# Node / build artifacts — install + build happen inside the image.
 node_modules
 **/node_modules
 dist
 **/dist
+**/*.tsbuildinfo
+
+# VCS + editor + OS clutter
 .git
 .github
-*.log
-.env
-.env.*
-docs
-deploy
-**/__tests__
-**/*.test.ts
-.DS_Store
 .vscode
 .idea
+.DS_Store
+
+# Env / secrets — never bake into the image.
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Runtime data (SQLite files, port lockfile). Volumes handle these.
+**/data.db
+**/data.db-*
+.subagent-manager
+
+# Docs + deploy assets — not runtime.
+docs
+deploy
+k8s
+docker-compose.yml
+Dockerfile
+Dockerfile.*
+README.md
+LICENSE
+CHANGELOG.md
+
+# Tests — image is prod-only.
+**/__tests__
+**/*.test.ts
+**/vitest.config.*
+
+# Misc dev tooling
+.claude
+.eslintcache
+coverage
+tmp
+temp
+*.log
+npm-debug.log*

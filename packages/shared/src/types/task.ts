@@ -55,8 +55,12 @@ export interface FileChange {
   runStepId: string;
   runId: string;
   filePath: string;
-  /** 'command' = a staged shell command awaiting approval (filePath holds the command string). */
-  operation: 'create' | 'modify' | 'delete' | 'command';
+  /**
+   * 'command'    → staged shell command awaiting approval (filePath holds the command string).
+   * 'git_commit' → staged git commit — filePath holds the commit message.
+   * 'git_push'   → staged git push  — filePath holds the branch name (empty = current/default).
+   */
+  operation: 'create' | 'modify' | 'delete' | 'command' | 'git_commit' | 'git_push';
   previousContent: string | null;
   newContent: string;
   agentId: string;

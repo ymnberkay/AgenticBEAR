@@ -41,7 +41,10 @@ describe('agent-tools — sandboxed file tools', () => {
   it('exposes the file tool defs (incl. run_command when shell is enabled)', () => {
     expect(fileToolDefs().map((t) => t.name)).toEqual([
       'write_file', 'read_file', 'list_files', 'delete_file',
-      'create_issue', 'grep_codebase', 'find_references', 'add_project_goal',
+      'create_issue', 'grep_codebase', 'find_references',
+      'git_status', 'git_branch', 'git_checkout', 'git_diff', 'git_commit', 'git_push',
+      'sonarqube_scan_findings',
+      'add_project_goal',
       'run_command',
     ]);
   });

@@ -24,6 +24,11 @@ metadata:
     app.kubernetes.io/component: server
 spec:
   replicas: {{ .Values.server.replicaCount }}
+  # RWO PVC on `workspace` means two pods can't coexist — Recreate stops the old
+  # pod before starting the new one. Fine because the app is single-writer anyway
+  # (SQLite fallback + git-workspace mirrors are per-pod local state).
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "agenticbear.selectorLabels" (dict "ctx" . "component" "server") | nindent 6 }}
@@ -69,20 +74,37 @@ spec:
                 name: {{ include "agenticbear.configName" . }}
             - secretRef:
                 name: {{ include "agenticbear.secretName" . }}
+          # Redirect the git-workspace clone root at the persistent volume so
+          # `git clone` output survives pod restarts. Without this, `HOME=/data`
+          # + emptyDir `/data` would wipe every cloned repo when the pod cycles.
+          env:
+            - name: AGB_WORKSPACES_ROOT
+              value: "/workspace"
+          # startupProbe covers the "first-boot migration takes a while" case
+          # (28+ migrations run against a cold DB, plus Postgres wait-for) without
+          # accidentally killing the pod via liveness/readiness during that window.
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 3
+            timeoutSeconds: 2
+            failureThreshold: 60   # ~3 min of migrate time
           livenessProbe:
             httpGet:
               path: /api/health
               port: http
-            initialDelaySeconds: 20
-            periodSeconds: 15
-            failureThreshold: 6
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /api/health
               port: http
-            initialDelaySeconds: 10
             periodSeconds: 10
-            failureThreshold: 6
+            timeoutSeconds: 3
+            failureThreshold: 3
           resources:
             {{- toYaml .Values.server.resources | nindent 12 }}
           volumeMounts:

@@ -13,7 +13,7 @@ import { DiffView } from '../../components/workspace/diff-view';
 import { streamChat, type ChatMessage, type ToolEvent } from '../../api/chat';
 import type { FileChange } from '@subagent/shared';
 import { ChatMessage as ChatBubble } from '../../components/chat/chat-message';
-import { ChatComposer } from '../../components/chat/chat-composer';
+import { ChatComposer, type ChatImage } from '../../components/chat/chat-composer';
 import { useConversations, type ChatEntry } from '../../components/chat/use-conversations';
 import { useToast } from '../../components/ui/toast';
 import { Dialog } from '../../components/ui/dialog';
@@ -26,9 +26,11 @@ import { Dialog } from '../../components/ui/dialog';
 function activityLine(e: ToolEvent): string | null {
   switch (e.kind) {
     case 'write': return e.operation === 'delete' ? 'Deleting files' : e.operation === 'modify' ? 'Editing files' : 'Writing files';
-    case 'pendingWrite': return e.operation === 'command'
-      ? `Proposing command: ${(e.path ?? '').length > 56 ? `${(e.path ?? '').slice(0, 53)}…` : e.path}`
-      : 'Proposing file changes';
+    case 'pendingWrite':
+      if (e.operation === 'command') return `Proposing command: ${(e.path ?? '').length > 56 ? `${(e.path ?? '').slice(0, 53)}…` : e.path}`;
+      if (e.operation === 'git_commit') return `Proposing commit`;
+      if (e.operation === 'git_push') return `Proposing push`;
+      return 'Proposing file changes';
     case 'delegate': return `Delegating to ${e.agent}`;
     case 'tool':
       if (e.name === 'read_file') return 'Reading files';
@@ -40,6 +42,7 @@ function activityLine(e: ToolEvent): string | null {
       if (e.name === 'find_references') return 'Finding references';
       if (e.name === 'documenting') return 'Documenting changes';
       if (e.name === 'create_issue') return 'Filing an issue';
+      if (e.name === 'sonarqube_scan_findings') return 'Scanning SonarQube findings';
       if (e.name === 'add_project_goal') return 'Recording a goal';
       return `Running ${e.name}`;
     default: return null;
@@ -76,6 +79,7 @@ export function ProjectChatPage() {
   const [messages, setMessages] = useState<ChatEntry[]>(conv.active?.messages ?? []);
   // Draft persists across navigating away/back (restored on remount).
   const [input, setInput] = useState(() => { try { return localStorage.getItem(draftKey) ?? ''; } catch { return ''; } });
+  const [images, setImages] = useState<ChatImage[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [agentId, setAgentId] = useState('');
   const [railOpen, setRailOpen] = useState(true);
@@ -201,6 +205,9 @@ export function ProjectChatPage() {
 
     const touched: string[] = [];
     lastInputRef.current = { history, text };
+    // Snapshot images for THIS turn, then clear the composer's list — attachments are per-turn.
+    const turnImages = images;
+    setImages([]);
     await streamChat(projectId, agentId, history, {
       onDelta: (t) => setLast((last) => ({ ...last, content: last.content + t })),
       onTool: (e) => {
@@ -219,7 +226,7 @@ export function ProjectChatPage() {
         setStreamError(m);
         showToast(m, { variant: 'error' });
       },
-    });
+    }, { images: turnImages.length > 0 ? turnImages.map((im) => ({ dataUrl: im.dataUrl, name: im.name })) : undefined });
     setStreaming(false);
 
     // Persist the finished turn into the conversation store.
@@ -559,14 +566,41 @@ export function ProjectChatPage() {
                 <div className="flex flex-col">
                   {pending.map((p) => {
                     const isCmd = p.operation === 'command';
-                    const op = isCmd ? 'run' : p.operation === 'delete' ? 'delete' : p.operation === 'modify' ? 'edit' : 'create';
-                    const opColor = isCmd ? 'var(--color-accent)' : p.operation === 'delete' ? 'var(--color-error)' : p.operation === 'modify' ? 'var(--color-warning)' : 'var(--color-success)';
+                    const isCommit = p.operation === 'git_commit';
+                    const isPush = p.operation === 'git_push';
+                    const isGit = isCommit || isPush;
+                    const op = isCmd ? 'run'
+                      : isCommit ? 'commit'
+                      : isPush ? 'push'
+                      : p.operation === 'delete' ? 'delete'
+                      : p.operation === 'modify' ? 'edit'
+                      : 'create';
+                    const opColor = isCmd ? 'var(--color-accent)'
+                      : isCommit ? '#c0a0d8'
+                      : isPush ? '#5fb3d4'
+                      : p.operation === 'delete' ? 'var(--color-error)'
+                      : p.operation === 'modify' ? 'var(--color-warning)'
+                      : 'var(--color-success)';
                     return (
                       <div key={p.id} className="flex items-center gap-2" style={{ padding: '7px 12px', borderTop: '1px solid var(--color-border-subtle)' }}>
                         <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'var(--font-mono)', color: opColor, width: 46, flexShrink: 0 }}>{op}</span>
                         {isCmd ? (
                           <span className="truncate" title={p.filePath} style={{ flex: 1, fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)', minWidth: 0 }}>
                             $ {p.filePath}
+                          </span>
+                        ) : isGit ? (
+                          <span className="truncate flex items-center gap-1.5" title={p.filePath} style={{ flex: 1, fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)', minWidth: 0 }}>
+                            {isCommit ? (
+                              <>
+                                <span style={{ color: 'var(--color-text-disabled)' }}>git commit -m</span>
+                                <span className="truncate">"{p.filePath.split('\n')[0]}"</span>
+                              </>
+                            ) : (
+                              <>
+                                <span style={{ color: 'var(--color-text-disabled)' }}>git push origin</span>
+                                <span className="truncate">{p.filePath || '(current)'}</span>
+                              </>
+                            )}
                           </span>
                         ) : (
                           <button type="button" onClick={() => setDiffChange(p)} className="truncate" title="View diff"
@@ -594,9 +628,14 @@ export function ProjectChatPage() {
                 value={input} onChange={setInput} onSend={send} streaming={streaming}
                 agents={agentList} agentId={agentId} onAgentChange={setAgentId}
                 onAttach={() => setPanel('knowledge')}
+                {...(activeAgent?.role === 'external' && activeAgent.external?.supportsImages
+                  ? { images, onImagesChange: setImages }
+                  : {})}
               />
               <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', textAlign: 'center', marginTop: 6 }}>
-                {activeAgent?.role === 'orchestrator' ? '◆ Orchestrator — can delegate work to specialist agents' : 'agentic: the agent can read & write files'}
+                {activeAgent?.role === 'orchestrator' ? '◆ Orchestrator — can delegate work to specialist agents'
+                  : activeAgent?.role === 'external' ? `✦ External · proxied to ${activeAgent.external?.endpointUrl ? new URL(activeAgent.external.endpointUrl).host : 'endpoint'}`
+                  : 'agentic: the agent can read & write files'}
               </div>
             </div>
           </div>
