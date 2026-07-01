@@ -164,7 +164,7 @@ export function ProjectDetailPage() {
         <ProjectNav project={project} />
         <motion.div
           className="overflow-y-auto"
-          animate={{ left: navCollapsed ? 56 : 200 }}
+          animate={{ left: navCollapsed ? 64 : 236 }}
           transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
           style={{ position: 'absolute', top: 0, right: 0, bottom: 0, background: 'var(--color-bg-base)', padding: '32px 40px' }}
         >

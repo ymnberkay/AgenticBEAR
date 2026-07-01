@@ -14,6 +14,8 @@ interface GatewayKeyRow {
   expires_at: string | null;
   cache_scope: string | null;
   group_id: string | null;
+  rate_limit_per_min: number | null;
+  monthly_budget_usd: number | null;
   last_used_at: string | null;
 }
 
@@ -34,6 +36,8 @@ function rowToKey(row: GatewayKeyRow): GatewayKey {
     expiresAt: row.expires_at ?? null,
     cacheScope: row.cache_scope === 'lastUser' ? 'lastUser' : 'conversation',
     groupId: row.group_id ?? null,
+    rateLimitPerMin: row.rate_limit_per_min ?? null,
+    monthlyBudgetUsd: row.monthly_budget_usd ?? null,
     lastUsedAt: row.last_used_at,
   };
 }
@@ -50,7 +54,7 @@ export const gatewayKeyRepo = {
     return row.n;
   },
 
-  async create(input: { name?: string; allowedModels?: string[]; expiresAt?: string | null; cacheScope?: 'conversation' | 'lastUser'; groupId?: string | null } = {}): Promise<GatewayKeyCreated> {
+  async create(input: { name?: string; allowedModels?: string[]; expiresAt?: string | null; cacheScope?: 'conversation' | 'lastUser'; groupId?: string | null; rateLimitPerMin?: number | null; monthlyBudgetUsd?: number | null } = {}): Promise<GatewayKeyCreated> {
     const db = getDb();
     const id = generateId();
     // 32-hex secret.
@@ -62,11 +66,13 @@ export const gatewayKeyRepo = {
     const expiresAt = input.expiresAt ?? null;
     const cacheScope = input.cacheScope === 'lastUser' ? 'lastUser' : 'conversation';
     const groupId = input.groupId ?? null;
+    const rateLimitPerMin = input.rateLimitPerMin && input.rateLimitPerMin > 0 ? Math.round(input.rateLimitPerMin) : null;
+    const monthlyBudgetUsd = input.monthlyBudgetUsd && input.monthlyBudgetUsd > 0 ? input.monthlyBudgetUsd : null;
     await db.prepare(`
-      INSERT INTO gateway_keys (id, name, key_prefix, key_hash, allowed_models, enabled, created_at, expires_at, cache_scope, group_id)
-      VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
-    `).run(id, name, keyPrefix, hashKey(rawKey), JSON.stringify(allowedModels), now, expiresAt, cacheScope, groupId);
-    return { id, name, keyPrefix, allowedModels, enabled: true, createdAt: now, expiresAt, cacheScope, groupId, lastUsedAt: null, key: rawKey };
+      INSERT INTO gateway_keys (id, name, key_prefix, key_hash, allowed_models, enabled, created_at, expires_at, cache_scope, group_id, rate_limit_per_min, monthly_budget_usd)
+      VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
+    `).run(id, name, keyPrefix, hashKey(rawKey), JSON.stringify(allowedModels), now, expiresAt, cacheScope, groupId, rateLimitPerMin, monthlyBudgetUsd);
+    return { id, name, keyPrefix, allowedModels, enabled: true, createdAt: now, expiresAt, cacheScope, groupId, rateLimitPerMin, monthlyBudgetUsd, lastUsedAt: null, key: rawKey };
   },
 
   async list(): Promise<GatewayKey[]> {
@@ -100,6 +106,26 @@ export const gatewayKeyRepo = {
   async setGroup(id: string, groupId: string | null): Promise<GatewayKey | undefined> {
     const db = getDb();
     await db.prepare('UPDATE gateway_keys SET group_id = ? WHERE id = ?').run(groupId, id);
+    const row = await db.prepare('SELECT * FROM gateway_keys WHERE id = ?').get<GatewayKeyRow>(id);
+    return row ? rowToKey(row) : undefined;
+  },
+
+  /** Set/clear per-key guardrails (rate limit per minute + monthly USD budget). 0/null clears. */
+  async setLimits(id: string, limits: { rateLimitPerMin?: number | null; monthlyBudgetUsd?: number | null }): Promise<GatewayKey | undefined> {
+    const db = getDb();
+    const sets: string[] = [];
+    const args: (number | null)[] = [];
+    if (limits.rateLimitPerMin !== undefined) {
+      sets.push('rate_limit_per_min = ?');
+      args.push(limits.rateLimitPerMin && limits.rateLimitPerMin > 0 ? Math.round(limits.rateLimitPerMin) : null);
+    }
+    if (limits.monthlyBudgetUsd !== undefined) {
+      sets.push('monthly_budget_usd = ?');
+      args.push(limits.monthlyBudgetUsd && limits.monthlyBudgetUsd > 0 ? limits.monthlyBudgetUsd : null);
+    }
+    if (sets.length > 0) {
+      await db.prepare(`UPDATE gateway_keys SET ${sets.join(', ')} WHERE id = ?`).run(...args, id);
+    }
     const row = await db.prepare('SELECT * FROM gateway_keys WHERE id = ?').get<GatewayKeyRow>(id);
     return row ? rowToKey(row) : undefined;
   },

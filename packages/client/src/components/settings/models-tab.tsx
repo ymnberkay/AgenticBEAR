@@ -8,7 +8,9 @@ import type { ModelLimit } from '@subagent/shared';
 import { useModelCatalog, useRefreshModelCatalog, type CatalogModel } from '../../api/hooks/use-gateway';
 import { useSettings, useUpdateSettings } from '../../api/hooks/use-settings';
 import { useToast } from '../ui/toast';
-import { Section, inputStyle, Pager, PAGE_SIZE } from './ui';
+import { inputStyle, Pager, PAGE_SIZE } from './ui';
+import { Panel } from './gateway-ui';
+import { formatModelId } from '../../lib/format';
 
 /** Recipes the user can apply with one click. Blank fields = no limit. */
 const PRESETS: { id: string; label: string; description: string; values: ModelLimit }[] = [
@@ -118,11 +120,31 @@ export function ModelsTab({ onSaved }: { onSaved?: (msg: string) => void } = {})
     );
   };
 
+  // ── Curated allowlist (which models appear in pickers/gateway) ──
+  // When curation is ON, the allowlist is authoritative (empty = none enabled), so models from a
+  // newly-added provider start disabled. When OFF (never curated), empty = all enabled. Curation
+  // flips on automatically the first time a provider is added.
+  const curationOn = !!settings?.modelCurationEnabled;
+  const enabledList = settings?.enabledModels ?? [];
+  const allEnabled = !curationOn && enabledList.length === 0;
+  const isEnabled = (id: string) => allEnabled || enabledList.includes(id);
+  const toggleEnabled = (id: string) => {
+    const allIds = list.map((m) => m.id);
+    const base = curationOn || enabledList.length ? enabledList : allIds; // materialize "all" before editing
+    const next = base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
+    // Collapse to the "all" sentinel ([]) only when curation is OFF; with curation ON, [] = none.
+    const normalized = !curationOn && allIds.length > 0 && allIds.every((x) => next.includes(x)) ? [] : next;
+    updateSettings.mutate(
+      { enabledModels: normalized },
+      { onError: (err) => showToast(err instanceof Error ? err.message : 'Failed to update enabled models', { variant: 'error' }) },
+    );
+  };
+
   return (
-    <Section
-      icon={<Boxes style={{ width: 13, height: 13 }} aria-hidden="true" />}
+    <Panel
+      icon={<Boxes style={{ width: 12, height: 12 }} aria-hidden="true" />}
       color="#7c8cf8"
-      title={`Reachable Models (${list.length})`}
+      title={`Reachable models · ${list.length}`}
       action={
         <button
           type="button"
@@ -221,6 +243,33 @@ export function ModelsTab({ onSaved }: { onSaved?: (msg: string) => void } = {})
           Per-model limits apply to both the gateway and agentic calls. Unlimited unless configured here.
         </p>
 
+        {/* Enablement: which models are reachable via pickers + the gateway. */}
+        <div className="flex items-center justify-between flex-wrap gap-2" style={{ padding: '8px 12px', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-md)' }}>
+          <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+            {curationOn
+              ? `${enabledList.length} of ${list.length} enabled · new providers start disabled`
+              : `All ${list.length} enabled (no curation yet)`}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => updateSettings.mutate({ enabledModels: curationOn ? list.map((m) => m.id) : [] }, { onError: (err) => showToast(err instanceof Error ? err.message : 'Failed', { variant: 'error' }) })}
+              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+              style={{ height: 28, padding: '0 10px', fontSize: 11, fontFamily: 'var(--font-mono)', background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', color: 'var(--color-text-secondary)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
+            >
+              Enable all
+            </button>
+            <button
+              type="button"
+              onClick={() => updateSettings.mutate({ enabledModels: [], modelCurationEnabled: true }, { onError: (err) => showToast(err instanceof Error ? err.message : 'Failed', { variant: 'error' }) })}
+              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+              style={{ height: 28, padding: '0 10px', fontSize: 11, fontFamily: 'var(--font-mono)', background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', color: 'var(--color-text-secondary)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
+            >
+              Disable all
+            </button>
+          </div>
+        </div>
+
         {/* List */}
         <div className="flex flex-col gap-2">
           {items.map((m) => {
@@ -238,6 +287,8 @@ export function ModelsTab({ onSaved }: { onSaved?: (msg: string) => void } = {})
                 isExpanded={isExpanded}
                 isSaved={isSaved}
                 isErrored={isErrored}
+                enabled={isEnabled(m.id)}
+                onToggleEnabled={() => toggleEnabled(m.id)}
                 onToggle={() => setExpanded((cur) => (cur === m.id ? null : m.id))}
                 onCommit={(next) => commit(m.id, next)}
               />
@@ -265,7 +316,7 @@ export function ModelsTab({ onSaved }: { onSaved?: (msg: string) => void } = {})
 
         <Pager page={pg} total={totalPages} onPage={setPage} />
       </div>
-    </Section>
+    </Panel>
   );
 }
 
@@ -276,11 +327,13 @@ interface ModelRowProps {
   isExpanded: boolean;
   isSaved: boolean;
   isErrored: boolean;
+  enabled: boolean;
+  onToggleEnabled: () => void;
   onToggle: () => void;
   onCommit: (next: ModelLimit) => void;
 }
 
-function ModelRow({ model, limit, isLimited, isExpanded, isSaved, isErrored, onToggle, onCommit }: ModelRowProps) {
+function ModelRow({ model, limit, isLimited, isExpanded, isSaved, isErrored, enabled, onToggleEnabled, onToggle, onCommit }: ModelRowProps) {
   const panelId = useId();
   const summary = summarizeLimit(limit);
   const accent = isLimited ? '#7c8cf8' : 'var(--color-border-subtle)';
@@ -294,14 +347,29 @@ function ModelRow({ model, limit, isLimited, isExpanded, isSaved, isErrored, onT
         borderRadius: 'var(--radius-md)',
         overflow: 'hidden',
         transition: 'border-color 0.15s',
+        opacity: enabled ? 1 : 0.55,
       }}
     >
+      <div className="flex items-center">
+        <label
+          title={enabled ? 'Enabled — shown in pickers & gateway. Click to disable.' : 'Disabled — hidden from pickers & gateway. Click to enable.'}
+          onClick={(e) => e.stopPropagation()}
+          style={{ display: 'flex', alignItems: 'center', paddingLeft: 12, cursor: 'pointer' }}
+        >
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={onToggleEnabled}
+            aria-label={`Enable ${model.id}`}
+            style={{ width: 15, height: 15, accentColor: '#7c8cf8', cursor: 'pointer' }}
+          />
+        </label>
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={isExpanded}
         aria-controls={panelId}
-        className="flex items-center gap-3 w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8] focus-visible:ring-inset"
+        className="flex items-center gap-3 flex-1 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8] focus-visible:ring-inset"
         style={{
           padding: '12px 14px',
           background: 'transparent',
@@ -321,7 +389,7 @@ function ModelRow({ model, limit, isLimited, isExpanded, isSaved, isErrored, onT
                 overflow: 'hidden', textOverflow: 'ellipsis',
               }}
             >
-              {model.id}
+              {formatModelId(model.id, model.owned_by)}
             </code>
             <span
               style={{
@@ -384,6 +452,7 @@ function ModelRow({ model, limit, isLimited, isExpanded, isSaved, isErrored, onT
           aria-hidden="true"
         />
       </button>
+      </div>
 
       <AnimatePresence initial={false}>
         {isExpanded && (

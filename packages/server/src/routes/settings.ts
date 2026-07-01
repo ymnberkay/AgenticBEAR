@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { settingsRepo } from '../db/repositories/settings.repo.js';
 import { clearRateLimitCache } from '../services/rate-limiter.service.js';
+import { lockCurationToCurrentCatalog } from './gateway.js';
 import type { UpdateSettingsInput } from '@subagent/shared';
 
 export async function settingsRoutes(app: FastifyInstance): Promise<void> {
@@ -17,7 +18,19 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
 
   // Update settings
   app.patch<{ Body: UpdateSettingsInput }>('/api/settings', async (request, reply) => {
-    const settings = await settingsRepo.updateSettings(request.body);
+    const body = request.body ?? {};
+    // Adding a built-in provider key (empty → set) for the first time switches to curation-first
+    // exposure so the new provider's models start DISABLED until the admin enables them.
+    const before = await settingsRepo.getSettings();
+    const addsBuiltInKey =
+      (!before.apiKey && !!body.apiKey) ||
+      (!before.openAiApiKey && !!body.openAiApiKey) ||
+      (!before.geminiApiKey && !!body.geminiApiKey);
+    if (addsBuiltInKey) {
+      await lockCurationToCurrentCatalog(); // snapshot pre-key catalog as the enabled set
+    }
+
+    const settings = await settingsRepo.updateSettings(body);
     clearRateLimitCache(); // model limits may have changed — refresh immediately
     return reply.send({
       ...settings,

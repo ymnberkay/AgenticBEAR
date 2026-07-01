@@ -321,6 +321,84 @@ CREATE TABLE IF NOT EXISTS group_token_usage (
   PRIMARY KEY (group_id, period)
 );`,
 
+  '021_enabled_models.sql': `-- Curated allowlist of catalog model ids exposed in pickers/gateway ([] = all available).
+ALTER TABLE settings ADD COLUMN enabled_models_json TEXT NOT NULL DEFAULT '[]';`,
+
+  '022_org_profile.sql': `-- Organization profile shown in Settings → General.
+ALTER TABLE settings ADD COLUMN org_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE settings ADD COLUMN org_description TEXT NOT NULL DEFAULT '';
+ALTER TABLE settings ADD COLUMN org_contact TEXT NOT NULL DEFAULT '';
+ALTER TABLE settings ADD COLUMN org_website TEXT NOT NULL DEFAULT '';`,
+
+  '023_issues_integrations.sql': `-- Issue tracking + external tracker (GitHub/Jira/Azure Boards) integrations.
+CREATE TABLE IF NOT EXISTS integration_connections (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  label TEXT NOT NULL DEFAULT '',
+  base_url TEXT NOT NULL DEFAULT '',
+  config_json TEXT NOT NULL DEFAULT '{}',
+  token TEXT NOT NULL DEFAULT '',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS project_integrations (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  connection_id TEXT NOT NULL REFERENCES integration_connections(id) ON DELETE CASCADE,
+  sync_enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_project_integrations_project ON project_integrations(project_id);
+
+CREATE TABLE IF NOT EXISTS issues (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  kind TEXT NOT NULL DEFAULT 'issue',
+  status TEXT NOT NULL DEFAULT 'open',
+  priority TEXT NOT NULL DEFAULT 'medium',
+  source TEXT NOT NULL DEFAULT 'user',
+  agent_id TEXT,
+  run_id TEXT,
+  connection_id TEXT,
+  external_id TEXT,
+  external_url TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_issues_project ON issues(project_id);`,
+
+  '024_curation_and_key_limits.sql': `-- Curation-first model exposure + per-API-key guardrails.
+ALTER TABLE settings ADD COLUMN model_curation_enabled INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE gateway_keys ADD COLUMN rate_limit_per_min INTEGER;
+ALTER TABLE gateway_keys ADD COLUMN monthly_budget_usd REAL;`,
+
+  '025_issue_labels_and_pull.sql': `-- Free-form labels on issues + per-connection label vocabulary + inbound-pull bookkeeping.
+ALTER TABLE issues ADD COLUMN labels_json TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE integration_connections ADD COLUMN labels_vocabulary_json TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE project_integrations ADD COLUMN last_pull_at TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_issues_external ON issues(connection_id, external_id);`,
+
+  '026_project_goals.sql': `-- Project goals: high-level objectives the user can hand off to the orchestrator.
+CREATE TABLE IF NOT EXISTS project_goals (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'pending',
+  priority TEXT NOT NULL DEFAULT 'medium',
+  order_index INTEGER NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT 'user',
+  due_date TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_project_goals_project ON project_goals(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_goals_order ON project_goals(project_id, order_index);`,
+
   '020_activity_log.sql': `-- Per-project audit trail: who did what (chat, file approve/reject, agent CRUD, runs).
 CREATE TABLE IF NOT EXISTS activity_log (
   id TEXT PRIMARY KEY,
@@ -344,7 +422,7 @@ function toDialect(sql: string, driver: 'sqlite' | 'postgres'): string {
   return sql.replace(/datetime\('now'\)/g, "now()::text");
 }
 
-const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql', '007_gateway.sql', '008_gateway_key_scope.sql', '009_agent_canvas_and_knowledge.sql', '010_run_step_breakdown.sql', '011_run_step_compression.sql', '012_gateway_key_expiry.sql', '013_gateway_key_cache_scope.sql', '014_settings_dlp_rules.sql', '015_users.sql', '016_settings_dlp_disabled_models.sql', '017_provider_auth.sql', '018_governance.sql', '019_group_usage.sql', '020_activity_log.sql'];
+const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql', '007_gateway.sql', '008_gateway_key_scope.sql', '009_agent_canvas_and_knowledge.sql', '010_run_step_breakdown.sql', '011_run_step_compression.sql', '012_gateway_key_expiry.sql', '013_gateway_key_cache_scope.sql', '014_settings_dlp_rules.sql', '015_users.sql', '016_settings_dlp_disabled_models.sql', '017_provider_auth.sql', '018_governance.sql', '019_group_usage.sql', '020_activity_log.sql', '021_enabled_models.sql', '022_org_profile.sql', '023_issues_integrations.sql', '024_curation_and_key_limits.sql', '025_issue_labels_and_pull.sql', '026_project_goals.sql'];
 
 let db: Db | undefined;
 

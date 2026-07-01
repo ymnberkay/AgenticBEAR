@@ -39,7 +39,52 @@ describe('agent-tools — sandboxed file tools', () => {
   });
 
   it('exposes the file tool defs (incl. run_command when shell is enabled)', () => {
-    expect(fileToolDefs().map((t) => t.name)).toEqual(['write_file', 'read_file', 'list_files', 'delete_file', 'run_command']);
+    expect(fileToolDefs().map((t) => t.name)).toEqual([
+      'write_file', 'read_file', 'list_files', 'delete_file',
+      'create_issue', 'grep_codebase', 'find_references', 'add_project_goal',
+      'run_command',
+    ]);
+  });
+
+  it('grep_codebase finds matches with file:line headers, respects glob, skips dist/', () => {
+    executeFileTool(ws, 'write_file', { path: 'src/a.ts', content: 'const TOKEN = "abc";\nconsole.log("ok");\n' });
+    executeFileTool(ws, 'write_file', { path: 'src/b.ts', content: 'export function token() { return 1; }\n' });
+    executeFileTool(ws, 'write_file', { path: 'dist/old.ts', content: 'leak TOKEN here\n' });
+    const r = executeFileTool(ws, 'grep_codebase', { pattern: 'TOKEN', glob: '**/*.ts' });
+    expect(r.result).toContain('src/a.ts');
+    // case-insensitive by default → matches `token()` too
+    expect(r.result).toContain('src/b.ts');
+    // dist/ is in SKIP_DIRS
+    expect(r.result).not.toContain('dist/old.ts');
+  });
+
+  it('grep_codebase returns a clear message when nothing matches', () => {
+    executeFileTool(ws, 'write_file', { path: 'a.txt', content: 'hello world' });
+    const r = executeFileTool(ws, 'grep_codebase', { pattern: 'nope_no_match' });
+    expect(r.result).toMatch(/No matches/i);
+  });
+
+  it('grep_codebase rejects an invalid regex without throwing', () => {
+    const r = executeFileTool(ws, 'grep_codebase', { pattern: '(' }); // unbalanced
+    expect(r.result).toMatch(/Error: invalid regex/);
+  });
+
+  it('find_references uses word boundaries (does not match substrings)', () => {
+    executeFileTool(ws, 'write_file', { path: 'src/a.ts', content: 'function getUser() {}\ngetUser();\ngetUserById();\n' });
+    const r = executeFileTool(ws, 'find_references', { symbol: 'getUser' });
+    // Output uses `>` to mark hit lines and spaces for context lines.
+    // We expect 2 hits (the def + the call), getUserById may appear as context but not as a hit.
+    const hitLines = r.result.split('\n').filter((l) => l.startsWith('>'));
+    expect(hitLines).toHaveLength(2);
+    // Exactly one of those hits is flagged as a definition.
+    expect(hitLines.filter((l) => l.includes('[def]'))).toHaveLength(1);
+    // getUserById never appears as a hit line.
+    expect(hitLines.some((l) => l.includes('getUserById'))).toBe(false);
+  });
+
+  it('find_references rejects non-identifier inputs', () => {
+    const r = executeFileTool(ws, 'find_references', { symbol: 'foo bar' });
+    expect(r.result).toMatch(/valid identifier/i);
   });
 
   it('run_command executes a shell command in the workspace and returns its output + exit code', () => {

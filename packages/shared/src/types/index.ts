@@ -32,6 +32,7 @@ export type {
   GatewayKeyCreated,
   GatewayUsageRow,
   GatewayUsageBucket,
+  GatewayUsageDaily,
   GatewayUsageSummary,
 } from './gateway.js';
 export { PROVIDER_SCOPE_PREFIX } from './gateway.js';
@@ -96,3 +97,13 @@ export type {
 } from './document.js';
 
 export * from './integration.js';
+
+export type {
+  ProjectGoal,
+  GoalStatus,
+  GoalPriority,
+  GoalSource,
+  CreateGoalInput,
+  UpdateGoalInput,
+  BulkCreateGoalsResult,
+} from './goal.js';

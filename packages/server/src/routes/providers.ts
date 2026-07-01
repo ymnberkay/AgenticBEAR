@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { providerRepo } from '../db/repositories/provider.repo.js';
+import { lockCurationToCurrentCatalog } from './gateway.js';
 import type { CreateProviderInput, LLMProvider, UpdateProviderInput } from '@subagent/shared';
 
 /** Don't leak full API keys to the client. */
@@ -22,6 +23,8 @@ export async function providerRoutes(app: FastifyInstance): Promise<void> {
     if (!label || !kind) {
       return reply.status(400).send({ error: true, message: 'label and kind are required' });
     }
+    // Snapshot the catalog before this provider's models appear, so they start DISABLED.
+    await lockCurationToCurrentCatalog();
     const provider = await providerRepo.create(request.body);
     return reply.status(201).send(maskProvider(provider));
   });

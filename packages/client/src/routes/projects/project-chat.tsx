@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, BookOpen, Upload, FolderTree, X, MessageSquarePlus, PanelLeftClose, PanelLeft, Sparkles, Check, FileWarning, ArrowDown } from 'lucide-react';
+import { Plus, Trash2, BookOpen, Upload, FolderTree, X, MessageSquarePlus, PanelLeftClose, PanelLeft, Sparkles, Check, FileWarning, ArrowDown, Pin, ChevronDown, ChevronUp } from 'lucide-react';
+import { CHAT_PREFILL_KEY } from './project-issues';
 import { useAgents } from '../../api/hooks/use-agents';
 import { useDocuments, useCreateDocument, useDeleteDocument } from '../../api/hooks/use-documents';
 import { useFileTree, workspaceKeys } from '../../api/hooks/use-workspace';
@@ -35,7 +36,11 @@ function activityLine(e: ToolEvent): string | null {
       if (e.name === 'delete_file') return 'Deleting files';
       if (e.name === 'write_file') return 'Writing files';
       if (e.name === 'run_command') return e.command ? `Running: ${e.command.length > 60 ? `${e.command.slice(0, 57)}…` : e.command}` : 'Running a command';
+      if (e.name === 'grep_codebase') return 'Searching workspace';
+      if (e.name === 'find_references') return 'Finding references';
       if (e.name === 'documenting') return 'Documenting changes';
+      if (e.name === 'create_issue') return 'Filing an issue';
+      if (e.name === 'add_project_goal') return 'Recording a goal';
       return `Running ${e.name}`;
     default: return null;
   }
@@ -95,6 +100,20 @@ export function ProjectChatPage() {
   const agentList = useMemo(() => agents ?? [], [agents]);
   const activeAgent = agentList.find((a) => a.id === agentId);
 
+  /** Latest user message — pinned at the top of the thread while the agent works so the
+   *  original request stays visible no matter how long the response gets. */
+  const lastUserPrompt = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]!;
+      if (m.role === 'user' && m.content.trim()) return m.content;
+    }
+    return null;
+  }, [messages]);
+  const [pinExpanded, setPinExpanded] = useState(false);
+  const [pinDismissed, setPinDismissed] = useState(false);
+  // Reset the dismissal whenever a new user message appears (so the pin re-shows for the next turn).
+  useEffect(() => { setPinDismissed(false); setPinExpanded(false); }, [lastUserPrompt]);
+
   // Default agent = the active conversation's, else orchestrator, else first.
   useEffect(() => {
     if (agentList.length === 0) return;
@@ -102,6 +121,38 @@ export function ProjectChatPage() {
     setAgentId(conv.active?.agentId || fallback);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentList, conv.activeId]);
+
+  // Pick up a pre-filled prompt (e.g. "resolve these issues…") staged by another page.
+  // We wait until the agent list is loaded so we can hop to the requested role.
+  useEffect(() => {
+    if (agentList.length === 0) return;
+    let raw: string | null = null;
+    try { raw = sessionStorage.getItem(CHAT_PREFILL_KEY(projectId)); } catch { /* private mode */ }
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as { text?: string; agentRole?: string };
+      if (!parsed.text) return;
+      const targetRole = parsed.agentRole;
+      const chosen = targetRole ? agentList.find((a) => a.role === targetRole) : null;
+      const fresh = conv.startNew(chosen?.id ?? agentList[0]!.id);
+      if (chosen) setAgentId(chosen.id);
+      setMessages([]);
+      setInput(parsed.text);
+      // Surface that an external handoff dropped us here (one-time hint via the toast).
+      showToast('Prompt staged from Issues — review and Send when ready.', { variant: 'success' });
+      // Re-focus the composer (it auto-focuses, but in case it lost focus during transition).
+      setTimeout(() => {
+        const ta = document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Message composer"], textarea[placeholder]');
+        ta?.focus();
+      }, 50);
+      // Keep `fresh` referenced so TS doesn't flag the unused var.
+      void fresh;
+    } catch { /* malformed */ }
+    finally {
+      try { sessionStorage.removeItem(CHAT_PREFILL_KEY(projectId)); } catch { /* ignore */ }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentList.length, projectId]);
 
   // Load messages when switching conversations.
   useEffect(() => { setMessages(conv.active?.messages ?? []); setChanged(new Map()); /* eslint-disable-next-line */ }, [conv.activeId]);
@@ -337,9 +388,59 @@ export function ProjectChatPage() {
             <div
               ref={threadRef}
               onScroll={onThreadScroll}
-              className="flex-1 overflow-y-auto flex flex-col"
+              className="flex-1 overflow-y-auto flex flex-col relative"
               style={{ gap: 22, padding: '6px 4px 12px' }}
             >
+              {/* Pinned prompt: keeps the user's request visible while the agent processes long output. */}
+              {lastUserPrompt && !pinDismissed && (
+                <div
+                  className="sticky"
+                  style={{
+                    top: 0, zIndex: 5, maxWidth: 760, width: '100%', margin: '0 auto',
+                    background: 'rgba(2,21,38,0.85)',
+                    backdropFilter: 'blur(10px)',
+                    WebkitBackdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(124,140,248,0.35)',
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: '0 10px 24px -16px rgba(2,21,38,0.8)',
+                  }}
+                >
+                  <div className="flex items-start gap-2" style={{ padding: '8px 10px 8px 12px' }}>
+                    <Pin style={{ width: 12, height: 12, color: 'var(--color-accent)', flexShrink: 0, marginTop: 3, transform: 'rotate(45deg)' }} aria-hidden="true" />
+                    <div className="flex flex-col" style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-accent)', fontFamily: 'var(--font-mono)' }}>
+                        your request {streaming && <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>· processing…</span>}
+                      </span>
+                      <div
+                        style={{
+                          marginTop: 4, fontSize: 12.5, color: 'var(--color-text-primary)', fontFamily: 'var(--font-sans)',
+                          whiteSpace: 'pre-wrap', overflow: 'hidden',
+                          display: pinExpanded ? 'block' : '-webkit-box',
+                          WebkitLineClamp: pinExpanded ? 'unset' as unknown as number : 2,
+                          WebkitBoxOrient: 'vertical',
+                          textOverflow: 'ellipsis',
+                          maxHeight: pinExpanded ? 220 : undefined,
+                          overflowY: pinExpanded ? 'auto' : 'hidden',
+                        }}
+                      >
+                        {lastUserPrompt}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-0.5" style={{ flexShrink: 0 }}>
+                      {lastUserPrompt.length > 140 && (
+                        <button type="button" onClick={() => setPinExpanded((v) => !v)} aria-label={pinExpanded ? 'Collapse pinned prompt' : 'Expand pinned prompt'} title={pinExpanded ? 'Collapse' : 'Expand'}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: 4, borderRadius: 4 }}>
+                          {pinExpanded ? <ChevronUp style={{ width: 13, height: 13 }} aria-hidden="true" /> : <ChevronDown style={{ width: 13, height: 13 }} aria-hidden="true" />}
+                        </button>
+                      )}
+                      <button type="button" onClick={() => setPinDismissed(true)} aria-label="Dismiss pinned prompt" title="Dismiss"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: 4, borderRadius: 4 }}>
+                        <X style={{ width: 13, height: 13 }} aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center" style={{ margin: 'auto', maxWidth: 560, textAlign: 'center', gap: 18 }}>
                   <div className="flex items-center justify-center" style={{ width: 46, height: 46, borderRadius: 'var(--radius-lg)', background: 'var(--color-accent-subtle)', border: '1px solid var(--glass-border-hover)' }}>

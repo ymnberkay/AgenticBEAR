@@ -16,7 +16,7 @@ import { acquire, modelTimeoutMs } from '../services/rate-limiter.service.js';
 import { limiterKey } from './client.js';
 import { compressLossless } from '../cost/layers/compression.js';
 import { costConfig } from '../cost/config.js';
-import { scanAndRedact, dlpActiveForModel } from '../security/dlp.js';
+import { redactEgress } from '../security/dlp.js';
 
 const log = createLogger('llm:tools');
 
@@ -96,7 +96,11 @@ export async function completeWithTools(req: ToolCompletionRequest, tools: ToolD
   // L0 — tool-use bypasses the cost middleware (side effects), but lossless compression is safe.
   const { turns, savedTokens } = compressTurns(req.messages);
   // DLP — redact (or block) secrets/PII in system + messages before they leave to the provider.
-  const guarded = await applyDlp(req.systemPrompt, turns, req.model);
+  const guarded = await redactEgress({ systemPrompt: req.systemPrompt, turns, model: req.model });
+  if (guarded.redacted > 0) {
+    if (costConfig.dlp.block) throw new Error(`DLP: sensitive data blocked (${guarded.types.join(', ')})`);
+    log.info(`DLP redacted ${guarded.redacted} item(s) [${guarded.types.join(', ')}] in agentic egress`);
+  }
   const cReq = { ...req, systemPrompt: guarded.systemPrompt, messages: guarded.turns };
 
   // Per-model rate limit + send timeout (same limits as the non-tool path).
@@ -111,26 +115,6 @@ export async function completeWithTools(req: ToolCompletionRequest, tools: ToolD
   } finally {
     release();
   }
-}
-
-/** DLP egress guard for the agentic path — same scanner/policy as the gateway. */
-async function applyDlp(systemPrompt: string | undefined, turns: ChatTurn[], model: string): Promise<{ systemPrompt?: string; turns: ChatTurn[] }> {
-  if (!(await dlpActiveForModel(model))) return { systemPrompt, turns };
-  const types = new Set<string>();
-  let redacted = 0;
-  const guard = async (s: string | undefined): Promise<string | undefined> => {
-    if (!s) return s;
-    const r = await scanAndRedact(s);
-    if (r.total > 0) { redacted += r.total; Object.keys(r.findings).forEach((t) => types.add(t)); }
-    return r.text;
-  };
-  const sp = await guard(systemPrompt);
-  const out = await Promise.all(turns.map(async (t) => (t.content ? { ...t, content: (await guard(t.content)) ?? t.content } : t)));
-  if (redacted > 0) {
-    if (costConfig.dlp.block) throw new Error(`DLP: sensitive data blocked (${[...types].join(', ')})`);
-    log.info(`DLP redacted ${redacted} item(s) [${[...types].join(', ')}] in agentic egress`);
-  }
-  return { systemPrompt: sp, turns: out };
 }
 
 // ── Anthropic ──────────────────────────────────────────────────────────────────

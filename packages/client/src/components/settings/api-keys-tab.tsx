@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Zap, KeyRound, Plus, Trash2, Copy, Check, X, AlertTriangle } from 'lucide-react';
 import { PROVIDER_SCOPE_PREFIX } from '@subagent/shared';
 import {
-  useGatewayKeys, useCreateGatewayKey, useDeleteGatewayKey, useModelCatalog, useSetGatewayKeyCacheScope, useSetGatewayKeyGroup,
+  useGatewayKeys, useCreateGatewayKey, useDeleteGatewayKey, useModelCatalog, useSetGatewayKeyCacheScope, useSetGatewayKeyGroup, useSetGatewayKeyLimits,
 } from '../../api/hooks/use-gateway';
 import { useGroups } from '../../api/hooks/use-auth';
 import { useToast } from '../ui/toast';
 import { Dialog } from '../ui/dialog';
 import { ModelScopePicker } from './model-scope-picker';
-import { Section, inputStyle } from './ui';
+import { inputStyle } from './ui';
+import { Panel } from './gateway-ui';
 
 const EXPIRY_OPTIONS = [
   { label: 'Never', days: 0 },
@@ -43,6 +44,7 @@ export function ApiKeysTab() {
   const deleteKey = useDeleteGatewayKey();
   const setCacheScope = useSetGatewayKeyCacheScope();
   const setKeyGroup = useSetGatewayKeyGroup();
+  const setKeyLimits = useSetGatewayKeyLimits();
   const { data: catalog } = useModelCatalog();
   const { data: groups } = useGroups();
   const { show: showToast } = useToast();
@@ -61,6 +63,8 @@ export function ApiKeysTab() {
   const [expiryDays, setExpiryDays] = useState(0);
   const [faqMode, setFaqMode] = useState(false);
   const [groupId, setGroupId] = useState<string>('');
+  const [rateLimit, setRateLimit] = useState('');
+  const [budget, setBudget] = useState('');
   const [nameError, setNameError] = useState('');
 
   const baseUrl = `${window.location.origin}/v1`;
@@ -83,6 +87,8 @@ export function ApiKeysTab() {
     setExpiryDays(0);
     setFaqMode(false);
     setGroupId('');
+    setRateLimit('');
+    setBudget('');
     setNameError('');
     setFormOpen(false);
   };
@@ -93,8 +99,14 @@ export function ApiKeysTab() {
       return;
     }
     const expiresAt = expiryDays === 0 ? null : new Date(Date.now() + expiryDays * 86_400_000).toISOString();
+    const rl = parseFloat(rateLimit);
+    const bg = parseFloat(budget);
     createKey.mutate(
-      { name: name.trim(), allowedModels: scope, expiresAt, cacheScope: faqMode ? 'lastUser' : 'conversation', groupId: groupId || null },
+      {
+        name: name.trim(), allowedModels: scope, expiresAt, cacheScope: faqMode ? 'lastUser' : 'conversation', groupId: groupId || null,
+        rateLimitPerMin: Number.isFinite(rl) && rl > 0 ? Math.round(rl) : null,
+        monthlyBudgetUsd: Number.isFinite(bg) && bg > 0 ? bg : null,
+      },
       {
         onSuccess: (k) => {
           setCreatedKey(k.key);
@@ -151,7 +163,7 @@ print(resp.choices[0].message.content)`;
       )}
 
       {/* Example (reference) */}
-      <Section icon={<Zap style={{ width: 13, height: 13 }} aria-hidden="true" />} color="#e2b04a" title="Example — OpenAI-compatible">
+      <Panel icon={<Zap style={{ width: 12, height: 12 }} aria-hidden="true" />} color="#e2b04a" title="Example — OpenAI-compatible">
         <div className="flex flex-col gap-3">
           <div>
             <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>Base URL</div>
@@ -184,13 +196,13 @@ print(resp.choices[0].message.content)`;
             <pre style={{ margin: 0, padding: 12, background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--color-text-primary)', overflowX: 'auto', whiteSpace: 'pre' }}>{snippet}</pre>
           </div>
         </div>
-      </Section>
+      </Panel>
 
       {/* API keys */}
-      <Section
-        icon={<KeyRound style={{ width: 13, height: 13 }} aria-hidden="true" />}
+      <Panel
+        icon={<KeyRound style={{ width: 12, height: 12 }} aria-hidden="true" />}
         color="#d88aa0"
-        title="API Keys"
+        title="API keys"
         action={!formOpen && (
           <button
             type="button"
@@ -275,6 +287,29 @@ print(resp.choices[0].message.content)`;
                 </span>
               </div>
 
+              {/* Per-key guardrails */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="new-key-rate" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>Rate limit</label>
+                  <div style={{ position: 'relative', width: 150 }}>
+                    <input id="new-key-rate" type="number" min={0} step={1} inputMode="numeric" placeholder="∞" value={rateLimit} onChange={(e) => setRateLimit(e.target.value)}
+                      style={{ ...inputStyle, paddingRight: 56, textAlign: 'right' }} />
+                    <span aria-hidden="true" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', pointerEvents: 'none' }}>/ min</span>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="new-key-budget" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>Monthly budget</label>
+                  <div style={{ position: 'relative', width: 150 }}>
+                    <span aria-hidden="true" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', pointerEvents: 'none' }}>$</span>
+                    <input id="new-key-budget" type="number" min={0} step={1} inputMode="decimal" placeholder="∞" value={budget} onChange={(e) => setBudget(e.target.value)}
+                      style={{ ...inputStyle, paddingLeft: 22, textAlign: 'right' }} />
+                  </div>
+                </div>
+                <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', flex: '1 1 160px', minWidth: 0 }}>
+                  Requests/min throttle + hard spend cap for the calendar month. Blank = unlimited. (Max-concurrent &amp; timeout are configured per model under Models.)
+                </span>
+              </div>
+
               <label className="flex items-start gap-2" style={{ cursor: 'pointer' }}>
                 <input type="checkbox" checked={faqMode} onChange={(e) => setFaqMode(e.target.checked)} style={{ marginTop: 2 }} />
                 <span>
@@ -314,9 +349,17 @@ print(resp.choices[0].message.content)`;
                     <span title="Key prefix only — full key is shown once at creation">{k.keyPrefix}…</span> · {scopeLabel(k.allowedModels)} · <span style={{ color: exp.expired ? 'var(--color-error)' : 'var(--color-text-secondary)' }}>{exp.text}</span>
                     {k.lastUsedAt ? ` · last used ${new Date(k.lastUsedAt).toLocaleString()}` : ' · never used'}
                     {k.groupId ? <> · <span style={{ color: 'var(--color-accent)' }}>{groupName(k.groupId)}</span></> : ''}
+                    {k.rateLimitPerMin ? ` · ${k.rateLimitPerMin}/min` : ''}
+                    {k.monthlyBudgetUsd ? ` · $${k.monthlyBudgetUsd}/mo` : ''}
                   </div>
                 </div>
                 <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
+                  <KeyLimitsEditor
+                    keyId={k.id}
+                    rateLimitPerMin={k.rateLimitPerMin}
+                    monthlyBudgetUsd={k.monthlyBudgetUsd}
+                    onSave={(limits) => setKeyLimits.mutate({ id: k.id, ...limits })}
+                  />
                   <label className="sr-only" htmlFor={`key-${k.id}-group`}>Group for {k.name || 'key'}</label>
                   <select id={`key-${k.id}-group`} value={k.groupId ?? ''} onChange={(e) => setKeyGroup.mutate({ id: k.id, groupId: e.target.value || null })}
                     title="Group (token quota)"
@@ -353,7 +396,7 @@ print(resp.choices[0].message.content)`;
             </span>
           )}
         </div>
-      </Section>
+      </Panel>
 
       {/* One-time key reveal — modal that requires acknowledgement */}
       <Dialog
@@ -462,6 +505,44 @@ print(resp.choices[0].message.content)`;
           </button>
         </div>
       </Dialog>
+    </div>
+  );
+}
+
+/** Compact inline editor for a key's per-minute rate limit + monthly USD budget (blur to save). */
+function KeyLimitsEditor({ keyId, rateLimitPerMin, monthlyBudgetUsd, onSave }: {
+  keyId: string;
+  rateLimitPerMin: number | null;
+  monthlyBudgetUsd: number | null;
+  onSave: (limits: { rateLimitPerMin?: number | null; monthlyBudgetUsd?: number | null }) => void;
+}) {
+  const [rl, setRl] = useState(rateLimitPerMin?.toString() ?? '');
+  const [bg, setBg] = useState(monthlyBudgetUsd?.toString() ?? '');
+  useEffect(() => {
+    setRl(rateLimitPerMin?.toString() ?? '');
+    setBg(monthlyBudgetUsd?.toString() ?? '');
+  }, [rateLimitPerMin, monthlyBudgetUsd]);
+
+  const commitRl = () => {
+    const n = parseFloat(rl);
+    const next = Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+    if (next !== rateLimitPerMin) onSave({ rateLimitPerMin: next });
+  };
+  const commitBg = () => {
+    const n = parseFloat(bg);
+    const next = Number.isFinite(n) && n > 0 ? n : null;
+    if (next !== monthlyBudgetUsd) onSave({ monthlyBudgetUsd: next });
+  };
+
+  const box: React.CSSProperties = { ...inputStyle, height: 30, width: 62, fontSize: 10.5, textAlign: 'right', padding: '0 7px' };
+  return (
+    <div className="flex items-center gap-1" title="Per-key rate limit (requests/min) and monthly USD budget. Blank = unlimited.">
+      <input aria-label={`Rate limit (requests/min) for key ${keyId}`} type="number" min={0} step={1} placeholder="∞/m" value={rl}
+        onChange={(e) => setRl(e.target.value)} onBlur={commitRl}
+        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} style={box} />
+      <input aria-label={`Monthly budget (USD) for key ${keyId}`} type="number" min={0} step={1} placeholder="$∞" value={bg}
+        onChange={(e) => setBg(e.target.value)} onBlur={commitBg}
+        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} style={box} />
     </div>
   );
 }

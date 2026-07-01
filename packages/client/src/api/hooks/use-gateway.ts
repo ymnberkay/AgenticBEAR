@@ -9,6 +9,8 @@ export interface CatalogModel {
   id: string;
   object: 'model';
   owned_by: string;
+  /** In the curated allowlist? Empty allowlist = all enabled. Pickers show only enabled. */
+  enabled?: boolean;
 }
 
 export function useGatewayKeys() {
@@ -49,6 +51,15 @@ export function useSetGatewayKeyGroup() {
   return useMutation({
     mutationFn: ({ id, groupId }: { id: string; groupId: string | null }) =>
       apiPatch<GatewayKey>(`/api/gateway-keys/${id}`, { groupId }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keyKeys.all }),
+  });
+}
+
+export function useSetGatewayKeyLimits() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, rateLimitPerMin, monthlyBudgetUsd }: { id: string; rateLimitPerMin?: number | null; monthlyBudgetUsd?: number | null }) =>
+      apiPatch<GatewayKey>(`/api/gateway-keys/${id}`, { rateLimitPerMin, monthlyBudgetUsd }),
     onSuccess: () => qc.invalidateQueries({ queryKey: keyKeys.all }),
   });
 }

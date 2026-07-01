@@ -8,6 +8,7 @@ import { useToast } from '../../components/ui/toast';
 import { Dialog } from '../../components/ui/dialog';
 import { Skeleton } from '../../components/ui/skeleton';
 import { apiGet } from '../../api/client';
+import { ProjectSharing } from '../../components/settings/project-sharing';
 import type { ProjectStatus } from '@subagent/shared';
 
 const fieldStyle: React.CSSProperties = {
@@ -322,6 +323,9 @@ export function ProjectSettingsPage() {
           ))}
         </div>
       </section>
+
+      {/* Access — share with permission groups */}
+      <ProjectSharing projectId={projectId} />
 
       {/* Danger zone */}
       <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: '3px solid rgba(224,96,96,0.5)', borderRadius: 'var(--radius-md)' }}>

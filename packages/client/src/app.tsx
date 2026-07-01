@@ -18,11 +18,14 @@ import { ProjectAgentsPage } from './routes/projects/project-agents';
 import { ProjectChatPage } from './routes/projects/project-chat';
 import { ProjectMonitorPage } from './routes/projects/project-monitor';
 import { ProjectActivityPage } from './routes/projects/project-activity';
+import { ProjectIssuesPage } from './routes/projects/project-issues';
+import { ProjectGoalsPage } from './routes/projects/project-goals';
 
 import { ProjectSettingsPage } from './routes/projects/project-settings';
 import { RunDetailPage } from './routes/projects/run-detail';
 import { TemplatesPage } from './routes/templates-page';
 import { SettingsPage } from './routes/settings-page';
+import { GatewayPage } from './routes/gateway';
 
 // Query client
 const queryClient = new QueryClient({
@@ -93,6 +96,18 @@ const projectActivityRoute = createRoute({
   component: ProjectActivityPage,
 });
 
+const projectIssuesRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: '/issues',
+  component: ProjectIssuesPage,
+});
+
+const projectGoalsRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: '/goals',
+  component: ProjectGoalsPage,
+});
+
 // Analytics folded into Monitor — keep the path working for old links.
 const projectAnalyticsRoute = createRoute({
   getParentRoute: () => projectRoute,
@@ -135,11 +150,18 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 });
 
-// Legacy /models path → now a tab inside Settings.
+// Gateway control center (the second top-level area alongside the dashboard).
+const gatewayRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/gateway',
+  component: GatewayPage,
+});
+
+// Legacy /models path → now the Models section of the Gateway area.
 const modelsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/models',
-  beforeLoad: () => { throw redirect({ to: '/settings', hash: 'models' }); },
+  beforeLoad: () => { throw redirect({ to: '/gateway', hash: 'models' }); },
 });
 
 // Build the route tree
@@ -150,6 +172,8 @@ const routeTree = rootRoute.addChildren([
     projectAgentsRoute,
     projectMonitorRoute,
     projectActivityRoute,
+    projectIssuesRoute,
+    projectGoalsRoute,
     projectAnalyticsRoute,
     projectChatRoute,
     projectSettingsRoute,
@@ -157,6 +181,7 @@ const routeTree = rootRoute.addChildren([
   ]),
   templatesRoute,
   settingsRoute,
+  gatewayRoute,
   modelsRoute,
 ]);
 

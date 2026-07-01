@@ -8,12 +8,18 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { GatewayKey } from '@subagent/shared';
 import { gatewayKeyRepo, hashKey } from '../db/repositories/gateway-key.repo.js';
+import { gatewayUsageRepo } from '../db/repositories/gateway-usage.repo.js';
+import { allowGatewayKeyRequest } from '../services/gateway-key-limiter.service.js';
 
 /** Fields the gateway routes read off the request after auth. */
 export type AuthedRequest = FastifyRequest & { gatewayKeyId?: string; gatewayKey?: GatewayKey };
 
 function unauthorized(reply: FastifyReply, message: string) {
   return reply.status(401).send({ error: { message, type: 'authentication_error', code: 'invalid_api_key' } });
+}
+
+function tooManyRequests(reply: FastifyReply, message: string, code: string) {
+  return reply.status(429).send({ error: { message, type: 'rate_limit_error', code } });
 }
 
 export async function requireGatewayKey(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -32,6 +38,17 @@ export async function requireGatewayKey(request: FastifyRequest, reply: FastifyR
   }
   if (key.expiresAt && Date.parse(key.expiresAt) <= Date.now()) {
     return unauthorized(reply, 'API key has expired.');
+  }
+
+  // Per-key guardrails: requests/min (in-memory window) + monthly USD budget (from usage).
+  if (!allowGatewayKeyRequest(key.id, key.rateLimitPerMin)) {
+    return tooManyRequests(reply, `Rate limit exceeded (${key.rateLimitPerMin}/min for this key).`, 'rate_limit_exceeded');
+  }
+  if (key.monthlyBudgetUsd && key.monthlyBudgetUsd > 0) {
+    const spent = await gatewayUsageRepo.monthCostForKey(key.id);
+    if (spent >= key.monthlyBudgetUsd) {
+      return tooManyRequests(reply, `Monthly budget reached ($${spent.toFixed(2)} / $${key.monthlyBudgetUsd.toFixed(2)}).`, 'insufficient_quota');
+    }
   }
 
   await gatewayKeyRepo.touchLastUsed(key.id);

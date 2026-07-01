@@ -15,9 +15,15 @@ export const DEFAULT_SETTINGS: Settings = {
   openAiApiKey: '',
   geminiApiKey: '',
   theme: 'dark',
+  orgName: '',
+  orgDescription: '',
+  orgContact: '',
+  orgWebsite: '',
   dlpCustomRules: [],
   dlpDisabledModels: [],
   modelLimits: {},
+  enabledModels: [],
+  modelCurationEnabled: false,
 };
 
 export const AGENT_COLORS: Record<string, string> = {

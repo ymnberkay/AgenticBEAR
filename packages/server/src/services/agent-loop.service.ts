@@ -22,6 +22,9 @@ import { eventBus } from '../utils/event-bus.js';
 import { withProjectKnowledge } from './knowledge.service.js';
 import { createLogger } from '../utils/logger.js';
 import { fileToolDefs, executeFileTool, FILE_TOOL_NAMES } from './agent-tools.js';
+import { createProjectIssue } from './issue.service.js';
+import { goalRepo } from '../db/repositories/goal.repo.js';
+import type { IssueKind, IssuePriority, GoalPriority } from '@subagent/shared';
 
 const log = createLogger('agent-loop');
 const MAX_ITERS = 10;
@@ -209,8 +212,12 @@ function toolGuidance(workspacePath: string, isCoordinator: boolean): string {
     `- \`write_file(path, content)\` — create/modify files (paths RELATIVE to the workspace)\n` +
     `- \`read_file(path)\` — inspect a file\n` +
     `- \`list_files()\` — see the structure\n` +
+    `- \`grep_codebase(pattern, glob?, flags?)\` — regex search across the workspace. Returns file:line + context window per match. **Prefer this over list_files + read_file loops** when you know what you're looking for. Examples: \`grep_codebase("session\\\\.cookie")\`, \`grep_codebase("TODO", "src/**/*.ts")\`.\n` +
+    `- \`find_references(symbol, glob?)\` — find every usage of a code symbol (word-boundary matching). Use BEFORE rename/refactor to be sure you catch every caller. Definition lines are marked with [def].\n` +
     `- \`delete_file(path)\` — remove a file\n` +
     `- \`run_command(command)\` — run a shell command in the workspace dir (builds, tests, deps, git, logs), e.g. \`npm run build\`. Synchronous with a timeout — don't start long-lived servers.\n` +
+    `- \`create_issue(title, description, kind, priority, labels)\` — file an issue for findings (security vulns, bugs, QA failures, follow-ups). It's recorded in the project and synced to the linked tracker (Jira/GitHub/Azure) if configured; \`labels\` are free-form tags that ride along to the tracker. Security/QA agents: file an issue for each significant finding.\n` +
+    `- \`add_project_goal(title, description, priority)\` — record a high-level project objective (what the project should accomplish) so the user can later hand a batch of goals back to the orchestrator. Use this when decomposing a vague request into clear sub-objectives rather than into low-level issues.\n` +
     `**Default to acting.** If the request implies a change (add/fix/refactor/update/implement/build), DO it with ` +
     `\`write_file\`/\`delete_file\`/\`run_command\` — do NOT just describe it or paste code into the chat. ` +
     `Answer in plain prose only for genuine questions where nothing needs to change. ` +
@@ -461,6 +468,46 @@ async function runTurnInner(opts: RunTurnOpts): Promise<RunTurnResult> {
 
       if (seen > MAX_SAME_CALL) {
         resultStr = `You already ran ${tc.name} with identical arguments ${seen - 1} time(s); it will not run again. Continue with different work or give your final answer.`;
+      } else if (tc.name === 'create_issue') {
+        const title = String(tc.args.title ?? '').trim();
+        if (!title) {
+          resultStr = 'Error: title is required';
+        } else {
+          try {
+            const rawLabels = tc.args.labels;
+            const labels = Array.isArray(rawLabels)
+              ? rawLabels.map((x) => String(x ?? '').trim()).filter(Boolean)
+              : [];
+            const issue = await createProjectIssue(projectId, {
+              title,
+              description: String(tc.args.description ?? ''),
+              kind: (tc.args.kind as IssueKind) ?? 'issue',
+              priority: (tc.args.priority as IssuePriority) ?? 'medium',
+              labels,
+              source: 'agent', agentId: agent.id, runId: opts.runId ?? null,
+            });
+            resultStr = `Filed issue "${issue.title}"${issue.externalUrl ? ` → ${issue.externalUrl}` : ' (local)'}.`;
+          } catch (e) {
+            resultStr = `Failed to file issue: ${e instanceof Error ? e.message : String(e)}`;
+          }
+        }
+      } else if (tc.name === 'add_project_goal') {
+        const title = String(tc.args.title ?? '').trim();
+        if (!title) {
+          resultStr = 'Error: title is required';
+        } else {
+          try {
+            const goal = await goalRepo.create(projectId, {
+              title,
+              description: String(tc.args.description ?? ''),
+              priority: (tc.args.priority as GoalPriority) ?? 'medium',
+              source: 'agent',
+            });
+            resultStr = `Added project goal "${goal.title}".`;
+          } catch (e) {
+            resultStr = `Failed to add goal: ${e instanceof Error ? e.message : String(e)}`;
+          }
+        }
       } else if (tc.name === DELEGATE) {
         const ref = String(tc.args.agent ?? '');
         const spec = specialists.find((s) => s.slug === ref || s.id === ref || s.name === ref);

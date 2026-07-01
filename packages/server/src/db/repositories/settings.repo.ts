@@ -11,6 +11,12 @@ interface SettingsRow {
   dlp_custom_rules: string | null;
   dlp_disabled_models: string | null;
   model_limits_json: string | null;
+  enabled_models_json: string | null;
+  model_curation_enabled: number | null;
+  org_name: string | null;
+  org_description: string | null;
+  org_contact: string | null;
+  org_website: string | null;
 }
 
 function parseStrArray(json: string | null): string[] {
@@ -49,6 +55,12 @@ function rowToSettings(row: SettingsRow): Settings {
     dlpCustomRules: parseRules(row.dlp_custom_rules),
     dlpDisabledModels: parseStrArray(row.dlp_disabled_models),
     modelLimits: parseModelLimits(row.model_limits_json),
+    enabledModels: parseStrArray(row.enabled_models_json),
+    modelCurationEnabled: row.model_curation_enabled === 1,
+    orgName: row.org_name ?? '',
+    orgDescription: row.org_description ?? '',
+    orgContact: row.org_contact ?? '',
+    orgWebsite: row.org_website ?? '',
   };
 }
 
@@ -87,16 +99,26 @@ export const settingsRepo = {
     const dlpCustomRules = input.dlpCustomRules ?? current.dlpCustomRules;
     const dlpDisabledModels = input.dlpDisabledModels ?? current.dlpDisabledModels;
     const modelLimits = input.modelLimits ?? current.modelLimits;
+    const enabledModels = input.enabledModels ?? current.enabledModels;
+    const modelCurationEnabled = input.modelCurationEnabled ?? current.modelCurationEnabled;
+    const orgName = input.orgName ?? current.orgName;
+    const orgDescription = input.orgDescription ?? current.orgDescription;
+    const orgContact = input.orgContact ?? current.orgContact;
+    const orgWebsite = input.orgWebsite ?? current.orgWebsite;
 
     await db.prepare(`
       UPDATE settings
       SET api_key = ?, openai_api_key = ?, gemini_api_key = ?, theme = ?,
-          dlp_custom_rules = ?, dlp_disabled_models = ?, model_limits_json = ?
+          dlp_custom_rules = ?, dlp_disabled_models = ?, model_limits_json = ?, enabled_models_json = ?,
+          model_curation_enabled = ?,
+          org_name = ?, org_description = ?, org_contact = ?, org_website = ?
       WHERE id = 1
     `).run(
       apiKey, openAiApiKey, geminiApiKey, theme,
       JSON.stringify(dlpCustomRules ?? []), JSON.stringify(dlpDisabledModels ?? []),
-      JSON.stringify(modelLimits ?? {}),
+      JSON.stringify(modelLimits ?? {}), JSON.stringify(enabledModels ?? []),
+      modelCurationEnabled ? 1 : 0,
+      orgName, orgDescription, orgContact, orgWebsite,
     );
 
     return this.getSettings();

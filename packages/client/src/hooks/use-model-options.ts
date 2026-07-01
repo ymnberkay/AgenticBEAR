@@ -73,6 +73,8 @@ export function useModelOptions(): ModelOptionGroup[] {
   const groups = new Map<string, ModelOption[]>();
 
   for (const entry of catalog) {
+    // Pickers only show curated-enabled models (disabled = excluded from selection).
+    if (entry.enabled === false) continue;
     // Custom-provider model ids are encoded as "<providerId>/<modelId>".
     let providerId: string | undefined;
     let model = entry.id;

@@ -26,6 +26,10 @@ export interface GatewayKey {
   cacheScope: 'conversation' | 'lastUser';
   /** Permission group this key counts against (token quota + per-principal usage). null = none. */
   groupId: string | null;
+  /** Max requests per minute for this key (sliding window). null = unlimited. */
+  rateLimitPerMin: number | null;
+  /** Hard spend cap for the current calendar month, in USD. Calls past it are rejected. null = unlimited. */
+  monthlyBudgetUsd: number | null;
   lastUsedAt: string | null;
 }
 
@@ -39,6 +43,10 @@ export interface CreateGatewayKeyInput {
   cacheScope?: 'conversation' | 'lastUser';
   /** Permission group this key counts against. null/omitted = none. */
   groupId?: string | null;
+  /** Max requests per minute. null/omitted = unlimited. */
+  rateLimitPerMin?: number | null;
+  /** Monthly spend cap in USD. null/omitted = unlimited. */
+  monthlyBudgetUsd?: number | null;
 }
 
 /** Prefix marking a parent-provider wildcard entry in `allowedModels`. */
@@ -73,6 +81,20 @@ export interface GatewayUsageBucket {
   baselineUsd: number;
 }
 
+/** One day of gateway usage (shape matches the client DateUsage so it feeds the daily chart). */
+export interface GatewayUsageDaily {
+  date: string;
+  /** Total requests served that day. Optional on legacy summaries; treat missing as 0. */
+  requests?: number;
+  /** Requests that were served from the semantic cache. */
+  cacheHits?: number;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+  baselineCostUsd: number;
+  savedUsd: number;
+}
+
 export interface GatewayUsageSummary {
   totalRequests: number;
   totalInputTokens: number;
@@ -80,6 +102,10 @@ export interface GatewayUsageSummary {
   totalCostUsd: number;
   totalBaselineUsd: number;
   savedUsd: number;
+  /** Number of requests served from the L1 semantic cache (for hit-rate). */
+  cacheHits: number;
   byKey: GatewayUsageBucket[];
   byModel: GatewayUsageBucket[];
+  /** Daily buckets across the selected range (ascending), for the over-time chart. */
+  byDate: GatewayUsageDaily[];
 }

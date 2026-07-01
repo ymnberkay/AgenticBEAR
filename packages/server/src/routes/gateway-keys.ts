@@ -18,20 +18,28 @@ export async function gatewayKeyRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post<{ Body: CreateGatewayKeyInput }>('/api/gateway-keys', async (request, reply) => {
-    const { name, allowedModels, expiresAt, cacheScope, groupId } = request.body ?? {};
-    const created = await gatewayKeyRepo.create({ name: name ?? '', allowedModels: allowedModels ?? [], expiresAt: expiresAt ?? null, cacheScope, groupId: groupId ?? null });
+    const { name, allowedModels, expiresAt, cacheScope, groupId, rateLimitPerMin, monthlyBudgetUsd } = request.body ?? {};
+    const created = await gatewayKeyRepo.create({
+      name: name ?? '', allowedModels: allowedModels ?? [], expiresAt: expiresAt ?? null, cacheScope, groupId: groupId ?? null,
+      rateLimitPerMin: rateLimitPerMin ?? null, monthlyBudgetUsd: monthlyBudgetUsd ?? null,
+    });
     // Full key returned only here.
     return reply.status(201).send(created);
   });
 
-  app.patch<{ Params: { id: string }; Body: { enabled?: boolean; cacheScope?: 'conversation' | 'lastUser'; groupId?: string | null } }>(
+  app.patch<{ Params: { id: string }; Body: { enabled?: boolean; cacheScope?: 'conversation' | 'lastUser'; groupId?: string | null; rateLimitPerMin?: number | null; monthlyBudgetUsd?: number | null } }>(
     '/api/gateway-keys/:id',
     async (request, reply) => {
-      const { enabled, cacheScope, groupId } = request.body ?? {};
+      const { enabled, cacheScope, groupId, rateLimitPerMin, monthlyBudgetUsd } = request.body ?? {};
       let key = cacheScope ? await gatewayKeyRepo.setCacheScope(request.params.id, cacheScope) : undefined;
       if (groupId !== undefined) key = await gatewayKeyRepo.setGroup(request.params.id, groupId);
+      if (rateLimitPerMin !== undefined || monthlyBudgetUsd !== undefined) {
+        key = await gatewayKeyRepo.setLimits(request.params.id, { rateLimitPerMin, monthlyBudgetUsd });
+      }
       if (enabled !== undefined) key = await gatewayKeyRepo.setEnabled(request.params.id, enabled);
-      if (!key && enabled === undefined && !cacheScope && groupId === undefined) key = await gatewayKeyRepo.setEnabled(request.params.id, true);
+      if (!key && enabled === undefined && !cacheScope && groupId === undefined && rateLimitPerMin === undefined && monthlyBudgetUsd === undefined) {
+        key = await gatewayKeyRepo.setEnabled(request.params.id, true);
+      }
       if (!key) return reply.status(404).send({ error: true, message: 'Key not found' });
       return reply.send(key);
     },

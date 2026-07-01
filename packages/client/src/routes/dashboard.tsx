@@ -5,6 +5,7 @@ import { useUIStore } from '../stores/ui.store';
 import { ProjectList } from '../components/dashboard/project-list';
 import { QuickCreateDialog } from '../components/dashboard/quick-create-dialog';
 import { UserMenu } from '../components/layout/user-menu';
+import { AreaSwitcher } from '../components/layout/area-switcher';
 
 export function DashboardPage() {
   const { data: projects, isLoading } = useProjects();
@@ -19,7 +20,7 @@ export function DashboardPage() {
     <div className="h-full flex flex-col" style={{ background: 'var(--color-bg-base)', position: 'relative' }}>
       {/* Calm static ambient — dot-grid + glow (no interaction) */}
       <div className="ambient" />
-      {/* Top bar */}
+      {/* Top bar — search center, account menu right */}
       <div
         className="relative flex items-center animate-fade-in-up w-full"
         style={{
@@ -27,31 +28,26 @@ export function DashboardPage() {
           animationDelay: '30ms',
           padding: '0 32px',
           height: 56,
-          background: 'rgba(2,21,38,0.75)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
+          background: 'rgba(2,21,38,0.78)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
           position: 'sticky',
           top: 0,
           zIndex: 2,
         }}
       >
-        {/* Left: title */}
         <div className="flex items-center gap-2.5" style={{ flex: '1 1 0', minWidth: 0 }}>
-          <h1 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', fontFamily: 'var(--font-sans)', lineHeight: 1 }}>
-            Projects
-          </h1>
           {!isLoading && (
             <span style={{
               fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)',
               background: 'var(--color-bg-raised)', border: '1px solid var(--color-border-subtle)',
-              padding: '2px 6px',
-            }}>
-              {projectCount}
+              padding: '3px 8px', borderRadius: 999, letterSpacing: '0.04em',
+            }} title={`${projectCount} projects`}>
+              {projectCount} projects
             </span>
           )}
         </div>
 
-        {/* Center: search bar — only shown when palette is closed */}
         <AnimatePresence>
           {!paletteOpen && (
             <motion.button
@@ -63,17 +59,13 @@ export function DashboardPage() {
               aria-keyshortcuts="Meta+K"
               className="absolute flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
               style={{
-                left: 'calc(50% - 160px)',
-                width: 320,
-                height: 36,
-                padding: '0 14px',
+                left: 'calc(50% - 190px)',
+                width: 380, height: 36, padding: '0 14px',
                 background: 'var(--color-bg-raised)',
                 border: '1px solid var(--color-border-default)',
                 color: 'var(--color-text-secondary)',
-                fontFamily: 'var(--font-sans)',
-                fontSize: 13,
-                cursor: 'pointer',
-                borderRadius: 'var(--radius-md)',
+                fontFamily: 'var(--font-sans)', fontSize: 13,
+                cursor: 'pointer', borderRadius: 'var(--radius-md)',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor = 'rgba(124,140,248,0.35)';
@@ -98,7 +90,6 @@ export function DashboardPage() {
           )}
         </AnimatePresence>
 
-        {/* Right: new project + account menu */}
         <div className="flex items-center gap-3 justify-end" style={{ flex: '1 1 0', minWidth: 0 }}>
           <button
             type="button"
@@ -121,11 +112,16 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Project grid */}
+      {/* Body */}
       <div
         className="flex-1 overflow-y-auto animate-fade-in-up"
-        style={{ padding: '28px 32px', animationDelay: '90ms', position: 'relative', zIndex: 1 }}
+        style={{ padding: '24px 32px 32px', animationDelay: '90ms', position: 'relative', zIndex: 1 }}
       >
+        {/* Centered area switcher — where the project filter row used to sit */}
+        <div className="flex justify-center" style={{ marginBottom: 22 }}>
+          <AreaSwitcher active="agentic" />
+        </div>
+
         <ProjectList
           projects={projects}
           isLoading={isLoading}

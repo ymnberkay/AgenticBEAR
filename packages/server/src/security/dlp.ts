@@ -112,6 +112,49 @@ export interface DlpResult {
   total: number;
 }
 
+/**
+ * Egress guard for a whole prompt (system + turn contents). The single shared entry point used by
+ * BOTH the gateway HTTP path and the agentic tool-client path — keeping the two in sync prevents
+ * one of them silently bypassing redaction. Returns the redacted prompt + a tally of findings.
+ */
+/** Any chat turn shape that has a string `content` we can scan. Tool turns may have content `null`. */
+type TurnWithContent = { content?: string | null };
+export interface EgressInput<T extends TurnWithContent> {
+  systemPrompt?: string;
+  turns: T[];
+  model: string;
+}
+export interface EgressOutput<T extends TurnWithContent> {
+  systemPrompt?: string;
+  /** Same shape as the input — `content` is redacted in place, other fields preserved. */
+  turns: T[];
+  redacted: number;
+  types: string[];
+}
+export async function redactEgress<T extends TurnWithContent>(input: EgressInput<T>): Promise<EgressOutput<T>> {
+  if (!(await dlpActiveForModel(input.model))) {
+    return { systemPrompt: input.systemPrompt, turns: input.turns, redacted: 0, types: [] };
+  }
+  const typesSeen = new Set<string>();
+  let redactedCount = 0;
+  const guard = async (s: string | undefined): Promise<string | undefined> => {
+    if (!s) return s;
+    const r = await scanAndRedact(s);
+    if (r.total > 0) {
+      redactedCount += r.total;
+      Object.keys(r.findings).forEach((t) => typesSeen.add(t));
+    }
+    return r.text;
+  };
+  const sp = await guard(input.systemPrompt);
+  const out = await Promise.all(input.turns.map(async (t) => {
+    if (typeof t.content !== 'string' || t.content.length === 0) return t;
+    const guarded = await guard(t.content);
+    return { ...t, content: guarded ?? t.content } as T;
+  }));
+  return { systemPrompt: sp, turns: out, redacted: redactedCount, types: [...typesSeen] };
+}
+
 /** Scan text and redact secrets/PII per config. Returns redacted text + what was found. */
 export async function scanAndRedact(text: string): Promise<DlpResult> {
   const findings: Record<string, number> = {};

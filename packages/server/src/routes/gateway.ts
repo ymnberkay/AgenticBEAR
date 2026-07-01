@@ -19,7 +19,7 @@ import { gatewayUsageRepo } from '../db/repositories/gateway-usage.repo.js';
 import { discoverModels } from '../llm/model-discovery.js';
 import { requireGatewayKey, type AuthedRequest } from '../middleware/require-gateway-key.js';
 import { resolveGroupForKey, checkQuota, recordQuotaUsage } from '../services/quota.service.js';
-import { scanAndRedact, dlpActiveForModel } from '../security/dlp.js';
+import { redactEgress } from '../security/dlp.js';
 import { costConfig } from '../cost/config.js';
 import { createLogger } from '../utils/logger.js';
 import type { FastifyRequest } from 'fastify';
@@ -41,14 +41,82 @@ interface OpenAIChatRequest {
 const DEFAULT_MAX_TOKENS = 4096;
 
 /** `providerId/model` → { providerId, model } (split on first '/', only if first segment is a known provider). */
+/**
+ * Human-friendly, URL-safe slug for a custom provider's label ("Gemini AI Studio" → "gemini-ai-studio").
+ * Used as the model-id prefix instead of the opaque provider row id so downstream apps see
+ * `gemini/gemini-2.5-flash` instead of `S1BZ4o.../gemini-2.5-flash`. Collisions across providers
+ * with identical slugs get a numeric suffix (`gemini`, `gemini-2`, …).
+ */
+function slugifyProviderLabel(label: string): string {
+  const s = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return s || 'provider';
+}
+
+interface SlugMaps {
+  /** providerId → slug */
+  idToSlug: Map<string, string>;
+  /** slug → providerId */
+  slugToId: Map<string, string>;
+}
+/** Rebuild both directions of the slug ↔ providerId map in one pass. */
+async function providerSlugMaps(): Promise<SlugMaps> {
+  const idToSlug = new Map<string, string>();
+  const slugToId = new Map<string, string>();
+  let providers: Awaited<ReturnType<typeof providerRepo.findAll>>;
+  try {
+    providers = await providerRepo.findAll();
+  } catch {
+    return { idToSlug, slugToId }; // DB not initialized (unit tests) → empty maps
+  }
+  const used = new Set<string>();
+  for (const p of providers) {
+    const base = slugifyProviderLabel(p.label || p.id);
+    let candidate = base;
+    let i = 2;
+    while (used.has(candidate)) { candidate = `${base}-${i}`; i++; }
+    used.add(candidate);
+    idToSlug.set(p.id, candidate);
+    slugToId.set(candidate, p.id);
+  }
+  return { idToSlug, slugToId };
+}
+
+/**
+ * Rewrite any model id into its canonical (slug-prefixed) shape.
+ * Accepts both the legacy `<opaqueProviderId>/<model>` form and the new `<slug>/<model>` form and
+ * always returns the slug form (for built-ins/unknowns it returns the input unchanged).
+ * Used to compare API-key allowlists / curation entries against catalog ids without a migration.
+ */
+async function canonicalizeModelId(modelId: string, maps?: SlugMaps): Promise<string> {
+  const slash = modelId.indexOf('/');
+  if (slash === -1) return modelId;
+  const first = modelId.slice(0, slash);
+  const rest = modelId.slice(slash + 1);
+  if (isBuiltinProviderId(first)) return modelId;
+  const m = maps ?? await providerSlugMaps();
+  // Already a slug we know about? Keep it.
+  if (m.slugToId.has(first)) return modelId;
+  // Legacy opaque id? Rewrite to slug form.
+  const slug = m.idToSlug.get(first);
+  if (slug) return `${slug}/${rest}`;
+  return modelId;
+}
+
 export async function parseModelRef(model: string): Promise<{ providerId?: string; model: string }> {
   const slash = model.indexOf('/');
   if (slash === -1) return { model };
   const first = model.slice(0, slash);
   const rest = model.slice(slash + 1);
-  if (rest && (isBuiltinProviderId(first) || (await providerRepo.findById(first)))) {
-    return { providerId: first, model: rest };
-  }
+  if (!rest) return { model };
+  if (isBuiltinProviderId(first)) return { providerId: first, model: rest };
+  // Custom providers: match either the new label-slug prefix OR the legacy opaque id (backward compat
+  // for API keys with allowedModels stored in the old format + external clients still using the old id).
+  const maps = await providerSlugMaps();
+  const pidFromSlug = maps.slugToId.get(first);
+  if (pidFromSlug) return { providerId: pidFromSlug, model: rest };
+  try {
+    if (await providerRepo.findById(first)) return { providerId: first, model: rest };
+  } catch { /* DB not initialized (unit tests) */ }
   return { model };
 }
 
@@ -66,11 +134,21 @@ async function modelOwner(modelId: string): Promise<string> {
   return detectBuiltinProvider(model);
 }
 
-/** Whether a key may call a model: empty scope = all; else exact id OR a parent `owner:` wildcard. */
+/**
+ * Whether a key may call a model. Empty scope = all.
+ * Both sides are canonicalized to the slug-prefixed form, so an API key created before the
+ * slug switch (allowlist stored as `<opaqueId>/<model>`) still matches a request that comes
+ * in as `<slug>/<model>` (or vice-versa).
+ */
 async function keyAllowsModel(key: GatewayKey, modelId: string): Promise<boolean> {
   if (key.allowedModels.length === 0) return true;
-  if (key.allowedModels.includes(modelId)) return true;
-  return key.allowedModels.includes(`${PROVIDER_SCOPE_PREFIX}${await modelOwner(modelId)}`);
+  const maps = await providerSlugMaps();
+  const canonRequested = await canonicalizeModelId(modelId, maps);
+  for (const a of key.allowedModels) {
+    if (await canonicalizeModelId(a, maps) === canonRequested) return true;
+  }
+  const owner = await modelOwner(modelId);
+  return key.allowedModels.includes(`${PROVIDER_SCOPE_PREFIX}${owner}`);
 }
 
 function partText(c: string | OpenAIContentPart[]): string {
@@ -105,6 +183,8 @@ export interface CatalogModel {
   id: string;
   object: 'model';
   owned_by: string;
+  /** Whether this model is in the curated allowlist (empty allowlist = all enabled). */
+  enabled: boolean;
 }
 
 /** Static fallback list of built-in model ids for a provider family (from MODEL_GROUPS). */
@@ -136,7 +216,7 @@ export async function buildModelCatalog(force = false): Promise<CatalogModel[]> 
     geminiKey ? discoverModels('gemini', undefined, geminiKey, force) : Promise.resolve([]),
   ]);
 
-  const data: CatalogModel[] = [];
+  const data: Array<Omit<CatalogModel, 'enabled'>> = [];
   const pushAll = (ids: string[], owned: string) => {
     for (const id of ids) data.push({ id, object: 'model', owned_by: owned });
   };
@@ -145,13 +225,35 @@ export async function buildModelCatalog(force = false): Promise<CatalogModel[]> 
   if (openaiKey) pushAll(openaiIds.length ? openaiIds : staticBuiltinModels('openai'), 'openai');
   if (geminiKey) pushAll(geminiIds, 'gemini');
 
+  const maps = await providerSlugMaps();
   for (const p of await providerRepo.findAll()) {
     if (!p.enabled) continue;
+    const slug = maps.idToSlug.get(p.id) ?? p.id;
     for (const m of p.models) {
-      data.push({ id: `${p.id}/${m.id}`, object: 'model', owned_by: p.label });
+      data.push({ id: `${slug}/${m.id}`, object: 'model', owned_by: p.label });
     }
   }
-  return data;
+
+  // Curated allowlist. When curation is on it's authoritative (a newly-added provider's models
+  // start disabled); when off (never curated) everything reachable is enabled. Legacy allowlist
+  // entries (opaque-id prefix) are canonicalized here so a curation snapshot taken before this
+  // switch keeps working.
+  const canonAllow = new Set<string>();
+  for (const id of settings.enabledModels ?? []) canonAllow.add(await canonicalizeModelId(id, maps));
+  const allEnabled = !settings.modelCurationEnabled && canonAllow.size === 0;
+  return data.map((m) => ({ ...m, enabled: allEnabled || canonAllow.has(m.id) }));
+}
+
+/**
+ * Switch to curation-first exposure, locking the CURRENT catalog in as the enabled set. Call this
+ * right BEFORE a new provider's models become reachable so those new models default to disabled
+ * (they're not in the snapshot) while everything already reachable stays enabled. No-op once on.
+ */
+export async function lockCurationToCurrentCatalog(): Promise<void> {
+  const settings = await settingsRepo.getSettings();
+  if (settings.modelCurationEnabled) return;
+  const ids = (await buildModelCatalog()).map((m) => m.id);
+  await settingsRepo.updateSettings({ modelCurationEnabled: true, enabledModels: ids });
 }
 
 function gatewayKeyId(request: FastifyRequest): string | null {
@@ -185,12 +287,15 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
 
   // ── Catalog ───────────────────────────────────────────────────────────────
   app.get('/v1/models', async (request, reply) => {
-    let data = await buildModelCatalog();
-    // A scoped key only "sees" the models it is allowed to call.
+    // Only curated-enabled models are exposed via the gateway.
+    let data = (await buildModelCatalog()).filter((m) => m.enabled);
+    // A scoped key only "sees" the models it is allowed to call. Canonicalize both sides so
+    // an old (opaque-id) allowlist entry matches the new (slug) catalog id.
     const key = (request as AuthedRequest).gatewayKey;
     if (key && key.allowedModels.length > 0) {
-      const allow = new Set(key.allowedModels);
-      data = data.filter((m) => allow.has(m.id) || allow.has(`${PROVIDER_SCOPE_PREFIX}${m.owned_by}`));
+      const maps = await providerSlugMaps();
+      const canonAllow = new Set(await Promise.all(key.allowedModels.map((a) => canonicalizeModelId(a, maps))));
+      data = data.filter((m) => canonAllow.has(m.id) || key.allowedModels.includes(`${PROVIDER_SCOPE_PREFIX}${m.owned_by}`));
     }
     return reply.send({ object: 'list', data });
   });
@@ -227,23 +332,21 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
     }
 
     // ── DLP egress guard — redact (or block) secrets/PII before the prompt leaves to the provider ──
-    if (await dlpActiveForModel(body.model)) {
-      const types = new Set<string>();
-      let redacted = 0;
-      const guard = async (s: string | undefined): Promise<string | undefined> => {
-        if (!s) return s;
-        const r = await scanAndRedact(s);
-        if (r.total > 0) { redacted += r.total; Object.keys(r.findings).forEach((t) => types.add(t)); }
-        return r.text;
-      };
-      systemPrompt = await guard(systemPrompt);
-      for (const t of turns) t.content = (await guard(t.content)) ?? t.content;
-      if (redacted > 0) {
+    // Single shared helper with the agentic path: both call `redactEgress` so policy can never drift.
+    {
+      const guarded = await redactEgress({ systemPrompt, turns, model: body.model });
+      if (guarded.redacted > 0) {
         if (costConfig.dlp.block) {
-          return reply.status(422).send(oaiError(`Request blocked: sensitive data detected (${[...types].join(', ')})`, 'invalid_request_error', 'sensitive_data_blocked'));
+          return reply.status(422).send(oaiError(`Request blocked: sensitive data detected (${guarded.types.join(', ')})`, 'invalid_request_error', 'sensitive_data_blocked'));
         }
-        reply.header('x-agb-dlp-redacted', String(redacted));
-        log.info(`DLP redacted ${redacted} item(s) [${[...types].join(', ')}] before egress`);
+        reply.header('x-agb-dlp-redacted', String(guarded.redacted));
+        reply.header('x-agb-dlp-types', guarded.types.join(','));
+        log.info(`DLP redacted ${guarded.redacted} item(s) [${guarded.types.join(', ')}] before egress`);
+      }
+      systemPrompt = guarded.systemPrompt;
+      for (let i = 0; i < turns.length; i++) {
+        const next = guarded.turns[i]?.content;
+        if (typeof next === 'string') turns[i]!.content = next;
       }
     }
 

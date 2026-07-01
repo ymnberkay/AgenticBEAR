@@ -1,27 +1,24 @@
 import { useEffect, useRef, useState, useId, type KeyboardEvent } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useToast } from '../components/ui/toast';
 import { GeneralTab } from '../components/settings/general-tab';
-import { ProvidersTab } from '../components/settings/providers-tab';
-import { ApiKeysTab } from '../components/settings/api-keys-tab';
-import { ModelsTab } from '../components/settings/models-tab';
-import { UsageTab } from '../components/settings/usage-tab';
 import { SecurityTab } from '../components/settings/security-tab';
 import { UsersTab } from '../components/settings/users-tab';
 import { GroupsTab } from '../components/settings/groups-tab';
+import { IntegrationsTab } from '../components/settings/integrations-tab';
 
 const TABS = [
   { id: 'general', label: 'General' },
-  { id: 'providers', label: 'Providers' },
-  { id: 'apikeys', label: 'API Keys' },
-  { id: 'models', label: 'Models' },
   { id: 'security', label: 'Security' },
   { id: 'users', label: 'Users' },
   { id: 'groups', label: 'Groups' },
-  { id: 'usage', label: 'Usage' },
+  { id: 'integrations', label: 'Integrations' },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
+
+// Providers / API Keys / Models / Usage moved to the Gateway area — redirect old deep links.
+const GATEWAY_HASHES = ['providers', 'apikeys', 'models', 'usage'] as const;
 
 function readHashTab(): TabId | null {
   if (typeof window === 'undefined') return null;
@@ -29,13 +26,22 @@ function readHashTab(): TabId | null {
   return TABS.some((t) => t.id === id) ? id : null;
 }
 
-/** Organization-wide settings, organized into tabs (providers/keys, gateway, models, usage). */
+/** Organization-wide admin settings (org profile, security, members, integrations). */
 export function SettingsPage() {
   const { show: showToast } = useToast();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<TabId>(() => readHashTab() ?? 'general');
   const buttonsRef = useRef<(HTMLButtonElement | null)[]>([]);
   const tablistId = useId();
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Old gateway tabs (providers/apikeys/models/usage) now live in the Gateway area.
+  useEffect(() => {
+    const h = window.location.hash.slice(1);
+    if ((GATEWAY_HASHES as readonly string[]).includes(h)) {
+      navigate({ to: '/gateway', hash: h });
+    }
+  }, [navigate]);
 
   // React to hash changes (deep-link, back/forward) and scroll to top on tab switch.
   useEffect(() => {
@@ -72,8 +78,8 @@ export function SettingsPage() {
     }
   };
 
-  // Usage is a wide dashboard; the rest are forms that read best in a narrow column.
-  const wide = tab === 'usage';
+  // All remaining tabs are forms that read best in a narrow column.
+  const wide = false;
 
   return (
     <div ref={scrollRef} className="h-full overflow-y-auto" style={{ background: 'var(--color-bg-base)' }}>
@@ -89,7 +95,7 @@ export function SettingsPage() {
             Organization Settings
           </h1>
           <p style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginTop: 6 }}>
-            providers, keys, gateway, reachable models, and org-wide usage
+            organization profile, security, members, and issue-tracker integrations
           </p>
         </div>
 
@@ -144,13 +150,10 @@ export function SettingsPage() {
         style={{ maxWidth: wide ? 1320 : 760, margin: '0 auto', padding: '22px 32px 48px', transition: 'max-width 0.2s ease' }}
       >
         {tab === 'general' && <GeneralTab onSaved={showToast} />}
-        {tab === 'providers' && <ProvidersTab onSaved={showToast} />}
-        {tab === 'apikeys' && <ApiKeysTab />}
-        {tab === 'models' && <ModelsTab />}
         {tab === 'security' && <SecurityTab onSaved={showToast} />}
         {tab === 'users' && <UsersTab onSaved={showToast} />}
         {tab === 'groups' && <GroupsTab onSaved={showToast} />}
-        {tab === 'usage' && <UsageTab />}
+        {tab === 'integrations' && <IntegrationsTab onSaved={showToast} />}
       </div>
     </div>
   );

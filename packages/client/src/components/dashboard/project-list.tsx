@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FolderPlus, Search, X } from 'lucide-react';
+import { FolderPlus } from 'lucide-react';
 import type { Project } from '@subagent/shared';
 import { ProjectCard } from './project-card';
 import { Skeleton } from '../ui/skeleton';
@@ -14,23 +14,18 @@ interface ProjectListProps {
 }
 
 export function ProjectList({ projects, isLoading, onCreateProject }: ProjectListProps) {
-  const [search, setSearch] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [sort, setSort] = useState<SortKey>('updated');
 
   const filtered = useMemo(() => {
     let list = projects ?? [];
     if (status !== 'all') list = list.filter((p) => p.status === status);
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      list = list.filter((p) => p.name.toLowerCase().includes(q) || (p.description ?? '').toLowerCase().includes(q));
-    }
     const sorted = [...list];
     if (sort === 'name') sorted.sort((a, b) => a.name.localeCompare(b.name));
     else if (sort === 'created') sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     else sorted.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     return sorted;
-  }, [projects, search, status, sort]);
+  }, [projects, status, sort]);
 
   if (isLoading) {
     return (
@@ -115,38 +110,8 @@ export function ProjectList({ projects, isLoading, onCreateProject }: ProjectLis
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Toolbar */}
+      {/* Toolbar — status filter + sort. Global ⌘K search handles project lookup. */}
       <div className="flex items-center gap-2 flex-wrap">
-        <div style={{ position: 'relative', flex: '1 1 240px', maxWidth: 360 }}>
-          <Search aria-hidden="true" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--color-text-secondary)' }} />
-          <label className="sr-only" htmlFor="project-search">Search projects</label>
-          <input
-            id="project-search"
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search projects…"
-            autoComplete="off"
-            style={{
-              width: '100%', height: 36, padding: '0 32px 0 32px',
-              background: 'var(--color-bg-base)', border: '1px solid var(--color-border-default)',
-              color: 'var(--color-text-primary)', fontFamily: 'var(--font-sans)', fontSize: 13,
-              borderRadius: 'var(--radius-md)', outline: 'none',
-            }}
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch('')}
-              aria-label="Clear search"
-              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
-              style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: 6, borderRadius: 4 }}
-            >
-              <X style={{ width: 12, height: 12 }} aria-hidden="true" />
-            </button>
-          )}
-        </div>
-
         <div className="flex items-center gap-1" role="group" aria-label="Status filter">
           {([
             { id: 'all' as const, label: `All (${projects.length})` },

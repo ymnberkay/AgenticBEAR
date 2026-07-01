@@ -97,9 +97,9 @@ export function CommandPalette() {
       { id: 'slash-templates', label: '/templates', description: 'Browse agent templates', shortcut: '/templates',
         icon: <Zap style={{ width: 14, height: 14 }} />,
         action: () => { navigate({ to: '/templates' }); closeModal(); }, category: 'Shortcuts' },
-      { id: 'slash-models', label: '/models', description: 'Models & gateway', shortcut: '/models',
+      { id: 'slash-gateway', label: '/gateway', description: 'Gateway — keys, models, usage', shortcut: '/gateway',
         icon: <Boxes style={{ width: 14, height: 14 }} />,
-        action: () => { navigate({ to: '/models' }); closeModal(); }, category: 'Shortcuts' },
+        action: () => { navigate({ to: '/gateway' }); closeModal(); }, category: 'Shortcuts' },
       { id: 'slash-settings', label: '/settings', description: 'Open global settings', shortcut: '/settings',
         icon: <Settings style={{ width: 14, height: 14 }} />,
         action: () => { navigate({ to: '/settings' }); closeModal(); }, category: 'Shortcuts' },
@@ -109,9 +109,9 @@ export function CommandPalette() {
       { id: 'templates', label: 'Browse Templates',
         icon: <FileCode2 style={{ width: 14, height: 14 }} />,
         action: () => { navigate({ to: '/templates' }); closeModal(); }, category: 'Navigation' },
-      { id: 'models', label: 'Open Models & Gateway',
+      { id: 'gateway', label: 'Open Gateway',
         icon: <Boxes style={{ width: 14, height: 14 }} />,
-        action: () => { navigate({ to: '/models' }); closeModal(); }, category: 'Navigation' },
+        action: () => { navigate({ to: '/gateway' }); closeModal(); }, category: 'Navigation' },
       { id: 'settings', label: 'Open Settings',
         icon: <Settings style={{ width: 14, height: 14 }} />,
         action: () => { navigate({ to: '/settings' }); closeModal(); }, category: 'Navigation' },
@@ -318,7 +318,7 @@ export function CommandPalette() {
                   <span style={{ fontSize: 10, color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                     shortcuts:
                   </span>
-                  {['/agents', '/new', '/templates', '/settings'].map((s) => (
+                  {['/agents', '/new', '/templates', '/gateway', '/settings'].map((s) => (
                     <button
                       key={s}
                       type="button"

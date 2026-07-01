@@ -43,3 +43,17 @@ export function formatDate(dateString: string): string {
     minute: '2-digit',
   });
 }
+
+/**
+ * Friendly display for a catalog model id. Custom-provider ids look like
+ * `<opaque-provider-id>/<model-name>` (e.g. `Dh0V3P…/gemini-2.5-flash`); we swap
+ * the opaque prefix for the provider's human label so the row reads
+ * `gemini/gemini-2.5-flash`. Built-in ids (no slash) pass through unchanged —
+ * the owned_by chip already tells the user which provider they came from.
+ */
+export function formatModelId(id: string, ownedBy: string | undefined): string {
+  const slash = id.indexOf('/');
+  if (slash < 0) return id;
+  if (!ownedBy) return id;
+  return `${ownedBy}/${id.slice(slash + 1)}`;
+}

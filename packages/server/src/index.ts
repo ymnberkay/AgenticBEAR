@@ -6,6 +6,7 @@ import { existsSync, writeFileSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { config } from './config.js';
 import { initDb } from './db/client.js';
+import { pullAllProjectIssues } from './services/issue-pull.service.js';
 import { registerCors } from './plugins/cors.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { projectRoutes } from './routes/projects.js';
@@ -23,6 +24,9 @@ import { documentRoutes } from './routes/documents.js';
 import { chatRoutes } from './routes/chat.js';
 import { fileChangeRoutes } from './routes/file-changes.js';
 import { activityRoutes } from './routes/activity.js';
+import { issueRoutes } from './routes/issues.js';
+import { goalRoutes } from './routes/goals.js';
+import { integrationRoutes } from './routes/integrations.js';
 import { mcpRoutes } from './mcp/transport.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { authRoutes } from './routes/auth.js';
@@ -100,6 +104,9 @@ async function main() {
   await app.register(chatRoutes);
   await app.register(fileChangeRoutes);
   await app.register(activityRoutes);
+  await app.register(issueRoutes);
+  await app.register(goalRoutes);
+  await app.register(integrationRoutes);
   await app.register(mcpRoutes);
   await app.register(analyticsRoutes);
 
@@ -133,9 +140,37 @@ async function main() {
     process.exit(1);
   }
 
+  // ── Inbound issue-tracker polling ──
+  // Pulls new/changed work items from every linked, sync-on tracker connection.
+  // ISSUE_PULL_INTERVAL_MS: override interval (ms); set to 0 to disable polling entirely.
+  const pullIntervalMs = (() => {
+    const raw = process.env.ISSUE_PULL_INTERVAL_MS;
+    if (raw === undefined) return 5 * 60_000;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : 5 * 60_000;
+  })();
+  let pullTimer: NodeJS.Timeout | undefined;
+  if (pullIntervalMs > 0) {
+    const tick = async () => {
+      try {
+        const r = await pullAllProjectIssues();
+        if (r.imported || r.updated) logger.info(`issue-pull tick: ${r.imported} imported, ${r.updated} updated across ${r.pulled} links`);
+      } catch (err) {
+        logger.warn('issue-pull tick failed', err);
+      }
+    };
+    // First tick shortly after boot so admins see fresh data without waiting a full interval.
+    setTimeout(() => { void tick(); }, 15_000);
+    pullTimer = setInterval(() => { void tick(); }, pullIntervalMs);
+    logger.info(`issue-pull scheduler: every ${Math.round(pullIntervalMs / 1000)}s`);
+  } else {
+    logger.info('issue-pull scheduler: disabled (ISSUE_PULL_INTERVAL_MS=0)');
+  }
+
   // Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}, shutting down...`);
+    if (pullTimer) clearInterval(pullTimer);
     try { rmSync(portFile); } catch {}
     await app.close();
     process.exit(0);

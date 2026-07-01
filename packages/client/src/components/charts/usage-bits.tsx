@@ -164,6 +164,76 @@ function DailyBar({ date, total, cost, maxTotal, inPercent }: { date: string; to
   );
 }
 
+/**
+ * Daily bar chart specialized for request counts (not tokens). Splits each bar into
+ * `cache hit` (bottom, green) vs `provider call` (top, amber) so the chart tells you at a
+ * glance how many API calls came in AND how many were served from cache.
+ */
+export interface DailyRequestPoint { date: string; requests: number; cacheHits?: number }
+export function DailyRequestBars({ data, accent = '#e2b04a', cacheAccent = '#22c55e' }: { data: DailyRequestPoint[]; accent?: string; cacheAccent?: string }) {
+  if (data.length === 0) {
+    return <p style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>No requests in range.</p>;
+  }
+  const max = Math.max(...data.map((d) => d.requests), 1);
+  const idBase = useId();
+  const total = data.reduce((s, d) => s + d.requests, 0);
+  const totalHits = data.reduce((s, d) => s + (d.cacheHits ?? 0), 0);
+  return (
+    <div>
+      <div className="flex items-end gap-1" style={{ height: 84 }} role="img" aria-label="Daily API requests">
+        {data.map((d, i) => (
+          <DailyRequestBar
+            key={`${idBase}-${i}-${d.date}`}
+            date={d.date}
+            requests={d.requests}
+            cacheHits={d.cacheHits ?? 0}
+            maxRequests={max}
+            accent={accent}
+            cacheAccent={cacheAccent}
+          />
+        ))}
+      </div>
+      <div className="flex justify-between items-center" style={{ fontSize: 9, color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)', marginTop: 6 }}>
+        <span>{data[0]?.date.slice(5)}</span>
+        <span className="flex items-center gap-3" style={{ fontSize: 9.5 }}>
+          <span className="flex items-center gap-1">
+            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 2, background: cacheAccent, opacity: 0.85 }} />
+            {fmt(totalHits)} cached
+          </span>
+          <span className="flex items-center gap-1">
+            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 2, background: accent, opacity: 0.85 }} />
+            {fmt(total - totalHits)} live
+          </span>
+        </span>
+        <span>{data[data.length - 1]?.date.slice(5)}</span>
+      </div>
+    </div>
+  );
+}
+
+function DailyRequestBar({ date, requests, cacheHits, maxRequests, accent, cacheAccent }: { date: string; requests: number; cacheHits: number; maxRequests: number; accent: string; cacheAccent: string }) {
+  const live = Math.max(0, requests - cacheHits);
+  const cachePct = requests > 0 ? (cacheHits / requests) * 100 : 0;
+  const { ref, tooltip } = useChartTooltip(`${date} · ${fmt(requests)} req · ${fmt(cacheHits)} cache · ${fmt(live)} live`);
+  return (
+    <div
+      ref={ref}
+      className="flex-1 flex flex-col justify-end"
+      style={{ height: '100%' }}
+      aria-label={`${date}: ${fmt(requests)} requests, ${fmt(cacheHits)} cache hits`}
+      tabIndex={0}
+    >
+      <div style={{ width: '100%', height: `${(requests / maxRequests) * 100}%`, minHeight: requests > 0 ? 2 : 0, display: 'flex', flexDirection: 'column', borderRadius: '2px 2px 0 0', overflow: 'hidden' }}>
+        {/* Top segment: live provider calls */}
+        <div style={{ flex: 100 - cachePct, background: accent, opacity: 0.85 }} />
+        {/* Bottom segment: cache hits (green anchor at the baseline) */}
+        <div style={{ flex: cachePct, background: cacheAccent, opacity: 0.85 }} />
+      </div>
+      {tooltip}
+    </div>
+  );
+}
+
 /** Lightweight portal-based tooltip used by chart elements (hover + focus). */
 function useChartTooltip(content: string) {
   const ref = useRef<HTMLDivElement>(null);

@@ -4,7 +4,8 @@ import { useSettings, useUpdateSettings } from '../../api/hooks/use-settings';
 import { useRefreshModelCatalog } from '../../api/hooks/use-gateway';
 import { useToast } from '../ui/toast';
 import { CustomProvidersSection } from './custom-providers';
-import { Section, inputStyle } from './ui';
+import { inputStyle } from './ui';
+import { Panel } from './gateway-ui';
 
 function ApiKeyInput({ id, value, onChange, placeholder, label }: { id: string; value: string; onChange: (v: string) => void; placeholder: string; label: string }) {
   const [visible, setVisible] = useState(false);
@@ -102,10 +103,10 @@ export function ProvidersTab({ onSaved }: { onSaved: (msg: string) => void }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <Section
-        icon={<Key style={{ width: 13, height: 13 }} aria-hidden="true" />}
-        color="var(--color-agent-documentation)"
-        title="Built-in Provider Keys"
+      <Panel
+        icon={<Key style={{ width: 12, height: 12 }} aria-hidden="true" />}
+        color="#c0a0d8"
+        title="Built-in provider keys"
         action={
           <div className="flex items-center gap-2">
             {isDirty && (
@@ -144,7 +145,7 @@ export function ProvidersTab({ onSaved }: { onSaved: (msg: string) => void }) {
             <ApiKeyInput id={gemId} label="Gemini API key" value={geminiApiKey} onChange={setGeminiApiKey} placeholder="AIza..." />
           </Field>
         </div>
-      </Section>
+      </Panel>
 
       <CustomProvidersSection />
     </div>
