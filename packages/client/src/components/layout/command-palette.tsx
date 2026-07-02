@@ -24,7 +24,7 @@ const categoryColor: Record<string, string> = {
   Navigation: '#7c8cf8',
   Actions:    '#6db58a',
   Projects:   '#7c8cf8',
-  Shortcuts:  '#e2b04a',
+  Shortcuts:  'var(--color-accent)',
 };
 
 const RECENT_KEY = 'cmdk:recent';
@@ -279,7 +279,7 @@ export function CommandPalette() {
                   autoComplete="off"
                   style={{
                     flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                    fontSize: 15, color: '#E2E2B6', fontFamily: 'var(--font-sans)', letterSpacing: '-0.01em',
+                    fontSize: 15, color: 'var(--color-text-primary)', fontFamily: 'var(--font-sans)', letterSpacing: '-0.01em',
                   }}
                 />
                 {query ? (
@@ -382,9 +382,9 @@ export function CommandPalette() {
                           style={{
                             display: 'flex', alignItems: 'center', gap: 10,
                             width: 'calc(100% - 12px)', margin: '0 6px', padding: '10px 10px',
-                            background: isSelected ? '#042a52' : 'transparent',
+                            background: isSelected ? 'var(--color-bg-raised)' : 'transparent',
                             borderLeft: isSelected ? '2px solid #7c8cf8' : '2px solid transparent',
-                            color: isSelected ? '#E2E2B6' : '#c1c8c5',
+                            color: isSelected ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                             cursor: 'pointer', textAlign: 'left',
                             transition: 'all 0.1s', minHeight: 40, border: 'none',
                           }}
@@ -397,7 +397,7 @@ export function CommandPalette() {
                               fontSize: 13,
                               fontWeight: item.shortcut ? 500 : 400,
                               fontFamily: item.shortcut ? 'var(--font-mono)' : 'var(--font-sans)',
-                              color: isSelected ? (item.shortcut ? '#e2b04a' : '#E2E2B6') : (item.shortcut ? '#e2b04a' : 'var(--color-text-primary)'),
+                              color: isSelected ? (item.shortcut ? 'var(--color-accent)' : 'var(--color-text-primary)') : (item.shortcut ? 'var(--color-accent)' : 'var(--color-text-primary)'),
                               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3,
                             }}>
                               {item.label}
@@ -443,7 +443,7 @@ export function CommandPalette() {
                     <span key={key} className="flex items-center gap-1.5">
                       <kbd aria-label={aria} style={{
                         fontFamily: 'var(--font-mono)', fontSize: 9,
-                        background: '#042a52', border: '1px solid #03346E',
+                        background: 'var(--color-bg-raised)', border: '1px solid #03346E',
                         padding: '2px 6px', color: 'var(--color-text-primary)',
                         borderRadius: 'var(--radius-sm)',
                       }}>

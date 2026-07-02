@@ -17,7 +17,7 @@ beforeEach(() => { findByIds.mockReset(); getPeriod.mockReset(); });
 describe('quota.service — checkQuota', () => {
   it('no group → unlimited', async () => {
     const r = await checkQuota(null);
-    expect(r).toEqual({ allowed: true, groupId: null, used: 0, quota: null, remaining: null });
+    expect(r).toEqual({ allowed: true, scope: 'group', groupId: null, used: 0, quota: null, remaining: null });
   });
 
   it('group without a quota → unlimited (but tagged with groupId)', async () => {
@@ -48,24 +48,24 @@ describe('quota.service — checkQuota', () => {
 
 describe('quota.service — group resolution', () => {
   it('admins are exempt (null)', async () => {
-    const admin = { id: 'u1', username: 'a', role: 'admin', groupIds: ['g1'], createdAt: '' } as User;
+    const admin = { id: 'u1', username: 'a', role: 'admin', groupIds: ['g1'], tokenQuota: null, createdAt: '' } as User;
     expect(await resolveGroupForUser(admin, 'p1')).toBeNull();
   });
 
   it('picks the group that grants access to the project', async () => {
-    const user = { id: 'u2', username: 'b', role: 'contributor', groupIds: ['g1', 'g2'], createdAt: '' } as User;
+    const user = { id: 'u2', username: 'b', role: 'contributor', groupIds: ['g1', 'g2'], tokenQuota: null, createdAt: '' } as User;
     findByIds.mockResolvedValue([group({ id: 'g1', projectIds: ['pX'] }), group({ id: 'g2', projectIds: ['p1'] })]);
     expect(await resolveGroupForUser(user, 'p1')).toBe('g2');
   });
 
   it('falls back to the first group when none match the project', async () => {
-    const user = { id: 'u3', username: 'c', role: 'contributor', groupIds: ['g1'], createdAt: '' } as User;
+    const user = { id: 'u3', username: 'c', role: 'contributor', groupIds: ['g1'], tokenQuota: null, createdAt: '' } as User;
     findByIds.mockResolvedValue([group({ id: 'g1', projectIds: ['pX'] })]);
     expect(await resolveGroupForUser(user, 'p1')).toBe('g1');
   });
 
   it('no groups → null', async () => {
-    const user = { id: 'u4', username: 'd', role: 'contributor', groupIds: [], createdAt: '' } as User;
+    const user = { id: 'u4', username: 'd', role: 'contributor', groupIds: [], tokenQuota: null, createdAt: '' } as User;
     expect(await resolveGroupForUser(user, 'p1')).toBeNull();
   });
 

@@ -12,7 +12,7 @@ import { taskRepo } from '../db/repositories/task.repo.js';
 import { memoryRepo } from '../db/repositories/memory.repo.js';
 import { activityLogRepo } from '../db/repositories/activity-log.repo.js';
 import { workspaceService } from '../services/workspace.service.js';
-import { recordQuotaUsage } from '../services/quota.service.js';
+import { recordCombinedUsage } from '../services/quota.service.js';
 import { eventBus } from '../utils/event-bus.js';
 import { createLogger } from '../utils/logger.js';
 import type { Run, Task, Agent } from '@subagent/shared';
@@ -276,8 +276,8 @@ export const executionEngine = {
         stats: queue.getStats(),
       });
 
-      // Record the run's tokens against its group's monthly quota pool + audit log.
-      await recordQuotaUsage(attribution.groupId ?? null, finalTotals.totalInputTokens, finalTotals.totalOutputTokens, finalTotals.totalCostUsd);
+      // Record the run's tokens against the user's personal + group monthly quota pools + audit log.
+      await recordCombinedUsage(attribution.userId ?? null, attribution.groupId ?? null, finalTotals.totalInputTokens, finalTotals.totalOutputTokens, finalTotals.totalCostUsd);
       await activityLogRepo.record({
         projectId: project.id, userId: attribution.userId, username: attribution.username ?? '',
         action: 'run.complete', target: run.objective.slice(0, 120),

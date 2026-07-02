@@ -15,7 +15,8 @@ import { GatewayUsage } from '../components/settings/gateway-usage';
 import { Panel } from '../components/settings/gateway-ui';
 import { Kpi, fmt } from '../components/charts/usage-bits';
 import { useGatewayKeys, useModelCatalog, useGatewayUsage } from '../api/hooks/use-gateway';
-import { useUsers } from '../api/hooks/use-auth';
+import { useUsers, useMe } from '../api/hooks/use-auth';
+import { AdminRequired } from '../components/layout/admin-required';
 import type { AnalyticsRange } from '../api/hooks/use-analytics';
 
 const SECTIONS = [
@@ -127,7 +128,7 @@ function GatewayOverview() {
         <Kpi icon={<Zap style={{ width: 13, height: 13 }} />} label="Requests" value={fmt(usage?.totalRequests ?? 0)} sub="last 30 days" accent="var(--color-warning)" />
       </div>
 
-      <Panel icon={<Cpu style={{ width: 12, height: 12 }} aria-hidden="true" />} color="#5fb3d4" title="Models by provider">
+      <Panel icon={<Cpu style={{ width: 12, height: 12 }} aria-hidden="true" />} color="#7c8cf8" title="Models by provider">
         {byProvider.length === 0 ? (
           <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>No models discovered yet — add a provider key.</span>
         ) : (
@@ -206,6 +207,7 @@ function GatewayUsagePanel() {
 
 /** The Gateway control center — a left-nav hub, one of the two top-level workspace areas. */
 export function GatewayPage() {
+  const me = useMe();
   const { show: showToast } = useToast();
   const openModal = useUIStore((s) => s.openModal);
   const navCollapsed = useUIStore((s) => s.gatewayNavCollapsed);
@@ -236,6 +238,8 @@ export function GatewayPage() {
   const current = SECTIONS.find((s) => s.id === section)!;
   // Overview & Usage are dashboards (wide); the rest are management forms (narrower column).
   const wide = section === 'overview' || section === 'usage';
+
+  if (me.data && me.data.role !== 'admin') return <AdminRequired area="The Gateway area" />;
 
   return (
     <div className="h-full flex flex-col" style={{ background: 'var(--color-bg-base)', position: 'relative' }}>

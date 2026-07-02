@@ -34,12 +34,27 @@ async function resolveProjectId(url: string): Promise<string | null | undefined>
   return undefined;
 }
 
+/**
+ * Org-management surfaces that only admins may touch: gateway API keys, LLM providers, global
+ * settings, and the gateway usage dashboard. Enforced centrally here so a missing per-handler
+ * `requireAdmin` can't silently expose them. `/api/models` (the read-only model catalog used by
+ * pickers) is deliberately NOT included — it stays available to every authenticated user.
+ */
+const ADMIN_ONLY_PREFIXES = ['/api/gateway-keys', '/api/gateway-usage', '/api/providers', '/api/settings'];
+
 export async function rbacHook(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const user = (request as AuthedRequest).authUser;
   if (!user || user.role === 'admin') return; // unauth handled earlier; admin = full access
   const url = request.url.split('?')[0];
   if (!url.startsWith('/api/')) return;
   const method = request.method;
+
+  // Admin-only management surfaces — block non-admins outright (reads included; these leak
+  // provider config / key metadata and must not reach contributors or viewers).
+  if (ADMIN_ONLY_PREFIXES.some((p) => url === p || url.startsWith(`${p}/`))) {
+    reply.status(403).send({ error: true, message: 'Admin access required' });
+    return;
+  }
 
   // Project creation is admin-only (users/groups routes already requireAdmin).
   if (url === '/api/projects' && method === 'POST') {

@@ -15,7 +15,7 @@ import { ClaudeService, type ClaudeCallResult, type ClaudeMessage } from '../ser
 import { detectBuiltinProvider } from '../llm/provider-registry.js';
 import { providerRepo } from '../db/repositories/provider.repo.js';
 import { settingsRepo } from '../db/repositories/settings.repo.js';
-import { gatewayUsageRepo } from '../db/repositories/gateway-usage.repo.js';
+import { gatewayUsageRepo, type GatewayStatus } from '../db/repositories/gateway-usage.repo.js';
 import { discoverModels } from '../llm/model-discovery.js';
 import { requireGatewayKey, type AuthedRequest } from '../middleware/require-gateway-key.js';
 import { resolveGroupForKey, checkQuota, recordQuotaUsage } from '../services/quota.service.js';
@@ -260,8 +260,20 @@ function gatewayKeyId(request: FastifyRequest): string | null {
   return (request as FastifyRequest & { gatewayKeyId?: string }).gatewayKeyId ?? null;
 }
 
+/** Coarse machine-readable class for an upstream failure (drives the error-breakdown panel). */
+function errorKind(err: unknown): string {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  const status = (err as { status?: number } | null)?.status;
+  if (msg.includes('timeout') || msg.includes('etimedout') || msg.includes('aborted')) return 'timeout';
+  if (status === 429 || msg.includes('rate limit')) return 'upstream_rate_limit';
+  if ((status && status >= 500) || msg.includes('overloaded')) return 'upstream_5xx';
+  if (status && status >= 400) return 'upstream_4xx';
+  if (msg.includes('econnrefused') || msg.includes('enotfound') || msg.includes('network') || msg.includes('fetch failed')) return 'network';
+  return 'unknown';
+}
+
 /** Persist a per-call usage row for cost attribution (best-effort) + group quota pool. */
-async function recordUsage(request: FastifyRequest, model: string, providerId: string | undefined, result: ClaudeCallResult, groupId: string | null): Promise<void> {
+async function recordUsage(request: FastifyRequest, model: string, providerId: string | undefined, result: ClaudeCallResult, groupId: string | null, latencyMs: number): Promise<void> {
   try {
     await gatewayUsageRepo.record({
       keyId: gatewayKeyId(request),
@@ -273,11 +285,33 @@ async function recordUsage(request: FastifyRequest, model: string, providerId: s
       costUsd: result.actualCostUsd,
       baselineUsd: result.baselineCostUsd,
       cacheHit: result.cacheHit,
+      cacheKind: result.cacheHit ? result.cacheKind : null,
       routerTier: result.routerTier,
+      latencyMs,
+      status: 'ok',
     });
     await recordQuotaUsage(groupId, result.inputTokens, result.outputTokens, result.actualCostUsd);
   } catch (err) {
     log.warn('gateway usage record failed', err);
+  }
+}
+
+/**
+ * Record a non-billable outcome (error or a rejection: rate-limit / quota / model-not-allowed / DLP).
+ * Zero tokens & cost — it only feeds the reliability / limit-rejection panels. Best-effort.
+ */
+async function recordEvent(
+  request: FastifyRequest, model: string, groupId: string | null,
+  status: GatewayStatus, errorType: string, latencyMs: number | null,
+): Promise<void> {
+  try {
+    await gatewayUsageRepo.record({
+      keyId: gatewayKeyId(request), groupId, model, providerId: null,
+      inputTokens: 0, outputTokens: 0, costUsd: 0, baselineUsd: 0,
+      cacheHit: false, routerTier: null, latencyMs, status, errorType,
+    });
+  } catch (err) {
+    log.warn('gateway event record failed', err);
   }
 }
 
@@ -309,14 +343,16 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
 
     // Per-key model scope: exact id or a parent-provider (`owner:<provider>`) wildcard.
     const authedKey = (request as AuthedRequest).gatewayKey;
+    const groupId = resolveGroupForKey(authedKey);
     if (authedKey && !(await keyAllowsModel(authedKey, body.model))) {
+      await recordEvent(request, body.model, groupId, 'model_not_allowed', 'model_not_allowed', null);
       return reply.status(403).send(oaiError(`Model '${body.model}' is not allowed for this API key.`, 'permission_error', 'model_not_allowed'));
     }
 
     // Group token quota (shared monthly pool) — the key's linked group, if any.
-    const groupId = resolveGroupForKey(authedKey);
     const quota = await checkQuota(groupId);
     if (!quota.allowed) {
+      await recordEvent(request, body.model, groupId, 'quota_exceeded', 'quota', null);
       return reply.status(429).send(oaiError(
         `Monthly token quota exceeded for this key's group (${quota.used}/${quota.quota}).`,
         'insufficient_quota', 'quota_exceeded',
@@ -337,6 +373,7 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
       const guarded = await redactEgress({ systemPrompt, turns, model: body.model });
       if (guarded.redacted > 0) {
         if (costConfig.dlp.block) {
+          await recordEvent(request, body.model, groupId, 'dlp_blocked', guarded.types.join(',') || 'dlp', null);
           return reply.status(422).send(oaiError(`Request blocked: sensitive data detected (${guarded.types.join(', ')})`, 'invalid_request_error', 'sensitive_data_blocked'));
         }
         reply.header('x-agb-dlp-redacted', String(guarded.redacted));
@@ -380,6 +417,7 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
       const base = { id, object: 'chat.completion.chunk', created, model: body.model };
       send({ ...base, choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }] });
 
+      const startedAt = Date.now();
       try {
         const result = await service.streamMessage(
           { model, providerId, maxTokens, temperature, systemPrompt, messages: turns, stopSequences, meta },
@@ -388,11 +426,12 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
         send({ ...base, model: result.servedModel, choices: [{ index: 0, delta: {}, finish_reason: finishReason(result.stopReason) }] });
         raw.write('data: [DONE]\n\n');
         raw.end();
-        await recordUsage(request, body.model, providerId, result, groupId);
+        await recordUsage(request, body.model, providerId, result, groupId, Date.now() - startedAt);
         log.info(`gateway stream ${body.model} → ${result.servedModel} ($${result.actualCostUsd.toFixed(6)})`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         log.error('gateway stream failed', err);
+        await recordEvent(request, body.model, groupId, 'error', errorKind(err), Date.now() - startedAt);
         send({ error: { message: msg, type: 'api_error' } });
         raw.end();
       }
@@ -400,6 +439,7 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
     }
 
     // ── Non-stream ───────────────────────────────────────────────────────────
+    const startedAt = Date.now();
     try {
       const result = await service.sendMessage({
         model, providerId, maxTokens, temperature, systemPrompt, messages: turns, stopSequences, meta,
@@ -411,7 +451,7 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
         'x-agb-baseline-usd': String(result.baselineCostUsd),
         'x-agb-cache-hit': String(result.cacheHit),
       });
-      await recordUsage(request, body.model, providerId, result, groupId);
+      await recordUsage(request, body.model, providerId, result, groupId, Date.now() - startedAt);
 
       return reply.send({
         id,
@@ -430,6 +470,7 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log.error('gateway completion failed', err);
+      await recordEvent(request, body.model, groupId, 'error', errorKind(err), Date.now() - startedAt);
       return reply.status(502).send(oaiError(msg, 'api_error'));
     }
   });

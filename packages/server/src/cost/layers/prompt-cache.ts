@@ -30,8 +30,23 @@ export function shouldCachePrefix(model: ClaudeModel, systemPrompt: string | und
   return estimatePrefixTokens(systemPrompt) >= promptCacheMinTokens(model);
 }
 
+/**
+ * When `COST_PROMPT_CACHE_TTL=1h`, mark the breakpoint with the extended 1-hour TTL. This is the
+ * big win for long agentic runs where the same system prefix is re-read for minutes across many
+ * task turns (the default 5-minute window would expire mid-run). The `ttl` field is honored by the
+ * API when the request also carries the `extended-cache-ttl` beta header (see [llm/client.ts]).
+ * SDK 0.52's type omits `ttl`, so we widen the object; it serializes through to the API unchanged.
+ */
 function ephemeralCacheControl(): Anthropic.CacheControlEphemeral {
+  if (costConfig.promptCache.ttl === '1h') {
+    return { type: 'ephemeral', ttl: '1h' } as Anthropic.CacheControlEphemeral;
+  }
   return { type: 'ephemeral' };
+}
+
+/** True when 1-hour prompt caching is enabled (drives the beta header in the Anthropic client). */
+export function extendedTtlEnabled(): boolean {
+  return costConfig.promptCache.ttl === '1h';
 }
 
 /**

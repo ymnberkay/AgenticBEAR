@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Zap, KeyRound, Plus, Trash2, Copy, Check, X, AlertTriangle } from 'lucide-react';
+import { Zap, KeyRound, Plus, Trash2, Copy, Check, X, AlertTriangle, RotateCw } from 'lucide-react';
 import { PROVIDER_SCOPE_PREFIX } from '@subagent/shared';
 import {
-  useGatewayKeys, useCreateGatewayKey, useDeleteGatewayKey, useModelCatalog, useSetGatewayKeyCacheScope, useSetGatewayKeyGroup, useSetGatewayKeyLimits,
+  useGatewayKeys, useCreateGatewayKey, useDeleteGatewayKey, useRegenerateGatewayKey, useModelCatalog, useSetGatewayKeyCacheScope, useSetGatewayKeyGroup, useSetGatewayKeyLimits,
 } from '../../api/hooks/use-gateway';
 import { useGroups } from '../../api/hooks/use-auth';
 import { useToast } from '../ui/toast';
@@ -42,6 +42,7 @@ export function ApiKeysTab() {
   const { data: keys } = useGatewayKeys();
   const createKey = useCreateGatewayKey();
   const deleteKey = useDeleteGatewayKey();
+  const regenerateKey = useRegenerateGatewayKey();
   const setCacheScope = useSetGatewayKeyCacheScope();
   const setKeyGroup = useSetGatewayKeyGroup();
   const setKeyLimits = useSetGatewayKeyLimits();
@@ -53,8 +54,10 @@ export function ApiKeysTab() {
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
 
-  // Revoke confirm
+  // Delete confirm
   const [revokeTarget, setRevokeTarget] = useState<{ id: string; name: string } | null>(null);
+  // Regenerate (rotate secret) confirm
+  const [regenTarget, setRegenTarget] = useState<{ id: string; name: string } | null>(null);
 
   // Creation form
   const [formOpen, setFormOpen] = useState(false);
@@ -64,7 +67,6 @@ export function ApiKeysTab() {
   const [faqMode, setFaqMode] = useState(false);
   const [groupId, setGroupId] = useState<string>('');
   const [rateLimit, setRateLimit] = useState('');
-  const [budget, setBudget] = useState('');
   const [nameError, setNameError] = useState('');
 
   const baseUrl = `${window.location.origin}/v1`;
@@ -88,7 +90,6 @@ export function ApiKeysTab() {
     setFaqMode(false);
     setGroupId('');
     setRateLimit('');
-    setBudget('');
     setNameError('');
     setFormOpen(false);
   };
@@ -100,12 +101,10 @@ export function ApiKeysTab() {
     }
     const expiresAt = expiryDays === 0 ? null : new Date(Date.now() + expiryDays * 86_400_000).toISOString();
     const rl = parseFloat(rateLimit);
-    const bg = parseFloat(budget);
     createKey.mutate(
       {
         name: name.trim(), allowedModels: scope, expiresAt, cacheScope: faqMode ? 'lastUser' : 'conversation', groupId: groupId || null,
         rateLimitPerMin: Number.isFinite(rl) && rl > 0 ? Math.round(rl) : null,
-        monthlyBudgetUsd: Number.isFinite(bg) && bg > 0 ? bg : null,
       },
       {
         onSuccess: (k) => {
@@ -124,8 +123,23 @@ export function ApiKeysTab() {
     const name = revokeTarget.name;
     setRevokeTarget(null);
     deleteKey.mutate(id, {
-      onSuccess: () => showToast(`Revoked "${name}"`, { variant: 'success' }),
-      onError: (err) => showToast(err instanceof Error ? err.message : 'Revoke failed', { variant: 'error' }),
+      onSuccess: () => showToast(`Deleted "${name}"`, { variant: 'success' }),
+      onError: (err) => showToast(err instanceof Error ? err.message : 'Delete failed', { variant: 'error' }),
+    });
+  };
+
+  const confirmRegenerate = () => {
+    if (!regenTarget) return;
+    const id = regenTarget.id;
+    const name = regenTarget.name;
+    setRegenTarget(null);
+    regenerateKey.mutate(id, {
+      onSuccess: (k) => {
+        setCreatedKey(k.key); // reuse the one-time reveal modal
+        setAcknowledged(false);
+        showToast(`Regenerated "${name}" — copy the new key now`, { variant: 'success' });
+      },
+      onError: (err) => showToast(err instanceof Error ? err.message : 'Regenerate failed', { variant: 'error' }),
     });
   };
 
@@ -163,7 +177,7 @@ print(resp.choices[0].message.content)`;
       )}
 
       {/* Example (reference) */}
-      <Panel icon={<Zap style={{ width: 12, height: 12 }} aria-hidden="true" />} color="#e2b04a" title="Example — OpenAI-compatible">
+      <Panel icon={<Zap style={{ width: 12, height: 12 }} aria-hidden="true" />} color="#7c8cf8" title="Example — OpenAI-compatible">
         <div className="flex flex-col gap-3">
           <div>
             <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>Base URL</div>
@@ -201,7 +215,7 @@ print(resp.choices[0].message.content)`;
       {/* API keys */}
       <Panel
         icon={<KeyRound style={{ width: 12, height: 12 }} aria-hidden="true" />}
-        color="#d88aa0"
+        color="#7c8cf8"
         title="API keys"
         action={!formOpen && (
           <button
@@ -287,7 +301,7 @@ print(resp.choices[0].message.content)`;
                 </span>
               </div>
 
-              {/* Per-key guardrails */}
+              {/* Per-key guardrail: request throttle. Token budgets live on users & groups. */}
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="new-key-rate" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>Rate limit</label>
@@ -297,16 +311,8 @@ print(resp.choices[0].message.content)`;
                     <span aria-hidden="true" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', pointerEvents: 'none' }}>/ min</span>
                   </div>
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="new-key-budget" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>Monthly budget</label>
-                  <div style={{ position: 'relative', width: 150 }}>
-                    <span aria-hidden="true" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', pointerEvents: 'none' }}>$</span>
-                    <input id="new-key-budget" type="number" min={0} step={1} inputMode="decimal" placeholder="∞" value={budget} onChange={(e) => setBudget(e.target.value)}
-                      style={{ ...inputStyle, paddingLeft: 22, textAlign: 'right' }} />
-                  </div>
-                </div>
                 <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', flex: '1 1 160px', minWidth: 0 }}>
-                  Requests/min throttle + hard spend cap for the calendar month. Blank = unlimited. (Max-concurrent &amp; timeout are configured per model under Models.)
+                  Requests/min throttle. Blank = unlimited. Monthly token budgets are set per user &amp; group (Settings → Users / Groups), not per key.
                 </span>
               </div>
 
@@ -350,14 +356,12 @@ print(resp.choices[0].message.content)`;
                     {k.lastUsedAt ? ` · last used ${new Date(k.lastUsedAt).toLocaleString()}` : ' · never used'}
                     {k.groupId ? <> · <span style={{ color: 'var(--color-accent)' }}>{groupName(k.groupId)}</span></> : ''}
                     {k.rateLimitPerMin ? ` · ${k.rateLimitPerMin}/min` : ''}
-                    {k.monthlyBudgetUsd ? ` · $${k.monthlyBudgetUsd}/mo` : ''}
                   </div>
                 </div>
                 <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
                   <KeyLimitsEditor
                     keyId={k.id}
                     rateLimitPerMin={k.rateLimitPerMin}
-                    monthlyBudgetUsd={k.monthlyBudgetUsd}
                     onSave={(limits) => setKeyLimits.mutate({ id: k.id, ...limits })}
                   />
                   <label className="sr-only" htmlFor={`key-${k.id}-group`}>Group for {k.name || 'key'}</label>
@@ -378,8 +382,18 @@ print(resp.choices[0].message.content)`;
                       color: k.cacheScope === 'lastUser' ? 'var(--color-success)' : 'var(--color-text-secondary)' }}>
                     FAQ {k.cacheScope === 'lastUser' ? 'on' : 'off'}
                   </button>
+                  <button type="button" onClick={() => setRegenTarget({ id: k.id, name: k.name || '(unnamed)' })}
+                    aria-label={`Regenerate key ${k.name || 'unnamed'}`}
+                    title="Regenerate — issue a new secret for this key (old one stops working)"
+                    className="flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                    style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: 'none', border: '1px solid transparent', cursor: 'pointer', color: 'var(--color-text-secondary)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-accent)'; e.currentTarget.style.background = 'var(--color-accent-subtle)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-secondary)'; e.currentTarget.style.background = 'none'; }}>
+                    <RotateCw style={{ width: 13, height: 13 }} aria-hidden="true" />
+                  </button>
                   <button type="button" onClick={() => setRevokeTarget({ id: k.id, name: k.name || '(unnamed)' })}
-                    aria-label={`Revoke key ${k.name || 'unnamed'}`}
+                    aria-label={`Delete key ${k.name || 'unnamed'}`}
+                    title="Delete this key permanently"
                     className="flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
                     style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: 'none', border: '1px solid transparent', cursor: 'pointer', color: 'var(--color-text-secondary)' }}
                     onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-error)'; e.currentTarget.style.background = 'var(--color-error-subtle)'; }}
@@ -478,11 +492,11 @@ print(resp.choices[0].message.content)`;
         )}
       </Dialog>
 
-      {/* Revoke confirm */}
+      {/* Delete confirm */}
       <Dialog
         open={!!revokeTarget}
         onClose={() => setRevokeTarget(null)}
-        title="Revoke API key"
+        title="Delete API key"
         description={revokeTarget ? `Apps using "${revokeTarget.name}" will be unable to call the gateway. This cannot be undone.` : undefined}
         maxWidth="440px"
       >
@@ -501,7 +515,35 @@ print(resp.choices[0].message.content)`;
             className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
             style={{ height: 36, padding: '0 14px', background: '#e06060', color: '#021526', border: 'none', fontSize: 12, fontWeight: 600, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
           >
-            Revoke key
+            Delete key
+          </button>
+        </div>
+      </Dialog>
+
+      {/* Regenerate confirm */}
+      <Dialog
+        open={!!regenTarget}
+        onClose={() => setRegenTarget(null)}
+        title="Regenerate API key"
+        description={regenTarget ? `A new secret will be issued for "${regenTarget.name}". The current key stops working immediately — update any apps using it. The key's name, scope, group and limits are kept.` : undefined}
+        maxWidth="460px"
+      >
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setRegenTarget(null)}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+            style={{ height: 36, padding: '0 14px', background: 'transparent', border: '1px solid var(--color-border-default)', color: 'var(--color-text-primary)', fontSize: 12, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={confirmRegenerate}
+            className="flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+            style={{ height: 36, padding: '0 14px', background: 'var(--color-accent)', color: '#021526', border: 'none', fontSize: 12, fontWeight: 600, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+          >
+            <RotateCw style={{ width: 13, height: 13 }} aria-hidden="true" /> Regenerate
           </button>
         </div>
       </Dialog>
@@ -509,39 +551,28 @@ print(resp.choices[0].message.content)`;
   );
 }
 
-/** Compact inline editor for a key's per-minute rate limit + monthly USD budget (blur to save). */
-function KeyLimitsEditor({ keyId, rateLimitPerMin, monthlyBudgetUsd, onSave }: {
+/** Compact inline editor for a key's per-minute rate limit (blur to save). */
+function KeyLimitsEditor({ keyId, rateLimitPerMin, onSave }: {
   keyId: string;
   rateLimitPerMin: number | null;
-  monthlyBudgetUsd: number | null;
-  onSave: (limits: { rateLimitPerMin?: number | null; monthlyBudgetUsd?: number | null }) => void;
+  onSave: (limits: { rateLimitPerMin?: number | null }) => void;
 }) {
   const [rl, setRl] = useState(rateLimitPerMin?.toString() ?? '');
-  const [bg, setBg] = useState(monthlyBudgetUsd?.toString() ?? '');
   useEffect(() => {
     setRl(rateLimitPerMin?.toString() ?? '');
-    setBg(monthlyBudgetUsd?.toString() ?? '');
-  }, [rateLimitPerMin, monthlyBudgetUsd]);
+  }, [rateLimitPerMin]);
 
   const commitRl = () => {
     const n = parseFloat(rl);
     const next = Number.isFinite(n) && n > 0 ? Math.round(n) : null;
     if (next !== rateLimitPerMin) onSave({ rateLimitPerMin: next });
   };
-  const commitBg = () => {
-    const n = parseFloat(bg);
-    const next = Number.isFinite(n) && n > 0 ? n : null;
-    if (next !== monthlyBudgetUsd) onSave({ monthlyBudgetUsd: next });
-  };
 
   const box: React.CSSProperties = { ...inputStyle, height: 30, width: 62, fontSize: 10.5, textAlign: 'right', padding: '0 7px' };
   return (
-    <div className="flex items-center gap-1" title="Per-key rate limit (requests/min) and monthly USD budget. Blank = unlimited.">
+    <div className="flex items-center gap-1" title="Per-key rate limit (requests/min). Blank = unlimited.">
       <input aria-label={`Rate limit (requests/min) for key ${keyId}`} type="number" min={0} step={1} placeholder="∞/m" value={rl}
         onChange={(e) => setRl(e.target.value)} onBlur={commitRl}
-        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} style={box} />
-      <input aria-label={`Monthly budget (USD) for key ${keyId}`} type="number" min={0} step={1} placeholder="$∞" value={bg}
-        onChange={(e) => setBg(e.target.value)} onBlur={commitBg}
         onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} style={box} />
     </div>
   );

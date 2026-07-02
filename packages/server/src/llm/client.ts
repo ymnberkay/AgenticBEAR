@@ -18,6 +18,7 @@ import {
   type ResolvedProvider,
 } from './provider-registry.js';
 import { acquire, modelTimeoutMs } from '../services/rate-limiter.service.js';
+import { extendedTtlEnabled } from '../cost/layers/prompt-cache.js';
 
 /** Catalog model id used to key per-model limits (custom → `providerId/model`; built-in → bare id). */
 export function limiterKey(providerId: string | null | undefined, model: string): string {
@@ -92,7 +93,13 @@ async function callAnthropic(
 ): Promise<UnifiedResult> {
   if (!provider.apiKey) throw new Error(`Anthropic API key yok (${provider.label})`);
   const client = new Anthropic(anthropicClientOptions(provider));
-  const reqOpts = timeoutMs ? { timeout: timeoutMs } : undefined;
+  // Extended (1h) prompt-cache TTL is gated behind a beta header — only sent when a cached prefix
+  // is actually present and 1h caching is enabled (COST_PROMPT_CACHE_TTL=1h).
+  const useExtendedTtl = extendedTtlEnabled() && req.systemBlocks !== undefined;
+  const reqOpts = {
+    ...(timeoutMs ? { timeout: timeoutMs } : {}),
+    ...(useExtendedTtl ? { headers: { 'anthropic-beta': 'extended-cache-ttl-2025-04-11' } } : {}),
+  };
 
   const system: Anthropic.MessageCreateParams['system'] = req.systemBlocks ?? req.systemPrompt;
   const body: Anthropic.MessageCreateParamsNonStreaming = {

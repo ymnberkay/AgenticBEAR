@@ -8,7 +8,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { GatewayKey } from '@subagent/shared';
 import { gatewayKeyRepo, hashKey } from '../db/repositories/gateway-key.repo.js';
-import { gatewayUsageRepo } from '../db/repositories/gateway-usage.repo.js';
 import { allowGatewayKeyRequest } from '../services/gateway-key-limiter.service.js';
 
 /** Fields the gateway routes read off the request after auth. */
@@ -40,15 +39,10 @@ export async function requireGatewayKey(request: FastifyRequest, reply: FastifyR
     return unauthorized(reply, 'API key has expired.');
   }
 
-  // Per-key guardrails: requests/min (in-memory window) + monthly USD budget (from usage).
+  // Per-key guardrail: requests/min (in-memory window). Token budgets are enforced per
+  // user/group (see quota.service), not per key.
   if (!allowGatewayKeyRequest(key.id, key.rateLimitPerMin)) {
     return tooManyRequests(reply, `Rate limit exceeded (${key.rateLimitPerMin}/min for this key).`, 'rate_limit_exceeded');
-  }
-  if (key.monthlyBudgetUsd && key.monthlyBudgetUsd > 0) {
-    const spent = await gatewayUsageRepo.monthCostForKey(key.id);
-    if (spent >= key.monthlyBudgetUsd) {
-      return tooManyRequests(reply, `Monthly budget reached ($${spent.toFixed(2)} / $${key.monthlyBudgetUsd.toFixed(2)}).`, 'insufficient_quota');
-    }
   }
 
   await gatewayKeyRepo.touchLastUsed(key.id);

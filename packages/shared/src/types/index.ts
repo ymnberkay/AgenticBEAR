@@ -38,6 +38,7 @@ export type {
   GatewayUsageRow,
   GatewayUsageBucket,
   GatewayUsageDaily,
+  GatewayLatency,
   GatewayUsageSummary,
 } from './gateway.js';
 export { PROVIDER_SCOPE_PREFIX } from './gateway.js';
@@ -90,6 +91,8 @@ export type {
   UserRole,
   User,
   CreateUserInput,
+  UpdateUserInput,
+  UserUsage,
   PermissionGroup,
   GroupUsage,
   LoginInput,

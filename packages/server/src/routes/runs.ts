@@ -4,7 +4,7 @@ import { taskRepo } from '../db/repositories/task.repo.js';
 import { executionEngine } from '../engine/execution-engine.js';
 import type { CreateRunInput, User } from '@subagent/shared';
 import type { AuthedRequest } from '../middleware/require-auth.js';
-import { resolveGroupForUser, checkQuota, quotaExceededMessage } from '../services/quota.service.js';
+import { resolveGroupForUser, checkCombinedQuota, quotaExceededMessage } from '../services/quota.service.js';
 
 export async function runRoutes(app: FastifyInstance): Promise<void> {
   // List runs by project
@@ -26,7 +26,7 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
 
       const user = (request as AuthedRequest).authUser as User | undefined;
       const groupId = await resolveGroupForUser(user, projectId);
-      const quota = await checkQuota(groupId);
+      const quota = await checkCombinedQuota(user?.id ?? null, groupId);
       if (!quota.allowed) {
         return reply.status(429).send({ error: true, message: quotaExceededMessage(quota) });
       }

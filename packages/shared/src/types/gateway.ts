@@ -28,8 +28,6 @@ export interface GatewayKey {
   groupId: string | null;
   /** Max requests per minute for this key (sliding window). null = unlimited. */
   rateLimitPerMin: number | null;
-  /** Hard spend cap for the current calendar month, in USD. Calls past it are rejected. null = unlimited. */
-  monthlyBudgetUsd: number | null;
   lastUsedAt: string | null;
 }
 
@@ -45,8 +43,6 @@ export interface CreateGatewayKeyInput {
   groupId?: string | null;
   /** Max requests per minute. null/omitted = unlimited. */
   rateLimitPerMin?: number | null;
-  /** Monthly spend cap in USD. null/omitted = unlimited. */
-  monthlyBudgetUsd?: number | null;
 }
 
 /** Prefix marking a parent-provider wildcard entry in `allowedModels`. */
@@ -84,8 +80,10 @@ export interface GatewayUsageBucket {
 /** One day of gateway usage (shape matches the client DateUsage so it feeds the daily chart). */
 export interface GatewayUsageDaily {
   date: string;
-  /** Total requests served that day. Optional on legacy summaries; treat missing as 0. */
+  /** Successful (billable) requests served that day. Optional on legacy summaries; treat missing as 0. */
   requests?: number;
+  /** Non-ok attempts that day (errors + rejections) — for the reliability over-time line. */
+  errors?: number;
   /** Requests that were served from the semantic cache. */
   cacheHits?: number;
   inputTokens: number;
@@ -93,6 +91,16 @@ export interface GatewayUsageDaily {
   costUsd: number;
   baselineCostUsd: number;
   savedUsd: number;
+}
+
+/** Latency distribution (ms) over successful gateway calls. */
+export interface GatewayLatency {
+  p50: number;
+  p95: number;
+  p99: number;
+  avg: number;
+  /** Sample size (successful calls with a recorded latency). */
+  count: number;
 }
 
 export interface GatewayUsageSummary {
@@ -104,8 +112,20 @@ export interface GatewayUsageSummary {
   savedUsd: number;
   /** Number of requests served from the L1 semantic cache (for hit-rate). */
   cacheHits: number;
+  /** Non-ok attempts (errors + rate-limit/quota/model/DLP rejections) in the range. */
+  errorRequests: number;
+  /** Count of attempts per status ('ok' | 'error' | 'rate_limited' | 'quota_exceeded' | ...). */
+  statusCounts: Record<string, number>;
+  /** Latency percentiles over successful calls; null when nothing has a recorded latency. */
+  latency: GatewayLatency | null;
+  /** L1 cache-hit path breakdown: { exact, semantic, judge }. */
+  cacheKindCounts: Record<string, number>;
+  /** L2 router tier distribution: { TRIVIAL, SIMPLE, COMPLEX, '(none)' }. */
+  routerTierCounts: Record<string, number>;
   byKey: GatewayUsageBucket[];
   byModel: GatewayUsageBucket[];
+  /** Per permission-group attribution (group the calling key is linked to). */
+  byGroup: GatewayUsageBucket[];
   /** Daily buckets across the selected range (ascending), for the over-time chart. */
   byDate: GatewayUsageDaily[];
 }

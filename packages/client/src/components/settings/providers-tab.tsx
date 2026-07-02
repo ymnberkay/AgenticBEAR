@@ -1,4 +1,4 @@
-import { useState, useEffect, useId, useMemo } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { Key, Eye, EyeOff } from 'lucide-react';
 import { useSettings, useUpdateSettings } from '../../api/hooks/use-settings';
 import { useRefreshModelCatalog } from '../../api/hooks/use-gateway';
@@ -61,26 +61,14 @@ export function ProvidersTab({ onSaved }: { onSaved: (msg: string) => void }) {
   const oaiId = useId();
   const gemId = useId();
 
+  // Inputs stay empty and are "write-only": the server only ever returns masked keys, so we never
+  // pre-fill them (that would let a blind save overwrite a real key with its mask). A blank field
+  // means "keep the current key"; typing replaces it.
   const [apiKey, setApiKey] = useState('');
   const [openAiApiKey, setOpenAiApiKey] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
 
-  useEffect(() => {
-    if (settings) {
-      setApiKey(settings.apiKey ?? '');
-      setOpenAiApiKey(settings.openAiApiKey ?? '');
-      setGeminiApiKey(settings.geminiApiKey ?? '');
-    }
-  }, [settings]);
-
-  const isDirty = useMemo(() => {
-    if (!settings) return false;
-    return (
-      apiKey !== (settings.apiKey ?? '') ||
-      openAiApiKey !== (settings.openAiApiKey ?? '') ||
-      geminiApiKey !== (settings.geminiApiKey ?? '')
-    );
-  }, [settings, apiKey, openAiApiKey, geminiApiKey]);
+  const isDirty = apiKey !== '' || openAiApiKey !== '' || geminiApiKey !== '';
 
   useEffect(() => {
     if (!isDirty) return;
@@ -89,23 +77,29 @@ export function ProvidersTab({ onSaved }: { onSaved: (msg: string) => void }) {
     return () => window.removeEventListener('beforeunload', handler);
   }, [isDirty]);
 
-  const save = () =>
-    updateSettings.mutate(
-      { apiKey, openAiApiKey, geminiApiKey },
-      {
-        onSuccess: () => {
-          onSaved('Provider keys saved');
-          refreshCatalog.mutate(); // new/changed keys → re-discover reachable models
-        },
-        onError: (err) => showToast(err instanceof Error ? err.message : 'Failed to save keys', { variant: 'error' }),
+  const save = () => {
+    // Only send fields the user actually filled in — omitted fields keep their stored key.
+    const patch: { apiKey?: string; openAiApiKey?: string; geminiApiKey?: string } = {};
+    if (apiKey) patch.apiKey = apiKey;
+    if (openAiApiKey) patch.openAiApiKey = openAiApiKey;
+    if (geminiApiKey) patch.geminiApiKey = geminiApiKey;
+    updateSettings.mutate(patch, {
+      onSuccess: () => {
+        setApiKey(''); setOpenAiApiKey(''); setGeminiApiKey('');
+        onSaved('Provider keys saved');
+        refreshCatalog.mutate(); // new/changed keys → re-discover reachable models
       },
-    );
+      onError: (err) => showToast(err instanceof Error ? err.message : 'Failed to save keys', { variant: 'error' }),
+    });
+  };
+
+  const keyPlaceholder = (isSet: boolean, hint: string) => (isSet ? '•••••••••• saved — type to replace' : hint);
 
   return (
     <div className="flex flex-col gap-3">
       <Panel
         icon={<Key style={{ width: 12, height: 12 }} aria-hidden="true" />}
-        color="#c0a0d8"
+        color="#7c8cf8"
         title="Built-in provider keys"
         action={
           <div className="flex items-center gap-2">
@@ -136,13 +130,13 @@ export function ProvidersTab({ onSaved }: { onSaved: (msg: string) => void }) {
       >
         <div className="flex flex-col gap-5">
           <Field id={antId} label="Anthropic API Key" helper="Used for Claude models (claude-*). Stored encrypted.">
-            <ApiKeyInput id={antId} label="Anthropic API key" value={apiKey} onChange={setApiKey} placeholder="sk-ant-..." />
+            <ApiKeyInput id={antId} label="Anthropic API key" value={apiKey} onChange={setApiKey} placeholder={keyPlaceholder(!!settings?.apiKey, 'sk-ant-...')} />
           </Field>
           <Field id={oaiId} label="OpenAI API Key" helper="Used for GPT, o-series and Codex models. Stored encrypted.">
-            <ApiKeyInput id={oaiId} label="OpenAI API key" value={openAiApiKey} onChange={setOpenAiApiKey} placeholder="sk-..." />
+            <ApiKeyInput id={oaiId} label="OpenAI API key" value={openAiApiKey} onChange={setOpenAiApiKey} placeholder={keyPlaceholder(!!settings?.openAiApiKey, 'sk-...')} />
           </Field>
           <Field id={gemId} label="Gemini API Key" helper="Used for Google Gemini models. Stored encrypted.">
-            <ApiKeyInput id={gemId} label="Gemini API key" value={geminiApiKey} onChange={setGeminiApiKey} placeholder="AIza..." />
+            <ApiKeyInput id={gemId} label="Gemini API key" value={geminiApiKey} onChange={setGeminiApiKey} placeholder={keyPlaceholder(!!settings?.geminiApiKey, 'AIza...')} />
           </Field>
         </div>
       </Panel>

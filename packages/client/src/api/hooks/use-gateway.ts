@@ -58,8 +58,17 @@ export function useSetGatewayKeyGroup() {
 export function useSetGatewayKeyLimits() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, rateLimitPerMin, monthlyBudgetUsd }: { id: string; rateLimitPerMin?: number | null; monthlyBudgetUsd?: number | null }) =>
-      apiPatch<GatewayKey>(`/api/gateway-keys/${id}`, { rateLimitPerMin, monthlyBudgetUsd }),
+    mutationFn: ({ id, rateLimitPerMin }: { id: string; rateLimitPerMin?: number | null }) =>
+      apiPatch<GatewayKey>(`/api/gateway-keys/${id}`, { rateLimitPerMin }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keyKeys.all }),
+  });
+}
+
+/** Rotate a key's secret. Returns the new full key (shown once). */
+export function useRegenerateGatewayKey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiPost<GatewayKeyCreated>(`/api/gateway-keys/${id}/regenerate`, {}),
     onSuccess: () => qc.invalidateQueries({ queryKey: keyKeys.all }),
   });
 }

@@ -69,6 +69,7 @@ export async function executeTask(
     cacheCreationInputTokens: 0,
     cacheReadInputTokens: 0,
     cacheHit: turn.cacheHit,
+    cacheKind: null,
     servedModel: turn.servedModel as ClaudeCallResult['servedModel'],
     routerTier: turn.routerTier,
     actualCostUsd: turn.costUsd,

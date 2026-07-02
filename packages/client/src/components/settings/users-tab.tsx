@@ -1,12 +1,13 @@
 import { useId, useMemo, useState } from 'react';
-import { UserPlus, Trash2, ShieldAlert, Eye, EyeOff } from 'lucide-react';
+import { UserPlus, Trash2, ShieldAlert, Eye, EyeOff, Gauge } from 'lucide-react';
 import type { UserRole } from '@subagent/shared';
-import { useUsers, useCreateUser, useDeleteUser, useUpdateUser, useMe, useGroups } from '../../api/hooks/use-auth';
+import { useUsers, useUserUsage, useCreateUser, useDeleteUser, useUpdateUser, useMe, useGroups } from '../../api/hooks/use-auth';
 import { useToast } from '../ui/toast';
 import { Dialog } from '../ui/dialog';
 import { Section, inputStyle } from './ui';
 
 const ROLES: UserRole[] = ['admin', 'contributor', 'viewer'];
+const fmtTokens = (n: number) => n.toLocaleString('en-US');
 const roleColor: Record<string, string> = {
   admin: 'var(--color-accent)', contributor: 'var(--color-success)', viewer: 'var(--color-text-secondary)',
 };
@@ -18,10 +19,13 @@ export function UsersTab({ onSaved }: { onSaved: (msg: string) => void }) {
   const me = useMe();
   const { data: users } = useUsers();
   const { data: groups } = useGroups();
+  const { data: userUsage } = useUserUsage();
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
   const updateUser = useUpdateUser();
   const { show: showToast } = useToast();
+
+  const usageByUser = useMemo(() => new Map((userUsage ?? []).map((u) => [u.userId, u])), [userUsage]);
 
   const usernameId = useId();
   const passwordId = useId();
@@ -245,6 +249,52 @@ export function UsersTab({ onSaved }: { onSaved: (msg: string) => void }) {
                   })}
                 </div>
               )}
+
+              {/* Personal monthly token budget (admins are exempt) */}
+              {u.role !== 'admin' && (() => {
+                const usage = usageByUser.get(u.id);
+                const used = usage?.totalTokens ?? 0;
+                const quota = u.tokenQuota ?? null;
+                const pct = quota && quota > 0 ? Math.min(100, (used / quota) * 100) : 0;
+                const over = quota != null && used >= quota;
+                return (
+                  <div style={{ marginTop: 10 }}>
+                    <div className="flex items-center gap-2" style={{ marginBottom: 6 }}>
+                      <span className="flex items-center gap-1.5" style={{ fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', flexShrink: 0 }}>
+                        <Gauge style={{ width: 11, height: 11 }} aria-hidden="true" /> Token budget / month
+                      </span>
+                      <input
+                        type="number" min={0} step={1000}
+                        defaultValue={u.tokenQuota ?? ''}
+                        placeholder="unlimited"
+                        key={u.tokenQuota ?? 'unlimited'}
+                        aria-label={`Monthly token budget for ${u.username}`}
+                        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                        onBlur={(e) => {
+                          const raw = e.target.value.trim();
+                          const v = raw === '' ? null : Math.max(0, parseInt(raw, 10) || 0);
+                          if ((v ?? null) !== (u.tokenQuota ?? null)) {
+                            updateUser.mutate(
+                              { id: u.id, tokenQuota: v },
+                              { onError: (err) => showToast(err instanceof Error ? err.message : 'Update failed', { variant: 'error' }) },
+                            );
+                          }
+                        }}
+                        style={{ ...inputStyle, height: 28, width: 150, fontSize: 11.5 }}
+                        title="Personal monthly token budget for this user. Blank = unlimited. Enforced on top of any group quota."
+                      />
+                      <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: over ? 'var(--color-error)' : 'var(--color-text-tertiary)', marginLeft: 'auto' }}>
+                        {fmtTokens(used)} {quota ? `/ ${fmtTokens(quota)}` : '/ ∞'} this month
+                      </span>
+                    </div>
+                    {quota ? (
+                      <div style={{ height: 4, borderRadius: 2, background: 'var(--color-bg-surface)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: over ? 'var(--color-error)' : 'var(--color-accent)', transition: 'width .3s' }} />
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })()}
             </div>
           );
         })}

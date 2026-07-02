@@ -7,6 +7,11 @@ export interface User {
   role: UserRole;
   /** Permission groups this user belongs to (grant project access + role). */
   groupIds: string[];
+  /**
+   * Personal monthly token budget (input+output). null/0 = unlimited. Enforced in addition to
+   * any group quota — whichever limit is hit first blocks the request. Admins are exempt.
+   */
+  tokenQuota: number | null;
   createdAt: string;
 }
 
@@ -15,6 +20,26 @@ export interface CreateUserInput {
   password: string;
   role?: UserRole;
   groupIds?: string[];
+  /** Personal monthly token budget. null/omitted = unlimited. */
+  tokenQuota?: number | null;
+}
+
+export interface UpdateUserInput {
+  role?: UserRole;
+  groupIds?: string[];
+  password?: string;
+  /** Personal monthly token budget. null = unlimited. */
+  tokenQuota?: number | null;
+}
+
+/** Current-month token consumption for a single user, against their personal quota. */
+export interface UserUsage {
+  userId: string;
+  period: string; // 'YYYY-MM'
+  totalTokens: number;
+  costUsd: number;
+  requestCount: number;
+  quota: number | null;
 }
 
 export interface PermissionGroup {

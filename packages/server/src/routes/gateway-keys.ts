@@ -6,11 +6,12 @@ import type { CreateGatewayKeyInput } from '@subagent/shared';
 
 /**
  * Admin endpoints for the gateway (UI / Models tab):
- *   GET    /api/gateway-keys        → list (prefix only, no secret)
- *   POST   /api/gateway-keys        → create (returns full key ONCE)
- *   PATCH  /api/gateway-keys/:id    → enable/disable
- *   DELETE /api/gateway-keys/:id    → revoke
- *   GET    /api/gateway-usage       → usage/cost summary (optional ?sinceDays=)
+ *   GET    /api/gateway-keys             → list (prefix only, no secret)
+ *   POST   /api/gateway-keys             → create (returns full key ONCE)
+ *   PATCH  /api/gateway-keys/:id         → enable/disable, scope, group, rate limit
+ *   POST   /api/gateway-keys/:id/regenerate → rotate the secret (returns new full key ONCE)
+ *   DELETE /api/gateway-keys/:id         → delete
+ *   GET    /api/gateway-usage            → usage/cost summary (optional ?sinceDays=)
  */
 export async function gatewayKeyRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/gateway-keys', async (_request, reply) => {
@@ -18,32 +19,39 @@ export async function gatewayKeyRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post<{ Body: CreateGatewayKeyInput }>('/api/gateway-keys', async (request, reply) => {
-    const { name, allowedModels, expiresAt, cacheScope, groupId, rateLimitPerMin, monthlyBudgetUsd } = request.body ?? {};
+    const { name, allowedModels, expiresAt, cacheScope, groupId, rateLimitPerMin } = request.body ?? {};
     const created = await gatewayKeyRepo.create({
       name: name ?? '', allowedModels: allowedModels ?? [], expiresAt: expiresAt ?? null, cacheScope, groupId: groupId ?? null,
-      rateLimitPerMin: rateLimitPerMin ?? null, monthlyBudgetUsd: monthlyBudgetUsd ?? null,
+      rateLimitPerMin: rateLimitPerMin ?? null,
     });
     // Full key returned only here.
     return reply.status(201).send(created);
   });
 
-  app.patch<{ Params: { id: string }; Body: { enabled?: boolean; cacheScope?: 'conversation' | 'lastUser'; groupId?: string | null; rateLimitPerMin?: number | null; monthlyBudgetUsd?: number | null } }>(
+  app.patch<{ Params: { id: string }; Body: { enabled?: boolean; cacheScope?: 'conversation' | 'lastUser'; groupId?: string | null; rateLimitPerMin?: number | null } }>(
     '/api/gateway-keys/:id',
     async (request, reply) => {
-      const { enabled, cacheScope, groupId, rateLimitPerMin, monthlyBudgetUsd } = request.body ?? {};
+      const { enabled, cacheScope, groupId, rateLimitPerMin } = request.body ?? {};
       let key = cacheScope ? await gatewayKeyRepo.setCacheScope(request.params.id, cacheScope) : undefined;
       if (groupId !== undefined) key = await gatewayKeyRepo.setGroup(request.params.id, groupId);
-      if (rateLimitPerMin !== undefined || monthlyBudgetUsd !== undefined) {
-        key = await gatewayKeyRepo.setLimits(request.params.id, { rateLimitPerMin, monthlyBudgetUsd });
+      if (rateLimitPerMin !== undefined) {
+        key = await gatewayKeyRepo.setLimits(request.params.id, { rateLimitPerMin });
       }
       if (enabled !== undefined) key = await gatewayKeyRepo.setEnabled(request.params.id, enabled);
-      if (!key && enabled === undefined && !cacheScope && groupId === undefined && rateLimitPerMin === undefined && monthlyBudgetUsd === undefined) {
+      if (!key && enabled === undefined && !cacheScope && groupId === undefined && rateLimitPerMin === undefined) {
         key = await gatewayKeyRepo.setEnabled(request.params.id, true);
       }
       if (!key) return reply.status(404).send({ error: true, message: 'Key not found' });
       return reply.send(key);
     },
   );
+
+  // Rotate a key's secret. Returns the new full key ONCE (same shape as create).
+  app.post<{ Params: { id: string } }>('/api/gateway-keys/:id/regenerate', async (request, reply) => {
+    const rotated = await gatewayKeyRepo.regenerate(request.params.id);
+    if (!rotated) return reply.status(404).send({ error: true, message: 'Key not found' });
+    return reply.status(201).send(rotated);
+  });
 
   app.delete<{ Params: { id: string } }>('/api/gateway-keys/:id', async (request, reply) => {
     const removed = await gatewayKeyRepo.remove(request.params.id);

@@ -10,14 +10,21 @@ interface UserRow {
   salt: string;
   role: string;
   group_ids: string;
+  token_quota: number | null;
   created_at: string;
+}
+
+/** null / 0 / negative → null (unlimited); otherwise a positive integer. */
+function normalizeQuota(v: number | null | undefined): number | null {
+  if (v === undefined || v === null) return null;
+  return v > 0 ? Math.round(v) : null;
 }
 
 /** Public shape (never leaks password_hash/salt). */
 function rowToUser(row: UserRow): User {
   let groupIds: string[] = [];
   try { groupIds = JSON.parse(row.group_ids ?? '[]') as string[]; } catch { groupIds = []; }
-  return { id: row.id, username: row.username, role: row.role as UserRole, groupIds, createdAt: row.created_at };
+  return { id: row.id, username: row.username, role: row.role as UserRole, groupIds, tokenQuota: row.token_quota ?? null, createdAt: row.created_at };
 }
 
 export const userRepo = {
@@ -39,22 +46,23 @@ export const userRepo = {
     return getDb().prepare('SELECT * FROM users WHERE username = ?').get<UserRow>(username);
   },
 
-  async create(input: { username: string; password: string; role?: UserRole; groupIds?: string[] }): Promise<User> {
+  async create(input: { username: string; password: string; role?: UserRole; groupIds?: string[]; tokenQuota?: number | null }): Promise<User> {
     const db = getDb();
     const id = generateId();
     const { hash, salt } = hashPassword(input.password);
     const now = new Date().toISOString();
     await db.prepare(`
-      INSERT INTO users (id, username, password_hash, salt, role, group_ids, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(id, input.username, hash, salt, input.role ?? 'contributor', JSON.stringify(input.groupIds ?? []), now);
+      INSERT INTO users (id, username, password_hash, salt, role, group_ids, token_quota, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, input.username, hash, salt, input.role ?? 'contributor', JSON.stringify(input.groupIds ?? []), normalizeQuota(input.tokenQuota), now);
     return rowToUser((await db.prepare('SELECT * FROM users WHERE id = ?').get<UserRow>(id))!);
   },
 
-  async update(id: string, fields: { role?: UserRole; groupIds?: string[]; password?: string }): Promise<User | undefined> {
+  async update(id: string, fields: { role?: UserRole; groupIds?: string[]; password?: string; tokenQuota?: number | null }): Promise<User | undefined> {
     const db = getDb();
     if (fields.role) await db.prepare('UPDATE users SET role = ? WHERE id = ?').run(fields.role, id);
     if (fields.groupIds) await db.prepare('UPDATE users SET group_ids = ? WHERE id = ?').run(JSON.stringify(fields.groupIds), id);
+    if (fields.tokenQuota !== undefined) await db.prepare('UPDATE users SET token_quota = ? WHERE id = ?').run(normalizeQuota(fields.tokenQuota), id);
     if (fields.password) {
       const { hash, salt } = hashPassword(fields.password);
       await db.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?').run(hash, salt, id);

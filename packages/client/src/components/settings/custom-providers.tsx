@@ -453,7 +453,7 @@ export function CustomProvidersSection() {
   return (
     <Panel
       icon={<Boxes style={{ width: 12, height: 12 }} aria-hidden="true" />}
-      color="#c0a0d8"
+      color="#7c8cf8"
       title="Custom LLM providers"
       action={
         <button

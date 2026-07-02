@@ -8,8 +8,9 @@
  *   DELETE /api/auth/users/:id    → remove (admin)
  */
 import type { FastifyInstance } from 'fastify';
-import type { CreateUserInput, GroupUsage, LoginInput, UserRole } from '@subagent/shared';
+import type { CreateUserInput, GroupUsage, LoginInput, UpdateUserInput, UserRole, UserUsage } from '@subagent/shared';
 import { userRepo } from '../db/repositories/user.repo.js';
+import { userUsageRepo } from '../db/repositories/user-usage.repo.js';
 import { groupRepo } from '../db/repositories/group.repo.js';
 import { groupUsageRepo, currentPeriod } from '../db/repositories/group-usage.repo.js';
 import { verifyPassword, signToken } from '../security/auth-service.js';
@@ -38,19 +39,34 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     return reply.send(await userRepo.list());
   });
 
+  // Current-month token consumption per user (for the personal quota readout).
+  app.get('/api/auth/users/usage', async (request, reply) => {
+    if (!requireAdmin(request, reply)) return;
+    const [users, usage] = await Promise.all([userRepo.list(), userUsageRepo.allForPeriod()]);
+    const period = currentPeriod();
+    return reply.send(users.map((u): UserUsage => {
+      const row = usage[u.id];
+      return {
+        userId: u.id, period,
+        totalTokens: row?.totalTokens ?? 0, costUsd: row?.costUsd ?? 0, requestCount: row?.requestCount ?? 0,
+        quota: u.tokenQuota,
+      };
+    }));
+  });
+
   app.post<{ Body: CreateUserInput }>('/api/auth/users', async (request, reply) => {
     if (!requireAdmin(request, reply)) return;
-    const { username, password, role, groupIds } = request.body ?? ({} as CreateUserInput);
+    const { username, password, role, groupIds, tokenQuota } = request.body ?? ({} as CreateUserInput);
     if (!username || !password) {
       return reply.status(400).send({ error: true, message: 'username and password are required' });
     }
     if (await userRepo.findRowByUsername(username)) {
       return reply.status(409).send({ error: true, message: 'Username already exists' });
     }
-    return reply.status(201).send(await userRepo.create({ username, password, role, groupIds }));
+    return reply.status(201).send(await userRepo.create({ username, password, role, groupIds, tokenQuota }));
   });
 
-  app.patch<{ Params: { id: string }; Body: { role?: UserRole; groupIds?: string[]; password?: string } }>(
+  app.patch<{ Params: { id: string }; Body: UpdateUserInput }>(
     '/api/auth/users/:id',
     async (request, reply) => {
       if (!requireAdmin(request, reply)) return;

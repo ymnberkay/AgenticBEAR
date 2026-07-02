@@ -311,9 +311,9 @@ export function ProjectSettingsPage() {
                       onChange={(e) => setGitConnectionId(e.target.value)}
                       style={{ ...fieldStyle, height: 38, padding: '0 12px', cursor: 'pointer', appearance: 'none' }}
                     >
-                      <option value="" style={{ background: '#031d38' }}>None (public repo)</option>
+                      <option value="" style={{ background: 'var(--color-bg-surface)' }}>None (public repo)</option>
                       {gitCandidates.map((c) => (
-                        <option key={c.id} value={c.id} style={{ background: '#031d38' }}>
+                        <option key={c.id} value={c.id} style={{ background: 'var(--color-bg-surface)' }}>
                           {c.label} · {c.kind === 'github' ? 'GitHub' : 'Azure DevOps'}
                         </option>
                       ))}
@@ -442,9 +442,9 @@ export function ProjectSettingsPage() {
                 onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(124,140,248,0.5)'; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
               >
-                <option value="active" style={{ background: '#031d38' }}>Active</option>
-                <option value="draft" style={{ background: '#031d38' }}>Draft</option>
-                <option value="archived" style={{ background: '#031d38' }}>Archived</option>
+                <option value="active" style={{ background: 'var(--color-bg-surface)' }}>Active</option>
+                <option value="draft" style={{ background: 'var(--color-bg-surface)' }}>Draft</option>
+                <option value="archived" style={{ background: 'var(--color-bg-surface)' }}>Archived</option>
               </select>
             </div>
           </div>

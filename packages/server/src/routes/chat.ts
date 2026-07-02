@@ -12,17 +12,21 @@ import { agentRepo } from '../db/repositories/agent.repo.js';
 import { projectRepo } from '../db/repositories/project.repo.js';
 import { runRepo } from '../db/repositories/run.repo.js';
 import { taskRepo } from '../db/repositories/task.repo.js';
-import { runAgentTurn, type RunTurnResult } from '../services/agent-loop.service.js';
+import { runAgentTurn, type RunTurnResult, type ApprovalRequest, type ApprovalDecision } from '../services/agent-loop.service.js';
+import { awaitApproval, rejectApprovals, resolveApproval } from '../services/approval-registry.service.js';
 import { resolveProjectWorkspace } from '../services/git-workspace.service.js';
 import { callExternalAgent, type ExternalMessage } from '../services/external-agent.service.js';
 import type { ChatTurn } from '../llm/tool-client.js';
 import { createLogger } from '../utils/logger.js';
 import type { Agent, User, FileChange } from '@subagent/shared';
 import type { AuthedRequest } from '../middleware/require-auth.js';
-import { resolveGroupForUser, checkQuota, recordQuotaUsage, quotaExceededMessage } from '../services/quota.service.js';
+import { resolveGroupForUser, checkCombinedQuota, recordCombinedUsage, quotaExceededMessage } from '../services/quota.service.js';
 import { activityLogRepo } from '../db/repositories/activity-log.repo.js';
 
 const log = createLogger('chat');
+
+/** How long an interactive approval prompt waits for the user before auto-rejecting (loop resumes). */
+const APPROVAL_TIMEOUT_MS = 10 * 60_000;
 
 /** Client-shape image attachment. Data-URIs are the only allowed shape (base64). */
 interface ChatImage { dataUrl: string; name?: string }
@@ -99,6 +103,8 @@ interface AutoDocArgs {
   result: RunTurnResult;
   attribution: { userId?: string | null; username?: string | null; groupId?: string | null };
   send: (obj: unknown) => void;
+  /** Same interactive-approval callback as the main turn (the doc write pauses for approval too). */
+  requestApproval?: (req: ApprovalRequest) => Promise<ApprovalDecision>;
 }
 
 /**
@@ -107,9 +113,9 @@ interface AutoDocArgs {
  * doc's pending file changes (so the caller can surface them in the approval bar).
  */
 async function maybeAutoDocument(args: AutoDocArgs): Promise<FileChange[]> {
-  const { projectId, project, chattedAgent, lastUser, result, attribution, send } = args;
-  // Only when actual FILE changes were proposed (commands don't need docs).
-  const fileChanges = result.pendingWrites.filter((w) => w.operation !== 'command');
+  const { projectId, project, chattedAgent, lastUser, result, attribution, send, requestApproval } = args;
+  // Only when actual FILE changes were applied this turn (commands don't need docs).
+  const fileChanges = result.filesWritten.filter((w) => w.operation !== 'command');
   if (fileChanges.length === 0) return [];
 
   try {
@@ -119,7 +125,7 @@ async function maybeAutoDocument(args: AutoDocArgs): Promise<FileChange[]> {
     send({ tool: { name: 'documenting' } }); // live "Documenting changes" activity chip
     const changeList = fileChanges.map((w) => `- ${w.operation} ${w.path}`).join('\n');
     const docTask =
-      `The team just proposed these changes to the project (pending the user's approval):\n${changeList}\n\n` +
+      `The team just made these changes to the project:\n${changeList}\n\n` +
       `User request: ${lastUser}\nWorker summary: ${result.text || '(none)'}\n\n` +
       `Create or update a concise documentation file (prefer updating README.md, else docs/CHANGES.md) ` +
       `recording WHAT changed and WHY. Use write_file. Keep it brief.`;
@@ -127,7 +133,7 @@ async function maybeAutoDocument(args: AutoDocArgs): Promise<FileChange[]> {
     const docResult = await runAgentTurn({
       agent: docAgent, projectId, workspacePath: resolveProjectWorkspace(project),
       messages: [{ role: 'user', content: docTask }],
-      label: 'Document changes', requireApproval: true,
+      label: 'Document changes', requestApproval,
       onEvent: (e) => {
         // Surface the doc agent's tool activity + staged file, but NOT its prose (keep the main answer clean).
         if (e.type === 'tool') send({ tool: { name: e.name, args: e.args } });
@@ -137,7 +143,7 @@ async function maybeAutoDocument(args: AutoDocArgs): Promise<FileChange[]> {
     });
 
     const docPending = await recordChatStep(projectId, docAgent, 'Document changes', docResult, attribution);
-    await recordQuotaUsage(attribution.groupId ?? null, docResult.inputTokens, docResult.outputTokens, docResult.costUsd);
+    await recordCombinedUsage(attribution.userId ?? null, attribution.groupId ?? null, docResult.inputTokens, docResult.outputTokens, docResult.costUsd);
     return docPending;
   } catch (err) {
     log.warn('auto-documentation failed (non-fatal)', err);
@@ -162,10 +168,10 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       const project = await projectRepo.findById(projectId);
       if (!project) return reply.status(404).send({ error: true, message: 'Project not found' });
 
-      // ── Group token quota (shared monthly pool) — block before doing any work ──
+      // ── Token quota (personal + shared group pool) — block before doing any work ──
       const user = (request as AuthedRequest).authUser as User | undefined;
       const groupId = await resolveGroupForUser(user, projectId);
-      const quota = await checkQuota(groupId);
+      const quota = await checkCombinedQuota(user?.id ?? null, groupId);
       if (!quota.allowed) {
         return reply.status(429).send({ error: true, message: quotaExceededMessage(quota) });
       }
@@ -223,11 +229,25 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
         return;
       }
 
+      // ── Interactive (human-in-the-loop) approval — pause the turn on a destructive tool, ask the
+      //    user, then resume with the real result. Pending decisions are auto-rejected if the client
+      //    disconnects so the loop never hangs. ──
+      const pendingApprovalIds = new Set<string>();
+      const requestApproval = async (req: ApprovalRequest): Promise<ApprovalDecision> => {
+        pendingApprovalIds.add(req.callId);
+        send({ approvalRequest: { callId: req.callId, tool: req.tool, operation: req.operation, label: req.label, command: req.command, path: req.path, contentPreview: req.contentPreview } });
+        const decision = await awaitApproval(req.callId, APPROVAL_TIMEOUT_MS);
+        pendingApprovalIds.delete(req.callId);
+        send({ approvalResolved: { callId: req.callId, approved: decision.approved } });
+        return decision;
+      };
+      raw.on('close', () => rejectApprovals([...pendingApprovalIds]));
+
       try {
         const result = await runAgentTurn({
           agent, projectId, workspacePath: resolveProjectWorkspace(project), messages: turns,
           label: lastUser,
-          requireApproval: true, // chat file writes/deletes are staged for user approval
+          requestApproval, // chat pauses on destructive tools for live user approval
           onEvent: (e) => {
             if (e.type === 'tool') send({ tool: { name: e.name, args: e.args } });
             else if (e.type === 'toolResult') send({ toolResult: { name: e.name, summary: e.summary } });
@@ -238,7 +258,7 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
           },
         });
         const pending = await recordChatStep(projectId, agent, lastUser, result, { userId: user?.id, username: user?.username, groupId });
-        await recordQuotaUsage(groupId, result.inputTokens, result.outputTokens, result.costUsd);
+        await recordCombinedUsage(user?.id ?? null, groupId, result.inputTokens, result.outputTokens, result.costUsd);
         await activityLogRepo.record({
           projectId, userId: user?.id, username: user?.username, action: 'chat.message',
           target: agent.name, detail: lastUser.length > 120 ? `${lastUser.slice(0, 117)}…` : lastUser,
@@ -248,7 +268,7 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
         //    Documentation agent, have it document them — staged into the same approval batch. ──
         const docPending = await maybeAutoDocument({
           projectId, project, chattedAgent: agent, lastUser, result,
-          attribution: { userId: user?.id, username: user?.username, groupId }, send,
+          attribution: { userId: user?.id, username: user?.username, groupId }, send, requestApproval,
         });
 
         // Surface staged changes (with their ids) so the user can Approve/Reject.
@@ -265,6 +285,18 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
         raw.end();
       }
       return reply;
+    },
+  );
+
+  // ── Interactive approval decision — the client posts a user's Approve/Reject for a paused tool
+  //    call; this unblocks the still-open chat turn (see the requestApproval callback above). ──
+  app.post<{ Params: { projectId: string; callId: string }; Body: { approved?: boolean } }>(
+    '/api/projects/:projectId/chat/approvals/:callId',
+    async (request, reply) => {
+      const approved = request.body?.approved === true;
+      const ok = resolveApproval(request.params.callId, { approved });
+      if (!ok) return reply.status(404).send({ error: true, message: 'No pending approval with that id (it may have timed out).' });
+      return reply.send({ ok: true, approved });
     },
   );
 }

@@ -28,6 +28,7 @@ import { projectRepo } from '../db/repositories/project.repo.js';
 import * as gitWs from './git-workspace.service.js';
 import { scanSonarQubeFindings } from './sonarqube-scan.service.js';
 import type { IssueKind, IssuePriority, GoalPriority } from '@subagent/shared';
+import { randomUUID } from 'node:crypto';
 
 /** Names of the git tools handled by `runGitTool`. Keep in sync with agent-tools.ts. */
 const GIT_TOOL_NAMES = new Set(['git_status', 'git_branch', 'git_checkout', 'git_diff', 'git_commit', 'git_push']);
@@ -154,6 +155,22 @@ export type LoopEvent =
   | { type: 'delegate'; agent: string; task: string }
   | { type: 'text'; delta: string };
 
+/** A destructive action (write/delete/command/git) awaiting the user's live decision. */
+export interface ApprovalRequest {
+  callId: string;
+  tool: string;
+  operation: FileOp;
+  /** Human-readable summary for the approval prompt, e.g. "run: npm test" or "write src/app.ts". */
+  label: string;
+  /** For run_command. */
+  command?: string;
+  /** For file ops. */
+  path?: string;
+  /** First chars of the proposed content (write_file) — preview only. */
+  contentPreview?: string;
+}
+export interface ApprovalDecision { approved: boolean; timedOut?: boolean }
+
 export interface RunTurnOpts {
   agent: Agent;
   projectId: string;
@@ -168,6 +185,13 @@ export interface RunTurnOpts {
   runId?: string | null;
   /** Chat mode: stage file writes/deletes for user approval instead of applying them to disk. */
   requireApproval?: boolean;
+  /**
+   * Interactive (human-in-the-loop) approval. When provided, destructive tools (write/delete/
+   * run_command/git commit+push) PAUSE mid-turn: the loop awaits the user's decision, then either
+   * runs the action live and feeds the REAL result back (approve) or tells the model it was
+   * rejected (reject). Supersedes `requireApproval` batch-staging for those tools.
+   */
+  requestApproval?: (req: ApprovalRequest) => Promise<ApprovalDecision>;
 }
 
 export interface RunTurnResult {
@@ -298,7 +322,11 @@ function toolGuidance(workspacePath: string, isCoordinator: boolean): string {
     `**Default to acting.** If the request implies a change (add/fix/refactor/update/implement/build), DO it with ` +
     `\`write_file\`/\`delete_file\`/\`run_command\` — do NOT just describe it or paste code into the chat. ` +
     `Answer in plain prose only for genuine questions where nothing needs to change. ` +
-    `Use run_command to compile/test and read the output before reporting success. ` +
+    `Write/delete/run_command (and git commit/push) PAUSE for the user's approval before they take effect: ` +
+    `once approved, the action runs and you get the REAL result — a command returns its stdout/stderr + exit code, ` +
+    `so ALWAYS run_command to build/test and read that output before claiming success (never report success on an unrun command). ` +
+    `If the user rejects an action, do NOT retry it — adapt, try another approach, or ask what they'd prefer. ` +
+    `Take ONE destructive action at a time and use its result to decide the next step. ` +
     `Read before overwriting when unsure. When finished, give a short (1–3 sentence) summary of what you changed.`
   );
 }
@@ -390,6 +418,64 @@ const cacheJudge: Classifier = async ({ model, providerId, maxTokens, systemProm
  * Recording is best-effort (never breaks the turn). The recursion delegates through this wrapper,
  * so each delegated specialist gets its own activity + memory entry.
  */
+/** Destructive tools that pause for the user's decision under interactive (requestApproval) mode. */
+const APPROVAL_TOOLS = new Set(['write_file', 'delete_file', 'run_command', 'git_commit', 'git_push']);
+
+/** Build the human-readable approval prompt fields for a tool call. */
+function describeApproval(name: string, args: Record<string, unknown>): { operation: FileOp; label: string; command?: string; path?: string; contentPreview?: string } {
+  if (name === 'run_command') {
+    const command = String(args.command ?? '').trim();
+    return { operation: 'command', label: `run: ${command}`, command };
+  }
+  if (name === 'delete_file') {
+    const path = String(args.path ?? '').trim();
+    return { operation: 'delete', label: `delete ${path}`, path };
+  }
+  if (name === 'git_commit') {
+    const msg = String(args.message ?? '').trim();
+    return { operation: 'git_commit', label: `git commit: ${msg.split('\n')[0]!.slice(0, 100)}` };
+  }
+  if (name === 'git_push') {
+    const branch = String(args.branch ?? '').trim();
+    return { operation: 'git_push', label: `git push origin/${branch || '(current branch)'}` };
+  }
+  // write_file
+  const path = String(args.path ?? '').trim();
+  const content = String(args.content ?? '');
+  return { operation: 'modify', label: `write ${path} (${content.length} chars)`, path, contentPreview: content.slice(0, 400) };
+}
+
+/**
+ * Interactive approval for one destructive tool call: ask the user, then run it LIVE and return the
+ * real result (approve) or a rejection note (reject) so the model adapts. Records approved writes.
+ */
+async function requestAndRunApproved(
+  tc: { name: string; args: Record<string, unknown> },
+  ctx: { agent: Agent; projectId: string; workspacePath: string; filesWritten: FileWrite[];
+    requestApproval: (req: ApprovalRequest) => Promise<ApprovalDecision>; onEvent?: (e: LoopEvent) => void },
+): Promise<string> {
+  const d = describeApproval(tc.name, tc.args);
+  const decision = await ctx.requestApproval({
+    callId: randomUUID(), tool: tc.name, operation: d.operation, label: d.label,
+    command: d.command, path: d.path, contentPreview: d.contentPreview,
+  });
+  if (!decision.approved) {
+    const why = decision.timedOut ? 'timed out waiting for approval' : 'was rejected by the user';
+    return `This action (${d.label}) ${why}. Do NOT retry it — adapt your approach, try something else, or ask the user what they'd prefer.`;
+  }
+  // Approved → execute live and surface the real result.
+  if (GIT_TOOL_NAMES.has(tc.name)) {
+    return runGitTool(tc.name, tc.args, ctx.projectId, ctx.agent.name);
+  }
+  const exec = executeFileTool(ctx.workspacePath, tc.name, tc.args, { stageOnly: false });
+  if (exec.write) {
+    const w: FileWrite = { ...exec.write, agentId: ctx.agent.id };
+    ctx.filesWritten.push(w);
+    ctx.onEvent?.({ type: 'write', ...w });
+  }
+  return exec.result;
+}
+
 export async function runAgentTurn(opts: RunTurnOpts): Promise<RunTurnResult> {
   const { agent, projectId } = opts;
   const query = ((opts.label ?? lastUserText(opts.messages) ?? '').trim().slice(0, 2000)) || '(chat)';
@@ -585,6 +671,12 @@ async function runTurnInner(opts: RunTurnOpts): Promise<RunTurnResult> {
             resultStr = `Failed to add goal: ${e instanceof Error ? e.message : String(e)}`;
           }
         }
+      } else if (opts.requestApproval && APPROVAL_TOOLS.has(tc.name) && !isCoordinator) {
+        // Interactive (human-in-the-loop): pause, ask the user, then run live + feed the real result.
+        resultStr = await requestAndRunApproved(tc, {
+          agent, projectId, workspacePath, filesWritten,
+          requestApproval: opts.requestApproval, onEvent,
+        });
       } else if (tc.name === 'sonarqube_scan_findings') {
         try {
           const severitiesArg = tc.args.severities;
@@ -643,7 +735,7 @@ async function runTurnInner(opts: RunTurnOpts): Promise<RunTurnResult> {
         } else {
           const task = String(tc.args.task ?? '');
           onEvent?.({ type: 'delegate', agent: spec.name, task });
-          const sub = await runAgentTurn({ agent: spec, projectId, workspacePath, messages: [{ role: 'user', content: task }], depth: depth + 1, onEvent, requireApproval: opts.requireApproval });
+          const sub = await runAgentTurn({ agent: spec, projectId, workspacePath, messages: [{ role: 'user', content: task }], depth: depth + 1, onEvent, requireApproval: opts.requireApproval, requestApproval: opts.requestApproval });
           filesWritten.push(...sub.filesWritten);
           pendingWrites.push(...sub.pendingWrites);
           totalIn += sub.inputTokens;

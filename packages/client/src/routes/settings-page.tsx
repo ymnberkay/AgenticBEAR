@@ -7,6 +7,8 @@ import { SecurityTab } from '../components/settings/security-tab';
 import { UsersTab } from '../components/settings/users-tab';
 import { GroupsTab } from '../components/settings/groups-tab';
 import { IntegrationsTab } from '../components/settings/integrations-tab';
+import { AdminRequired } from '../components/layout/admin-required';
+import { useMe } from '../api/hooks/use-auth';
 
 const TABS = [
   { id: 'general', label: 'General' },
@@ -28,6 +30,7 @@ function readHashTab(): TabId | null {
 
 /** Organization-wide admin settings (org profile, security, members, integrations). */
 export function SettingsPage() {
+  const me = useMe();
   const { show: showToast } = useToast();
   const navigate = useNavigate();
   const [tab, setTab] = useState<TabId>(() => readHashTab() ?? 'general');
@@ -80,6 +83,8 @@ export function SettingsPage() {
 
   // All remaining tabs are forms that read best in a narrow column.
   const wide = false;
+
+  if (me.data && me.data.role !== 'admin') return <AdminRequired area="Organization settings" />;
 
   return (
     <div ref={scrollRef} className="h-full overflow-y-auto" style={{ background: 'var(--color-bg-base)' }}>

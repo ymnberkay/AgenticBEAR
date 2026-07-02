@@ -167,6 +167,7 @@ export async function complete(
     requestedModel,
     servedModel,
     cacheHit: false,
+    cacheKind: null,
     routerTier,
     actualCostUsd,
     baselineCostUsd,

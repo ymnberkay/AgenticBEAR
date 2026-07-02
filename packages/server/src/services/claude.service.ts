@@ -33,6 +33,8 @@ export interface ClaudeCallResult {
   cacheCreationInputTokens: number;
   cacheReadInputTokens: number;
   cacheHit: boolean;
+  /** L1 cache path when cacheHit (exact|semantic|judge) — gateway cache-effectiveness telemetry. */
+  cacheKind: 'exact' | 'semantic' | 'judge' | null;
   servedModel: ClaudeModel;
   /** Router kademesi (varsa) — gateway usage kaydı için. */
   routerTier: string | null;
@@ -111,6 +113,7 @@ export class ClaudeService {
       cacheCreationInputTokens: result.cacheCreationInputTokens,
       cacheReadInputTokens: result.cacheReadInputTokens,
       cacheHit: result.cacheHit,
+      cacheKind: result.cacheKind ?? null,
       servedModel: result.servedModel,
       routerTier: result.routerTier ?? null,
       actualCostUsd: result.actualCostUsd,

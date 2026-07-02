@@ -151,6 +151,14 @@ export const costConfig = {
      * modellerde (Opus/GPT-5/Sonnet) downgrade tasarrufu masrafı kat kat aşar.
      */
     minCeilingPrice: envNum('COST_ROUTER_MIN_CEILING_PRICE', 0.006),
+    /**
+     * Agentic aggressiveness: points subtracted from the classified complexity for agentic WORKER
+     * calls (callKind='agent', role != 'orchestrator') — planning/orchestration is never biased.
+     * Nudges borderline sub-tasks (file reads, tiny edits) toward the cheaper tier. Complexity is
+     * clamped to ≥1 so genuinely hard tasks (rated 8–10) still stay on the requested model.
+     * 0 = off; default 1 (mild).
+     */
+    agenticComplexityBias: envNum('COST_ROUTER_AGENTIC_BIAS', 1),
   },
 
   promptCache: {

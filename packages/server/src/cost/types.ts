@@ -124,6 +124,9 @@ export interface MiddlewareDeps {
   classify?: Classifier;
 }
 
+/** Which L1 cache path served a hit (cache-effectiveness telemetry). null/undefined when not a hit. */
+export type CacheKind = 'exact' | 'semantic' | 'judge';
+
 /** Choke-point'in döndürdüğü zenginleştirilmiş sonuç. */
 export interface LlmResult extends ExecutorResult {
   /** İstenen model (router öncesi). */
@@ -131,6 +134,8 @@ export interface LlmResult extends ExecutorResult {
   /** Gerçekte çağrılan model (router sonrası). */
   servedModel: ClaudeModel;
   cacheHit: boolean;
+  /** exact | semantic | judge when cacheHit; null otherwise. */
+  cacheKind?: CacheKind | null;
   routerTier: RouterTier | null;
   /**
    * Cache HIT'te: bu çağrı normalde tüketecek olduğu token'lar (baseline tasarruf hesabı için).

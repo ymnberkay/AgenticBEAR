@@ -80,6 +80,11 @@ export async function decide(req: LlmRequest, classify?: Classifier): Promise<Ro
       userMessage: lastUserText(req).slice(0, CLASSIFY_INPUT_CHAR_CAP),
     });
     complexity = parseComplexity(res.text);
+    // Agentic aggressiveness: nudge worker sub-tasks toward the cheaper tier (orchestrator exempt).
+    const bias = costConfig.router.agenticComplexityBias;
+    if (bias > 0 && req.meta.callKind === 'agent' && req.meta.role !== 'orchestrator') {
+      complexity = Math.max(1, complexity - bias);
+    }
     overheadTokens = res.inputTokens + res.outputTokens;
     overheadCostUsd = actualCallCost(await modelPricing(classifier.providerId, classifier.model), {
       inputTokens: res.inputTokens, outputTokens: res.outputTokens, cacheReadInputTokens: 0, cacheCreationInputTokens: 0,

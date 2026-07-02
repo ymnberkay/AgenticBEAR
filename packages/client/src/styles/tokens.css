@@ -1,62 +1,62 @@
 :root {
-  /* ─── Surfaces (Charcoal Slate) ─── */
-  --color-bg-base:        #0d1117;
-  --color-bg-surface:     #161c2d;
-  --color-bg-raised:      #1c2438;
-  --color-bg-overlay:     #222b42;
-  --color-bg-muted:       #090d15;
-  --color-bg-inset:       #07090f;
-  --color-bg-nav:         #0d1117;
-  --color-bg-hover:       rgba(139, 148, 158, 0.07);
-  --color-bg-card:        #161c2d;
-  --color-bg-card-hover:  #1c2438;
+  /* ─── Surfaces (Corporate Slate) — kept in sync with globals.css @theme ─── */
+  --color-bg-base:        #0b0e14;
+  --color-bg-surface:     #12161f;
+  --color-bg-raised:      #1a1f2b;
+  --color-bg-overlay:     #232a38;
+  --color-bg-muted:       #090b10;
+  --color-bg-inset:       #06080c;
+  --color-bg-nav:         #0b0e14;
+  --color-bg-hover:       rgba(148, 158, 178, 0.06);
+  --color-bg-card:        #12161f;
+  --color-bg-card-hover:  #1a1f2b;
 
   /* ─── Glass ─── */
-  --glass-bg:             #161c2d;
-  --glass-bg-hover:       #1c2438;
-  --glass-border:         #252d42;
+  --glass-bg:             #12161f;
+  --glass-bg-hover:       #1a1f2b;
+  --glass-border:         #2a3140;
   --glass-border-hover:   rgba(124, 140, 248, 0.22);
   --glass-blur:           none;
 
   /* ─── Borders ─── */
-  --color-border-default: #252d42;
-  --color-border-subtle:  #181e2e;
+  --color-border-default: #2a3140;
+  --color-border-subtle:  #1b2230;
   --color-border-focus:   #7c8cf8;
-  --color-border-active:  #9ba8fb;
+  --color-border-active:  #97a4ff;
 
   /* ─── Text ─── */
-  --color-text-primary:   #e8eaf0;
-  --color-text-secondary: #8b95a7;
-  --color-text-tertiary:  #5a6375;
-  --color-text-disabled:  #363d4f;
+  --color-text-primary:   #e6e8ee;
+  --color-text-secondary: #9aa3b4;
+  --color-text-tertiary:  #646d80;
+  --color-text-disabled:  #3a4150;
 
-  /* ─── Accent (Muted Indigo) ─── */
+  /* ─── Accent (Indigo) ─── */
   --color-accent:         #7c8cf8;
-  --color-accent-hover:   #9ba8fb;
-  --color-accent-muted:   #5c6af5;
+  --color-accent-hover:   #97a4ff;
+  --color-accent-muted:   #5b6ad6;
   --color-accent-subtle:  rgba(124, 140, 248, 0.10);
   --color-accent-glow:    rgba(124, 140, 248, 0.15);
-  --gradient-accent:      linear-gradient(125deg, #7c8cf8 0%, #1c2438 100%);
-  --gradient-accent-hover: linear-gradient(125deg, #9ba8fb 0%, #252d42 100%);
-  --gradient-accent-subtle: linear-gradient(125deg, rgba(124,140,248,0.12), rgba(28,36,56,0.08));
+  --gradient-accent:      linear-gradient(125deg, #7c8cf8 0%, #1a1f2b 100%);
+  --gradient-accent-hover: linear-gradient(125deg, #97a4ff 0%, #2a3140 100%);
+  --gradient-accent-subtle: linear-gradient(125deg, rgba(124,140,248,0.12), rgba(26,31,43,0.08));
 
   /* ─── Semantic ─── */
-  --color-success:        #5a9e78;
-  --color-success-subtle: rgba(90, 158, 120, 0.10);
-  --color-warning:        #c9974a;
-  --color-warning-subtle: rgba(201, 151, 74, 0.10);
-  --color-error:          #c96060;
-  --color-error-subtle:   rgba(201, 96, 96, 0.10);
+  --color-success:        #57a986;
+  --color-success-subtle: rgba(87, 169, 134, 0.10);
+  --color-warning:        #cf9b45;
+  --color-warning-subtle: rgba(207, 155, 69, 0.10);
+  --color-error:          #d76464;
+  --color-error-subtle:   rgba(215, 100, 100, 0.10);
   --color-info:           #7c8cf8;
   --color-info-subtle:    rgba(124, 140, 248, 0.10);
 
   /* ─── Agent Colors ─── */
   --color-agent-orchestrator: #7c8cf8;
-  --color-agent-backend:      #5a9e78;
-  --color-agent-frontend:     #8fafd4;
-  --color-agent-database:     #c9974a;
-  --color-agent-devops:       #7ab07a;
-  --color-agent-qa:           #c07070;
+  --color-agent-backend:      #57a986;
+  --color-agent-frontend:     #8fb7d4;
+  --color-agent-database:     #cf9b45;
+  --color-agent-devops:       #6fae86;
+  --color-agent-qa:           #d76464;
   --color-agent-documentation: #9e88c8;
   --color-agent-design:       #c0a84e;
 

@@ -2,18 +2,33 @@ import type { FastifyInstance } from 'fastify';
 import { settingsRepo } from '../db/repositories/settings.repo.js';
 import { clearRateLimitCache } from '../services/rate-limiter.service.js';
 import { lockCurationToCurrentCatalog } from './gateway.js';
-import type { UpdateSettingsInput } from '@subagent/shared';
+import type { Settings, UpdateSettingsInput } from '@subagent/shared';
+
+/** Short prefix…suffix mask so the client can show "a key is set" without ever seeing its value. */
+function maskKey(key: string): string {
+  return key ? `${key.slice(0, 10)}...${key.slice(-4)}` : '';
+}
+
+/**
+ * Never send provider secrets to the client. Masks the Anthropic/OpenAI/Gemini keys and exposes
+ * boolean `has*` flags for the UI's "configured" state.
+ */
+function maskSettings(settings: Settings) {
+  return {
+    ...settings,
+    apiKey: maskKey(settings.apiKey),
+    openAiApiKey: maskKey(settings.openAiApiKey),
+    geminiApiKey: maskKey(settings.geminiApiKey),
+    hasApiKey: !!settings.apiKey,
+    hasOpenAiApiKey: !!settings.openAiApiKey,
+    hasGeminiApiKey: !!settings.geminiApiKey,
+  };
+}
 
 export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   // Get settings
   app.get('/api/settings', async (_request, reply) => {
-    const settings = await settingsRepo.getSettings();
-    // Mask the API key for security
-    return reply.send({
-      ...settings,
-      apiKey: settings.apiKey ? `${settings.apiKey.slice(0, 10)}...${settings.apiKey.slice(-4)}` : '',
-      hasApiKey: !!settings.apiKey,
-    });
+    return reply.send(maskSettings(await settingsRepo.getSettings()));
   });
 
   // Update settings
@@ -32,10 +47,6 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
 
     const settings = await settingsRepo.updateSettings(body);
     clearRateLimitCache(); // model limits may have changed — refresh immediately
-    return reply.send({
-      ...settings,
-      apiKey: settings.apiKey ? `${settings.apiKey.slice(0, 10)}...${settings.apiKey.slice(-4)}` : '',
-      hasApiKey: !!settings.apiKey,
-    });
+    return reply.send(maskSettings(settings));
   });
 }

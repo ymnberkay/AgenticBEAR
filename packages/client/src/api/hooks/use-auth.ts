@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { User, AuthResult, CreateUserInput, UserRole, PermissionGroup, GroupUsage } from '@subagent/shared';
+import type { User, AuthResult, CreateUserInput, UserRole, PermissionGroup, GroupUsage, UserUsage } from '@subagent/shared';
 import { apiGet, apiPost, apiPatch, apiDelete, setToken, clearToken, getToken } from '../client';
 
 export function useMe() {
@@ -32,6 +32,13 @@ export function logout(): void {
 export function useUsers() {
   return useQuery({ queryKey: ['auth', 'users'], queryFn: () => apiGet<User[]>('/api/auth/users') });
 }
+export function useUserUsage() {
+  return useQuery({
+    queryKey: ['auth', 'users', 'usage'],
+    queryFn: () => apiGet<UserUsage[]>('/api/auth/users/usage'),
+    staleTime: 30_000,
+  });
+}
 export function useCreateUser() {
   const qc = useQueryClient();
   return useMutation({
@@ -42,7 +49,7 @@ export function useCreateUser() {
 export function useUpdateUser() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...fields }: { id: string; role?: UserRole; groupIds?: string[]; password?: string }) =>
+    mutationFn: ({ id, ...fields }: { id: string; role?: UserRole; groupIds?: string[]; password?: string; tokenQuota?: number | null }) =>
       apiPatch<User>(`/api/auth/users/${id}`, fields),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['auth', 'users'] }),
   });

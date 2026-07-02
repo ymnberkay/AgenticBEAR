@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, BookOpen, Upload, FolderTree, X, MessageSquarePlus, PanelLeftClose, PanelLeft, Sparkles, Check, FileWarning, ArrowDown, Pin, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, BookOpen, Upload, FolderTree, X, MessageSquarePlus, PanelLeftClose, PanelLeft, Sparkles, Check, FileWarning, ArrowDown, Pin, ChevronDown, ChevronUp, Terminal } from 'lucide-react';
 import { CHAT_PREFILL_KEY } from './project-issues';
 import { useAgents } from '../../api/hooks/use-agents';
 import { useDocuments, useCreateDocument, useDeleteDocument } from '../../api/hooks/use-documents';
@@ -10,7 +10,7 @@ import { useApplyFileChange, useRejectFileChange, usePendingFileChanges } from '
 import { FileTree } from '../../components/workspace/file-tree';
 import { FileViewer } from '../../components/workspace/file-viewer';
 import { DiffView } from '../../components/workspace/diff-view';
-import { streamChat, type ChatMessage, type ToolEvent } from '../../api/chat';
+import { streamChat, sendApprovalDecision, type ChatMessage, type ToolEvent, type ApprovalRequest } from '../../api/chat';
 import type { FileChange } from '@subagent/shared';
 import { ChatMessage as ChatBubble } from '../../components/chat/chat-message';
 import { ChatComposer, type ChatImage } from '../../components/chat/chat-composer';
@@ -96,6 +96,8 @@ export function ProjectChatPage() {
   >(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [streamError, setStreamError] = useState<string | null>(null);
+  // Interactive approval: a destructive tool is paused mid-turn awaiting the user's Approve/Reject.
+  const [approval, setApproval] = useState<ApprovalRequest | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const lastInputRef = useRef<{ history: ChatMessage[]; text: string } | null>(null);
@@ -222,12 +224,16 @@ export function ProjectChatPage() {
           setChanged((prev) => new Map(prev).set(e.path!, (e.operation as 'create' | 'modify') ?? 'modify'));
         }
       },
+      onApprovalRequest: (r) => setApproval(r),
+      onApprovalResolved: () => setApproval(null),
       onError: (m) => {
         setStreamError(m);
+        setApproval(null);
         showToast(m, { variant: 'error' });
       },
     }, { images: turnImages.length > 0 ? turnImages.map((im) => ({ dataUrl: im.dataUrl, name: im.name })) : undefined });
     setStreaming(false);
+    setApproval(null);
 
     // Persist the finished turn into the conversation store.
     conv.update(id, work, agentId);
@@ -241,6 +247,16 @@ export function ProjectChatPage() {
       setPanel('workspace');
     }
   }
+
+  // Interactive (mid-turn) approval decision → unblock the open chat turn.
+  const decideApproval = (approved: boolean) => {
+    if (!approval) return;
+    const callId = approval.callId;
+    setApproval(null); // optimistic; the server also emits approvalResolved
+    void sendApprovalDecision(projectId, callId, approved).catch((e) =>
+      showToast(e instanceof Error ? e.message : 'Failed to send approval', { variant: 'error' }),
+    );
+  };
 
   function approve(p: FileChange) {
     applyChange.mutate(p.id, {
@@ -619,6 +635,49 @@ export function ProjectChatPage() {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {approval && (
+              <div
+                role="alert"
+                className="animate-fade-in-up"
+                style={{
+                  maxWidth: 760, width: '100%', margin: '0 auto 10px',
+                  background: 'var(--color-bg-surface)', border: '1px solid var(--color-accent)',
+                  borderRadius: 'var(--radius-md)', padding: '12px 14px',
+                  boxShadow: '0 0 0 3px var(--color-accent-subtle)',
+                }}
+              >
+                <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
+                  {approval.operation === 'command'
+                    ? <Terminal style={{ width: 14, height: 14, color: 'var(--color-accent)' }} aria-hidden="true" />
+                    : <FileWarning style={{ width: 14, height: 14, color: 'var(--color-accent)' }} aria-hidden="true" />}
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                    The agent wants to {approval.operation === 'command' ? 'run a command' : `${approval.operation} a file`} — approve?
+                  </span>
+                </div>
+                <pre style={{
+                  margin: 0, marginBottom: 10, padding: '8px 10px', background: 'var(--color-bg-base)',
+                  border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)',
+                  fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--color-text-primary)',
+                  whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 160, overflow: 'auto',
+                }}>
+                  {approval.command ? `$ ${approval.command}` : approval.label}
+                  {approval.contentPreview ? `\n\n${approval.contentPreview}${approval.contentPreview.length >= 400 ? '\n…' : ''}` : ''}
+                </pre>
+                <div className="flex items-center gap-2 justify-end">
+                  <button type="button" onClick={() => decideApproval(false)}
+                    className="flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                    style={{ height: 32, padding: '0 12px', fontSize: 12, background: 'none', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
+                    <X style={{ width: 13, height: 13 }} aria-hidden="true" /> Reject
+                  </button>
+                  <button type="button" onClick={() => decideApproval(true)}
+                    className="flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                    style={{ height: 32, padding: '0 14px', fontSize: 12, fontWeight: 600, background: 'var(--color-accent)', color: '#0b0e14', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
+                    <Check style={{ width: 13, height: 13 }} aria-hidden="true" /> Approve &amp; run
+                  </button>
                 </div>
               </div>
             )}

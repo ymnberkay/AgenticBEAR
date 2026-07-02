@@ -1,8 +1,12 @@
 import { useState } from 'react';
-import { Bot, Layers } from 'lucide-react';
+import { Bot, Layers, Route, Users2, TrendingUp } from 'lucide-react';
 import { useProjects } from '../../api/hooks/use-projects';
 import { useGlobalAnalytics, useProjectAnalytics, type AnalyticsRange, type ProjectAnalytics } from '../../api/hooks/use-analytics';
 import { Section, Stat, FilterSelect, money, fmtTokens } from './ui';
+import { Bars, DailyBars, fmt } from '../charts/usage-bits';
+
+const TIER_COLOR: Record<string, string> = { TRIVIAL: '#57a986', SIMPLE: '#7c8cf8', COMPLEX: '#e2b04a', '(none)': 'var(--color-text-tertiary)' };
+const SUBHEAD: React.CSSProperties = { fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', marginBottom: 6 };
 
 /** In-app agentic usage (Chat / Start Run) — filterable by project. */
 export function AgenticUsage({ range }: { range: AnalyticsRange }) {
@@ -26,6 +30,16 @@ export function AgenticUsage({ range }: { range: AnalyticsRange }) {
     ...(projects ?? []).map((p) => ({ value: p.id, label: p.name })),
   ];
 
+  const cacheRate = data && data.cache.total > 0 ? (data.cache.hits / data.cache.total) * 100 : 0;
+  const tierBars = Object.entries(data?.routerTiers ?? {})
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => ({ label: k, value: n, color: TIER_COLOR[k] ?? 'var(--color-accent)' }));
+  const agentBars = (data?.byAgent ?? [])
+    .slice()
+    .sort((a, b) => b.costUsd - a.costUsd)
+    .slice(0, 8)
+    .map((a) => ({ label: a.agentName, value: a.costUsd, color: a.agentColor || 'var(--color-accent)' }));
+
   return (
     <Section
       icon={<Bot style={{ width: 13, height: 13 }} />} color="#7c8cf8" title="Agentic — Chat & Runs"
@@ -42,8 +56,9 @@ export function AgenticUsage({ range }: { range: AnalyticsRange }) {
             <Stat label="in" value={fmtTokens(data.totalInputTokens)} />
             <Stat label="out" value={fmtTokens(data.totalOutputTokens)} />
             <Stat label="cost" value={money(data.totalCostUsd)} />
-            <Stat label="saved" value={money(data.totalSavedUsd)} color="#6db58a" />
-            <Stat label="saved %" value={`${data.savedPct.toFixed(1)}%`} color="#6db58a" />
+            <Stat label="saved" value={money(data.totalSavedUsd)} color="#57a986" />
+            <Stat label="saved %" value={`${data.savedPct.toFixed(1)}%`} color="#57a986" />
+            <Stat label="cache hit" value={`${cacheRate.toFixed(0)}%`} color={cacheRate > 0 ? '#57a986' : undefined} />
           </div>
 
           {/* Savings by layer */}
@@ -63,10 +78,34 @@ export function AgenticUsage({ range }: { range: AnalyticsRange }) {
             </div>
           </div>
 
+          {/* Router tiers (L2) + per-agent spend, side by side */}
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+            <div>
+              <div className="flex items-center gap-2" style={SUBHEAD}><Route style={{ width: 11, height: 11 }} /> router tiers (L2)</div>
+              {tierBars.length > 0 ? <Bars items={tierBars} fmtVal={fmt} /> : (
+                <span style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>No routing data.</span>
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2" style={SUBHEAD}><Users2 style={{ width: 11, height: 11 }} /> by agent</div>
+              {agentBars.length > 0 ? <Bars items={agentBars} fmtVal={money} /> : (
+                <span style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>No agent activity.</span>
+              )}
+            </div>
+          </div>
+
+          {/* Daily tokens & cost trend */}
+          {data.byDate.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2" style={SUBHEAD}><TrendingUp style={{ width: 11, height: 11 }} /> tokens &amp; cost · daily</div>
+              <DailyBars data={data.byDate} />
+            </div>
+          )}
+
           {/* By model */}
           {data.byModel.length > 0 && (
             <div>
-              <div style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', marginBottom: 6 }}>by model</div>
+              <div style={SUBHEAD}>by model</div>
               <div className="flex flex-col gap-1">
                 {data.byModel.map((m) => (
                   <div key={m.model} className="flex items-center justify-between gap-2" style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>

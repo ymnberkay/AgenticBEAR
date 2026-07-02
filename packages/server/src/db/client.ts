@@ -427,6 +427,29 @@ CREATE TABLE IF NOT EXISTS project_goals (
 CREATE INDEX IF NOT EXISTS idx_project_goals_project ON project_goals(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_goals_order ON project_goals(project_id, order_index);`,
 
+  '032_gateway_observability.sql': `-- Gateway per-call observability: latency, request status, error type, and L1 cache path.
+-- status: 'ok' (billable) | 'error' | 'rate_limited' | 'quota_exceeded' | 'model_not_allowed' | 'dlp_blocked'.
+ALTER TABLE gateway_usage ADD COLUMN latency_ms INTEGER;
+ALTER TABLE gateway_usage ADD COLUMN status TEXT NOT NULL DEFAULT 'ok';
+ALTER TABLE gateway_usage ADD COLUMN error_type TEXT;
+ALTER TABLE gateway_usage ADD COLUMN cache_kind TEXT;`,
+
+  '030_user_token_quota.sql': `-- Per-user monthly token budget (NULL/0 = unlimited). Enforced alongside the group quota.
+ALTER TABLE users ADD COLUMN token_quota INTEGER;`,
+
+  '031_user_usage.sql': `-- Per-user monthly token consumption (period = 'YYYY-MM'). Drives per-user quota enforcement.
+CREATE TABLE IF NOT EXISTS user_token_usage (
+  user_id TEXT NOT NULL,
+  period TEXT NOT NULL,
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  total_tokens INTEGER NOT NULL DEFAULT 0,
+  cost_usd REAL NOT NULL DEFAULT 0.0,
+  request_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, period)
+);`,
+
   '020_activity_log.sql': `-- Per-project audit trail: who did what (chat, file approve/reject, agent CRUD, runs).
 CREATE TABLE IF NOT EXISTS activity_log (
   id TEXT PRIMARY KEY,
@@ -450,7 +473,7 @@ function toDialect(sql: string, driver: 'sqlite' | 'postgres'): string {
   return sql.replace(/datetime\('now'\)/g, "now()::text");
 }
 
-const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql', '007_gateway.sql', '008_gateway_key_scope.sql', '009_agent_canvas_and_knowledge.sql', '010_run_step_breakdown.sql', '011_run_step_compression.sql', '012_gateway_key_expiry.sql', '013_gateway_key_cache_scope.sql', '014_settings_dlp_rules.sql', '015_users.sql', '016_settings_dlp_disabled_models.sql', '017_provider_auth.sql', '018_governance.sql', '019_group_usage.sql', '020_activity_log.sql', '021_enabled_models.sql', '022_org_profile.sql', '023_issues_integrations.sql', '024_curation_and_key_limits.sql', '025_issue_labels_and_pull.sql', '026_project_goals.sql', '027_project_git_workspace.sql', '028_project_sonarqube_key.sql', '029_external_agents.sql'];
+const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql', '007_gateway.sql', '008_gateway_key_scope.sql', '009_agent_canvas_and_knowledge.sql', '010_run_step_breakdown.sql', '011_run_step_compression.sql', '012_gateway_key_expiry.sql', '013_gateway_key_cache_scope.sql', '014_settings_dlp_rules.sql', '015_users.sql', '016_settings_dlp_disabled_models.sql', '017_provider_auth.sql', '018_governance.sql', '019_group_usage.sql', '020_activity_log.sql', '021_enabled_models.sql', '022_org_profile.sql', '023_issues_integrations.sql', '024_curation_and_key_limits.sql', '025_issue_labels_and_pull.sql', '026_project_goals.sql', '027_project_git_workspace.sql', '028_project_sonarqube_key.sql', '029_external_agents.sql', '030_user_token_quota.sql', '031_user_usage.sql', '032_gateway_observability.sql'];
 
 let db: Db | undefined;
 

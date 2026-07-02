@@ -17,7 +17,7 @@ import { getEmbedder } from '../embedding.js';
 import { QdrantStore } from '../vector-store.js';
 import { canonicalText, namespaceOf, promptHash, agentNamespace } from '../hash.js';
 import { poolFor, cheapest } from './model-select.js';
-import type { CachePayload, Classifier, Embedder, LlmRequest, LlmResult, VectorStore } from '../types.js';
+import type { CacheKind, CachePayload, Classifier, Embedder, LlmRequest, LlmResult, VectorStore } from '../types.js';
 
 const JUDGE_SYSTEM =
   `Two user requests, A and B. If the SAME answer would correctly serve BOTH (same intent), ` +
@@ -78,7 +78,7 @@ function isExpired(payload: CachePayload): boolean {
   return ageMs > costConfig.semanticCache.ttlSeconds * 1000;
 }
 
-function toResult(req: LlmRequest, payload: CachePayload): LlmResult {
+function toResult(req: LlmRequest, payload: CachePayload, kind: CacheKind): LlmResult {
   return {
     text: payload.response,
     inputTokens: 0,
@@ -89,6 +89,7 @@ function toResult(req: LlmRequest, payload: CachePayload): LlmResult {
     requestedModel: req.model,
     servedModel: payload.model,
     cacheHit: true,
+    cacheKind: kind,
     routerTier: null,
     baselineInputTokens: payload.inputTokens,
     baselineOutputTokens: payload.outputTokens,
@@ -111,7 +112,7 @@ export async function lookup(req: LlmRequest, judge?: Classifier): Promise<LlmRe
     const exact = await vs.findByHash(ns, hash);
     if (exact && !isExpired(exact)) {
       log.info(`L1 exact-match hit (ns=${ns})`);
-      return toResult(req, exact);
+      return toResult(req, exact, 'exact');
     }
   } catch (err) {
     // Collection-not-found = cold-start (henüz hiç yazım yapılmadı); log spam'i olmasın.
@@ -135,13 +136,13 @@ export async function lookup(req: LlmRequest, judge?: Classifier): Promise<LlmRe
       // High confidence → serve directly.
       if (top.score >= costConfig.semanticCache.threshold) {
         log.info(`L1 semantic hit (ns=${ns}, score=${top.score.toFixed(3)})`);
-        return toResult(req, top.payload);
+        return toResult(req, top.payload, 'semantic');
       }
       // Uncertain band → confirm with a cheap LLM-as-judge before serving.
       if (judge && costConfig.semanticCache.judge && top.score >= costConfig.semanticCache.judgeThreshold) {
         if (await judgeEquivalent(judge, req, text, top.payload.prompt)) {
           log.info(`L1 semantic hit via judge (ns=${ns}, score=${top.score.toFixed(3)})`);
-          return toResult(req, top.payload);
+          return toResult(req, top.payload, 'judge');
         }
       }
     }

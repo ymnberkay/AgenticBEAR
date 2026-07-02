@@ -29,12 +29,38 @@ export interface PendingChange {
   operation: string;
 }
 
+/** A destructive tool call paused mid-turn, awaiting the user's live Approve/Reject. */
+export interface ApprovalRequest {
+  callId: string;
+  tool: string;
+  operation: string;
+  /** Human-readable summary, e.g. "run: npm test" or "write src/app.ts (120 chars)". */
+  label: string;
+  command?: string;
+  path?: string;
+  contentPreview?: string;
+}
+
 interface StreamHandlers {
   onDelta?: (text: string) => void;
   onTool?: (e: ToolEvent) => void;
   onPending?: (p: PendingChange) => void;
+  /** A destructive tool is paused; show Approve/Reject and call `sendApprovalDecision`. */
+  onApprovalRequest?: (r: ApprovalRequest) => void;
+  /** The pause was resolved (by the user or a timeout) — clear the prompt. */
+  onApprovalResolved?: (callId: string, approved: boolean) => void;
   onDone?: (info: { servedModel?: string; filesWritten?: number; pending?: number }) => void;
   onError?: (message: string) => void;
+}
+
+/** Post the user's Approve/Reject for a paused tool call, unblocking the open chat turn. */
+export async function sendApprovalDecision(projectId: string, callId: string, approved: boolean): Promise<void> {
+  const token = localStorage.getItem('agb_token');
+  await fetch(`/api/projects/${projectId}/chat/approvals/${callId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({ approved }),
+  });
 }
 
 export async function streamChat(
@@ -85,9 +111,13 @@ export async function streamChat(
           pendingWrite?: { path: string; operation: string };
           pending?: { id: string; path: string; operation: string } | number;
           delegate?: { agent: string; task: string };
+          approvalRequest?: ApprovalRequest;
+          approvalResolved?: { callId: string; approved: boolean };
         };
         if (obj.error) handlers.onError?.(typeof obj.error === 'string' ? obj.error : (obj.error.message ?? 'Unknown error'));
         else if (obj.delta) handlers.onDelta?.(obj.delta);
+        else if (obj.approvalRequest) handlers.onApprovalRequest?.(obj.approvalRequest);
+        else if (obj.approvalResolved) handlers.onApprovalResolved?.(obj.approvalResolved.callId, obj.approvalResolved.approved);
         else if (obj.tool) handlers.onTool?.({ kind: 'tool', name: obj.tool.name, command: obj.tool.args?.command });
         else if (obj.toolResult) handlers.onTool?.({ kind: 'toolResult', name: obj.toolResult.name, summary: obj.toolResult.summary });
         else if (obj.write) handlers.onTool?.({ kind: 'write', path: obj.write.path, operation: obj.write.operation });
