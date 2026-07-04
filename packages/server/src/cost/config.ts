@@ -75,6 +75,17 @@ export const costConfig = {
   toolResultCacheTtlMs: envNum('COST_TOOL_RESULT_CACHE_TTL_MS', 30_000),
 
   /**
+   * Context compiler — relevance-scored selection of memories/dependency outputs/files before
+   * they enter an agent's context (layers/context-compiler.ts). Disabled → passthrough.
+   */
+  contextCompiler: {
+    enabled: envBool('COST_CONTEXT_COMPILER', true),
+    maxMemories: envNum('COST_CONTEXT_MAX_MEMORIES', 5),
+    maxDepOutputChars: envNum('COST_CONTEXT_MAX_DEP_OUTPUT_CHARS', 4_000),
+    fileRelevanceThreshold: envNum('COST_CONTEXT_FILE_RELEVANCE_THRESHOLD', 0.3),
+  },
+
+  /**
    * RTK-style aggressive compression of tool OUTPUT (listings/logs/command results) before it
    * re-enters the agentic context — repeated-line dedup + JSON minify + head/tail truncation.
    */

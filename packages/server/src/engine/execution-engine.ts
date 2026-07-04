@@ -593,4 +593,9 @@ Format it clearly so it can be saved as a .txt file.`;
   isRunActive(runId: string): boolean {
     return activeRuns.has(runId);
   },
+
+  /** Runs currently executing in this process (busy signal for the hub's idle reaper). */
+  activeRunCount(): number {
+    return activeRuns.size;
+  },
 };

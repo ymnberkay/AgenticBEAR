@@ -4,8 +4,10 @@
  */
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { User } from '@subagent/shared';
+import { config } from '../config.js';
 import { verifyToken } from '../security/auth-service.js';
 import { userRepo } from '../db/repositories/user.repo.js';
+import { markActivity } from '../services/session-activity.js';
 
 export type AuthedRequest = FastifyRequest & { authUser?: User };
 
@@ -29,6 +31,13 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
     reply.status(401).send({ error: true, message: 'Authentication required' });
     return;
   }
+  // A session pod serves exactly one user — the ingress path is guessable, so a valid token
+  // belonging to anyone else must not reach this runtime.
+  if (config.session.userId && user.id !== config.session.userId) {
+    reply.status(403).send({ error: true, message: 'This session belongs to another user' });
+    return;
+  }
+  if (config.mode === 'session') markActivity();
   (request as AuthedRequest).authUser = user;
 }
 

@@ -1,4 +1,5 @@
-{{- if and .Values.server.workspace.persist (gt (int .Values.server.replicaCount) 0) }}
+{{- /* Hub mode: agents run in per-user session pods (emptyDir workspaces), so the hub itself needs no workspace PVC. */}}
+{{- if and .Values.server.workspace.persist (gt (int .Values.server.replicaCount) 0) (not .Values.hub.enabled) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -50,6 +51,9 @@ spec:
       {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.hub.enabled }}
+      serviceAccountName: {{ include "agenticbear.fullname" . }}-hub
+      {{- end }}
       {{- if .Values.postgres.enabled }}
       initContainers:
         - name: wait-for-postgres
@@ -80,6 +84,48 @@ spec:
           env:
             - name: AGB_WORKSPACES_ROOT
               value: "/workspace"
+            {{- if .Values.hub.enabled }}
+            - name: AGB_MODE
+              value: "hub"
+            - name: AGB_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: AGB_SESSION_IMAGE
+              value: {{ default (include "agenticbear.image" .) .Values.session.image | quote }}
+            - name: AGB_SESSION_PORT
+              value: {{ .Values.session.port | quote }}
+            - name: AGB_SESSION_TTL_SECONDS
+              value: {{ .Values.session.ttlSeconds | quote }}
+            - name: AGB_SESSION_READY_TIMEOUT_SECONDS
+              value: {{ .Values.session.readyTimeoutSeconds | quote }}
+            - name: AGB_SESSION_BASE_PREFIX
+              value: {{ .Values.session.basePrefix | quote }}
+            - name: AGB_SESSION_CPU_REQUEST
+              value: {{ .Values.session.resources.requests.cpu | quote }}
+            - name: AGB_SESSION_CPU_LIMIT
+              value: {{ .Values.session.resources.limits.cpu | quote }}
+            - name: AGB_SESSION_MEM_REQUEST
+              value: {{ .Values.session.resources.requests.memory | quote }}
+            - name: AGB_SESSION_MEM_LIMIT
+              value: {{ .Values.session.resources.limits.memory | quote }}
+            # Session pods inherit the hub's ConfigMap/Secret via envFrom — the hub never
+            # copies secret values through its own memory into pod specs.
+            - name: AGB_SESSION_CONFIGMAP
+              value: {{ include "agenticbear.configName" . }}
+            - name: AGB_SESSION_SECRET
+              value: {{ include "agenticbear.secretName" . }}
+            - name: AGB_INGRESS_CLASS
+              value: {{ .Values.ingress.className | default "nginx" | quote }}
+            - name: AGB_PUBLIC_HOST
+              value: {{ .Values.ingress.host | quote }}
+            {{- if .Values.session.workspace.nfs.enabled }}
+            - name: AGB_SESSION_NFS_SERVER
+              value: {{ required "session.workspace.nfs.server is required when nfs.enabled" .Values.session.workspace.nfs.server | quote }}
+            - name: AGB_SESSION_NFS_PATH
+              value: {{ required "session.workspace.nfs.path is required when nfs.enabled" .Values.session.workspace.nfs.path | quote }}
+            {{- end }}
+            {{- end }}
           # startupProbe covers the "first-boot migration takes a while" case
           # (28+ migrations run against a cold DB, plus Postgres wait-for) without
           # accidentally killing the pod via liveness/readiness during that window.
@@ -116,7 +162,7 @@ spec:
         - name: data
           emptyDir: {}
         - name: workspace
-          {{- if .Values.server.workspace.persist }}
+          {{- if and .Values.server.workspace.persist (not .Values.hub.enabled) }}
           persistentVolumeClaim:
             claimName: {{ include "agenticbear.serverName" . }}-workspace
           {{- else }}

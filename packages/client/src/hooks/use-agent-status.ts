@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAgentStatusStore } from '../stores/agent-status.store';
-import { getToken } from '../api/client';
+import { getToken, apiUrl } from '../api/client';
 
 export function useAgentStatus(projectId: string) {
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -12,7 +12,7 @@ export function useAgentStatus(projectId: string) {
     if (!projectId) return;
 
     // Connect to project-level SSE (token via query — EventSource can't set headers)
-    const es = new EventSource(`/api/events/project/${projectId}?token=${encodeURIComponent(getToken() ?? '')}`);
+    const es = new EventSource(apiUrl(`/api/events/project/${projectId}?token=${encodeURIComponent(getToken() ?? '')}`));
     eventSourceRef.current = es;
 
     es.onmessage = (event) => {

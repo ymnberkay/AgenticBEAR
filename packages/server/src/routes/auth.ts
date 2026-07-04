@@ -8,13 +8,18 @@
  *   DELETE /api/auth/users/:id    → remove (admin)
  */
 import type { FastifyInstance } from 'fastify';
-import type { CreateUserInput, GroupUsage, LoginInput, UpdateUserInput, UserRole, UserUsage } from '@subagent/shared';
+import type { CreateUserInput, GroupUsage, LoginInput, SessionInfo, UpdateUserInput, UserRole, UserUsage } from '@subagent/shared';
 import { userRepo } from '../db/repositories/user.repo.js';
 import { userUsageRepo } from '../db/repositories/user-usage.repo.js';
 import { groupRepo } from '../db/repositories/group.repo.js';
 import { groupUsageRepo, currentPeriod } from '../db/repositories/group-usage.repo.js';
 import { verifyPassword, signToken } from '../security/auth-service.js';
 import { type AuthedRequest, requireAdmin } from '../middleware/require-auth.js';
+import { config } from '../config.js';
+import { sessionManager } from '../hub/session-manager.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('auth');
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: LoginInput }>('/api/auth/login', async (request, reply) => {
@@ -27,7 +32,14 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(401).send({ error: true, message: 'Invalid username or password' });
     }
     const user = (await userRepo.findById(row.id))!;
-    return reply.send({ token: signToken(user.id), user });
+    // Hub: warm the user's session pod now (fire-and-forget) and tell the client where it will
+    // live; the client polls GET /api/auth/session until ready. Standalone: same origin, ready.
+    let session: SessionInfo = { status: 'ready', baseUrl: '' };
+    if (config.mode === 'hub') {
+      sessionManager.ensureSession({ id: user.id, username: user.username }).catch((err) => log.warn(`ensureSession(${user.username}) failed`, err));
+      session = sessionManager.getStatus(user.id);
+    }
+    return reply.send({ token: signToken(user.id), user, session });
   });
 
   app.get('/api/auth/me', async (request, reply) => {

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { User, AuthResult, CreateUserInput, UserRole, PermissionGroup, GroupUsage, UserUsage } from '@subagent/shared';
-import { apiGet, apiPost, apiPatch, apiDelete, setToken, clearToken, getToken } from '../client';
+import { apiGet, apiPost, apiPatch, apiDelete, setToken, clearToken, getToken, setSessionBase, clearSessionBase } from '../client';
 
 export function useMe() {
   return useQuery({
@@ -18,6 +18,9 @@ export function useLogin() {
     mutationFn: (body: { username: string; password: string }) => apiPost<AuthResult>('/api/auth/login', body),
     onSuccess: (res) => {
       setToken(res.token);
+      // Hub topology: data-plane requests go straight to this user's session pod. The base is
+      // known even while the pod is still starting — first requests recover via the wake flow.
+      setSessionBase(res.session?.baseUrl ?? '');
       qc.setQueryData(['auth', 'me'], res.user);
     },
   });
@@ -25,6 +28,7 @@ export function useLogin() {
 
 export function logout(): void {
   clearToken();
+  clearSessionBase();
   window.location.reload();
 }
 

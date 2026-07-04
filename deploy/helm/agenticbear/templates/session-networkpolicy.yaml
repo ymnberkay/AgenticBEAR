@@ -1,0 +1,28 @@
+{{- if and .Values.hub.enabled .Values.session.networkPolicy.enabled }}
+# Session pods accept ingress only from the ingress controller (data plane) and the hub
+# (health/activity polling). Egress stays open — LLM APIs, git remotes, Postgres, Qdrant.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "agenticbear.fullname" . }}-session
+  labels:
+    {{- include "agenticbear.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      agb.dev/component: session
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        # hub pod (same namespace)
+        - podSelector:
+            matchLabels:
+              {{- include "agenticbear.selectorLabels" (dict "ctx" . "component" "server") | nindent 14 }}
+        # ingress-nginx controller (adjust the namespace label if your controller differs)
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: {{ .Values.session.port }}
+{{- end }}

@@ -141,6 +141,36 @@ ingress:
   host: agenticbear.local
   tls: []                      # [{ secretName: agb-tls, hosts: [agenticbear.local] }]
 
+# ── Hub topology: control-plane pod + one session pod per logged-in user ──
+# false → today's standalone single pod. true → the server Deployment becomes the hub
+# (AGB_MODE=hub): it serves auth/SPA/gateway/MCP and creates a Pod + Service + path-based
+# Ingress (/u/<hash>) per user via the Kubernetes API (RBAC in hub-rbac.yaml). Keep
+# server.replicaCount=1 — the session registry and idle reaper live in hub memory.
+hub:
+  enabled: false
+
+# Session-pod knobs (used only when hub.enabled=true).
+session:
+  image: ""                    # "" = the chart image (same build, AGB_MODE=session)
+  port: 3001
+  ttlSeconds: 1800             # idle TTL before the reaper deletes the pod (never mid-run)
+  readyTimeoutSeconds: 120
+  basePrefix: /u               # public path prefix: <basePrefix>/<user-hash>/...
+  # Session workspaces (/workspace — git clones + agent file writes) are emptyDir by default:
+  # simplest, but uncommitted work dies with the pod. Point them at a shared NFS export instead
+  # and every user gets a private, reap-surviving directory <path>/<username>/ (mounted with
+  # subPath=<username>, volume named workspace-<username> for easy tracking).
+  workspace:
+    nfs:
+      enabled: false
+      server: ""               # e.g. nfs.example.internal
+      path: ""                 # exported base path, e.g. /exports/agenticbear
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits:   { cpu: "1",  memory: 2Gi }
+  networkPolicy:
+    enabled: false             # true → session pods accept traffic only from ingress + hub
+
 # Pod-level security context (volumes are chowned to this group).
 podSecurityContext:
   fsGroup: 1000

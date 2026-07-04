@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { eventBus } from '../utils/event-bus.js';
 import type { SSEEvent } from '@subagent/shared';
 import { createLogger } from '../utils/logger.js';
+import { markStreamOpen, markStreamClosed } from '../services/session-activity.js';
 
 const log = createLogger('sse');
 
@@ -33,11 +34,13 @@ export async function eventRoutes(app: FastifyInstance): Promise<void> {
     };
 
     eventBus.on(`project:${projectId}`, onEvent);
+    markStreamOpen();
 
     request.raw.on('close', () => {
       log.info(`Project SSE connection closed: ${projectId}`);
       clearInterval(keepAlive);
       eventBus.off(`project:${projectId}`, onEvent);
+      markStreamClosed();
     });
 
     return reply;
@@ -77,12 +80,14 @@ export async function eventRoutes(app: FastifyInstance): Promise<void> {
 
     // Listen for events for this run
     eventBus.on(`run:${runId}`, onEvent);
+    markStreamOpen();
 
     // Cleanup on close
     request.raw.on('close', () => {
       log.info(`SSE connection closed for run: ${runId}`);
       clearInterval(keepAlive);
       eventBus.off(`run:${runId}`, onEvent);
+      markStreamClosed();
     });
 
     // Don't let Fastify auto-send a response -- we're streaming

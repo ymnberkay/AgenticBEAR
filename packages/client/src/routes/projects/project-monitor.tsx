@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { Activity, Zap, PiggyBank, Database, Cpu, Radio, FileEdit, Bot, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import { useProjectAnalytics, type AnalyticsRange, type DateUsage } from '../../api/hooks/use-analytics';
-import { getToken } from '../../api/client';
+import { getToken, apiUrl } from '../../api/client';
 
 const RANGES: { value: AnalyticsRange; label: string }[] = [
   { value: '1h', label: '1h' }, { value: '24h', label: '24h' }, { value: '7d', label: '7d' },
@@ -24,7 +24,7 @@ function useProjectFeed(projectId: string) {
   const idRef = useRef(0);
   useEffect(() => {
     if (!projectId) return;
-    const es = new EventSource(`/api/events/project/${projectId}?token=${encodeURIComponent(getToken() ?? '')}`);
+    const es = new EventSource(apiUrl(`/api/events/project/${projectId}?token=${encodeURIComponent(getToken() ?? '')}`));
     const push = (text: string, tone: FeedItem['tone']) =>
       setItems((prev) => [{ id: idRef.current++, ts: Date.now(), text, tone }, ...prev].slice(0, 60));
     es.onopen = () => setLive(true);

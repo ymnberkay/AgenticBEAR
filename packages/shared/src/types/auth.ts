@@ -71,8 +71,22 @@ export interface LoginInput {
   password: string;
 }
 
+/**
+ * Per-user session runtime state (hub topology). 'none' = not provisioned, 'starting' = pod
+ * booting, 'ready' = data plane reachable at baseUrl. Standalone always reports ready + ''.
+ */
+export type SessionPodStatus = 'none' | 'starting' | 'ready';
+
+export interface SessionInfo {
+  status: SessionPodStatus;
+  /** Base the client prepends to data-plane requests ('' = same origin, standalone). */
+  baseUrl: string;
+}
+
 /** Returned once on successful login. */
 export interface AuthResult {
   token: string;
   user: User;
+  /** Present in hub mode; absent/ready-'' in standalone. */
+  session?: SessionInfo;
 }

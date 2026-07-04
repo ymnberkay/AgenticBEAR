@@ -1,4 +1,6 @@
 /** Streams a project chat reply (SSE) from POST /api/projects/:projectId/chat. */
+import { apiUrl, apiFetch } from './client';
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -56,7 +58,7 @@ interface StreamHandlers {
 /** Post the user's Approve/Reject for a paused tool call, unblocking the open chat turn. */
 export async function sendApprovalDecision(projectId: string, callId: string, approved: boolean): Promise<void> {
   const token = localStorage.getItem('agb_token');
-  await fetch(`/api/projects/${projectId}/chat/approvals/${callId}`, {
+  await fetch(apiUrl(`/api/projects/${projectId}/chat/approvals/${callId}`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify({ approved }),
@@ -73,7 +75,7 @@ export async function streamChat(
   let res: Response;
   try {
     const token = localStorage.getItem('agb_token');
-    res = await fetch(`/api/projects/${projectId}/chat`, {
+    res = await apiFetch(`/api/projects/${projectId}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ agentId, messages, ...(opts.images && opts.images.length > 0 ? { images: opts.images } : {}) }),

@@ -24,8 +24,8 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       const { projectId } = request.params;
       const { role, name, systemPrompt, ...rest } = request.body;
 
-      if (!name || !systemPrompt || !role) {
-        return reply.status(400).send({ error: true, message: 'name, role, and systemPrompt are required' });
+      if (!name || !role) {
+        return reply.status(400).send({ error: true, message: 'name and role are required' });
       }
 
       const agent = await agentRepo.create({

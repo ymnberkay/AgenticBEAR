@@ -5,9 +5,10 @@
 #   - When you use Postgres: the git-workspace mirror is per-pod on the PVC. Two
 #     pods would each try to attach the ReadWriteOnce PVC and only one would win.
 #
-# If you outgrow one replica, first split the app into (a) API/UI stateless
-# pods behind the LB and (b) a small "workspace" statefulset that owns clone
-# state. That's a v2 refactor.
+# If you outgrow one replica, use the hub topology instead: the Helm chart
+# (deploy/helm/agenticbear) with `hub.enabled=true` deploys a control-plane hub
+# pod (AGB_MODE=hub) that creates one session pod per logged-in user. This
+# kustomize set stays as the simple standalone single-pod deployment.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

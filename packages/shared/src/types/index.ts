@@ -97,6 +97,8 @@ export type {
   GroupUsage,
   LoginInput,
   AuthResult,
+  SessionPodStatus,
+  SessionInfo,
 } from './auth.js';
 
 export type {

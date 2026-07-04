@@ -22,6 +22,7 @@ import type { Agent, User, FileChange } from '@subagent/shared';
 import type { AuthedRequest } from '../middleware/require-auth.js';
 import { resolveGroupForUser, checkCombinedQuota, recordCombinedUsage, quotaExceededMessage } from '../services/quota.service.js';
 import { activityLogRepo } from '../db/repositories/activity-log.repo.js';
+import { markStreamOpen, markStreamClosed } from '../services/session-activity.js';
 
 const log = createLogger('chat');
 
@@ -184,6 +185,8 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       const raw = reply.raw;
       raw.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
       const send = (obj: unknown) => raw.write(`data: ${JSON.stringify(obj)}\n\n`);
+      markStreamOpen();
+      raw.once('close', markStreamClosed);
 
       // ── External agent branch — role='external' bypasses the internal tool loop and proxies to the team's endpoint ──
       if (agent.role === 'external') {

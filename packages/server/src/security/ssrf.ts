@@ -70,6 +70,13 @@ export async function assertPublicHttpUrl(raw: string): Promise<SafeUrl> {
   }
   const hostname = url.hostname.replace(/^\[|\]$/g, ''); // strip IPv6 brackets
 
+  // Dev mode: allow localhost and loopback for local agent testing.
+  if (process.env.NODE_ENV !== 'production') {
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+      return { url, address: hostname, family: isIP(hostname) || 4 };
+    }
+  }
+
   // Literal IP → check directly, no DNS.
   if (isIP(hostname)) {
     if (isPrivateIp(hostname)) throw new Error('Endpoint URL resolves to a non-public address.');
