@@ -180,7 +180,7 @@ export async function createMcpServer(projectId: string): Promise<McpServer> {
       const memoryBlock = await buildMemoryBlock(agent.id);
       const userMessage = context ? `${context}\n\n${query}` : query;
       const basePrompt = memoryBlock ? `${agent.systemPrompt}\n\n${memoryBlock}` : agent.systemPrompt;
-      const systemPromptWithMemory = await withProjectKnowledge(basePrompt, projectId);
+      const systemPromptWithMemory = await withProjectKnowledge(basePrompt, projectId, agent.id);
 
       try {
         // Server-side LLM çağrısı — cost middleware'den geçer (L1 cache + L2 router + L3 prompt cache).

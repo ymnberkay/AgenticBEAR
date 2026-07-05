@@ -94,14 +94,16 @@ async function providerSlugMaps(): Promise<SlugMaps> {
 }
 
 /**
- * Rewrite any model id into its canonical (slug-prefixed) shape.
- * Accepts both the legacy `<opaqueProviderId>/<model>` form and the new `<slug>/<model>` form and
- * always returns the slug form (for built-ins/unknowns it returns the input unchanged).
- * Used to compare API-key allowlists / curation entries against catalog ids without a migration.
+ * Rewrite any model id into its canonical (prefix-qualified) shape.
+ * Accepts the legacy bare built-in form (`claude-x` → `anthropic/claude-x`), the legacy
+ * `<opaqueProviderId>/<model>` form, and the `<slug>/<model>` form; always returns the
+ * `<provider>/<model>` form. Used to compare API-key allowlists / curation entries against
+ * catalog ids without a migration.
  */
 async function canonicalizeModelId(modelId: string, maps?: SlugMaps): Promise<string> {
+  if (modelId.startsWith(PROVIDER_SCOPE_PREFIX)) return modelId; // owner-scope entry, not a model id
   const slash = modelId.indexOf('/');
-  if (slash === -1) return modelId;
+  if (slash === -1) return `${detectBuiltinProvider(modelId)}/${modelId}`;
   const first = modelId.slice(0, slash);
   const rest = modelId.slice(slash + 1);
   if (isBuiltinProviderId(first)) return modelId;
@@ -249,8 +251,10 @@ export async function buildModelCatalog(force = false): Promise<CatalogModel[]> 
   ]);
 
   const data: Array<Omit<CatalogModel, 'enabled'>> = [];
+  // Built-ins are exposed provider-prefixed (`anthropic/claude-x`, `gemini/gemini-x`) so every
+  // catalog id is unambiguous about its provider — same shape as custom providers.
   const pushAll = (ids: string[], owned: string) => {
-    for (const id of ids) data.push({ id, object: 'model', owned_by: owned });
+    for (const id of ids) data.push({ id: `${owned}/${id}`, object: 'model', owned_by: owned });
   };
 
   if (anthropicKey) pushAll(anthropicIds.length ? anthropicIds : staticBuiltinModels('anthropic'), 'anthropic');
@@ -392,6 +396,14 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const { providerId, model } = await parseModelRef(body.model);
+    // Only provider-prefixed ids are callable (`anthropic/claude-x`, `gemini/gemini-x`,
+    // `<custom-slug>/<model>`) — bare model names are ambiguous and rejected.
+    if (!providerId) {
+      return reply.status(400).send(oaiError(
+        `Model '${body.model}' must be provider-prefixed, e.g. 'anthropic/claude-sonnet-4-6' or 'gemini/gemini-2.5-flash'. See GET /v1/models for the full catalog.`,
+        'invalid_request_error', 'model_not_found',
+      ));
+    }
     const split = splitMessages(body.messages);
     let systemPrompt = split.systemPrompt;
     const turns = split.turns;

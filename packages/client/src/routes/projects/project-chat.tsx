@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, BookOpen, Upload, FolderTree, X, MessageSquarePlus, PanelLeftClose, PanelLeft, Sparkles, Check, FileWarning, ArrowDown, Pin, ChevronDown, ChevronUp, Terminal } from 'lucide-react';
+import { Trash2, FolderTree, X, MessageSquarePlus, PanelLeftClose, PanelLeft, Sparkles, Check, FileWarning, ArrowDown, Pin, ChevronDown, ChevronUp, Terminal } from 'lucide-react';
 import { CHAT_PREFILL_KEY } from './project-issues';
 import { useAgents } from '../../api/hooks/use-agents';
-import { useDocuments, useCreateDocument, useDeleteDocument } from '../../api/hooks/use-documents';
 import { useFileTree, workspaceKeys } from '../../api/hooks/use-workspace';
 import { useApplyFileChange, useRejectFileChange, usePendingFileChanges } from '../../api/hooks/use-file-changes';
 import { FileTree } from '../../components/workspace/file-tree';
@@ -13,6 +12,7 @@ import { DiffView } from '../../components/workspace/diff-view';
 import { streamChat, sendApprovalDecision, type ChatMessage, type ToolEvent, type ApprovalRequest } from '../../api/chat';
 import type { FileChange } from '@subagent/shared';
 import { ChatMessage as ChatBubble } from '../../components/chat/chat-message';
+import { AgentPicker } from '../../components/chat/agent-picker';
 import { ChatComposer, type ChatImage, type ChatAudio, type ChatVideo } from '../../components/chat/chat-composer';
 import { useConversations, type ChatEntry } from '../../components/chat/use-conversations';
 import { useToast } from '../../components/ui/toast';
@@ -56,18 +56,9 @@ const SUGGESTIONS = [
   { icon: '📝', text: 'Draft a README for this project' },
 ];
 
-const inputStyle: React.CSSProperties = {
-  width: '100%', height: 34, padding: '0 10px', background: 'var(--color-bg-base)',
-  border: '1px solid var(--color-border-default)', color: 'var(--color-text-primary)',
-  fontFamily: 'var(--font-mono)', fontSize: 12.5, outline: 'none', borderRadius: 'var(--radius-sm)',
-};
-
 export function ProjectChatPage() {
   const { projectId } = useParams({ strict: false }) as { projectId: string };
   const { data: agents } = useAgents(projectId);
-  const { data: docs } = useDocuments(projectId);
-  const createDoc = useCreateDocument(projectId);
-  const deleteDoc = useDeleteDocument(projectId);
   const queryClient = useQueryClient();
   const { data: fileTree, isLoading: treeLoading } = useFileTree(projectId);
   const applyChange = useApplyFileChange(projectId);
@@ -85,17 +76,11 @@ export function ProjectChatPage() {
   const [streaming, setStreaming] = useState(false);
   const [agentId, setAgentId] = useState('');
   const [railOpen, setRailOpen] = useState(true);
-  const [panel, setPanel] = useState<null | 'knowledge' | 'workspace'>(null);
+  const [panel, setPanel] = useState<null | 'workspace'>(null);
   const [changed, setChanged] = useState<Map<string, 'create' | 'modify'>>(new Map());
   const [viewerPath, setViewerPath] = useState<string | null>(null);
   const [diffChange, setDiffChange] = useState<FileChange | null>(null); // staged-change diff preview
-  const [docName, setDocName] = useState('');
-  const [docContent, setDocContent] = useState('');
-  const [confirmDelete, setConfirmDelete] = useState<
-    | { kind: 'doc'; id: string; name: string }
-    | { kind: 'conv'; id: string; title: string }
-    | null
-  >(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ kind: 'conv'; id: string; title: string } | null>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [streamError, setStreamError] = useState<string | null>(null);
   // Interactive approval: a destructive tool is paused mid-turn awaiting the user's Approve/Reject.
@@ -314,18 +299,6 @@ export function ProjectChatPage() {
     else showToast(`${items.length - failed} applied, ${failed} failed`, { variant: 'error' });
   };
 
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setDocName(file.name);
-    setDocContent(await file.text());
-    e.target.value = '';
-  }
-  function addDoc() {
-    if (!docName.trim() || !docContent.trim()) return;
-    createDoc.mutate({ name: docName.trim(), content: docContent }, { onSuccess: () => { setDocName(''); setDocContent(''); } });
-  }
-
   return (
     <div className="flex flex-col md:flex-row" style={{ height: 'calc(100vh - 116px)', gap: 0 }}>
       {/* ── Conversation rail ── */}
@@ -398,27 +371,25 @@ export function ProjectChatPage() {
 
       {/* ── Chat column ── */}
       <div className="flex-1 flex flex-col" style={{ minWidth: 0 }}>
-        {/* Header: knowledge + files toggle pills */}
-        <div className="flex items-center justify-end gap-2" style={{ marginBottom: 8 }}>
-          {([
-            { key: 'knowledge' as const, icon: <BookOpen style={{ width: 13, height: 13 }} />, label: `Knowledge (${docs?.length ?? 0})` },
-            { key: 'workspace' as const, icon: <FolderTree style={{ width: 13, height: 13 }} />, label: `Files${changed.size > 0 ? ` (${changed.size})` : ''}` },
-          ]).map(({ key, icon, label }) => {
-            const on = panel === key;
+        {/* Header: agent picker (left) + files toggle (right) */}
+        <div className="flex items-center justify-between gap-2" style={{ marginBottom: 8 }}>
+          <AgentPicker agents={agentList} agentId={agentId} onChange={setAgentId} disabled={streaming} />
+          {(() => {
+            const on = panel === 'workspace';
             return (
-              <button key={key} type="button" onClick={() => setPanel((p) => (p === key ? null : key))}
+              <button type="button" onClick={() => setPanel((p) => (p === 'workspace' ? null : 'workspace'))}
                 className="flex items-center gap-2"
                 style={{
-                  height: 30, padding: '0 12px', fontSize: 12, fontFamily: 'var(--font-sans)', fontWeight: 500, cursor: 'pointer',
-                  borderRadius: 'var(--radius-md)', transition: 'all .15s',
+                  height: 32, padding: '0 14px', fontSize: 12, fontFamily: 'var(--font-sans)', fontWeight: 500, cursor: 'pointer',
+                  borderRadius: 999, transition: 'all .15s',
                   background: on ? 'var(--color-accent-subtle)' : 'var(--color-bg-surface)',
                   border: `1px solid ${on ? 'var(--color-accent)' : 'var(--color-border-subtle)'}`,
                   color: on ? 'var(--color-accent)' : 'var(--color-text-secondary)',
                 }}>
-                {icon} {label}
+                <FolderTree style={{ width: 13, height: 13 }} /> Files{changed.size > 0 ? ` (${changed.size})` : ''}
               </button>
             );
-          })}
+          })()}
         </div>
 
         <div className="flex-1 flex flex-col lg:flex-row" style={{ minHeight: 0, gap: 14 }}>
@@ -488,7 +459,9 @@ export function ProjectChatPage() {
                   <div>
                     <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--color-text-primary)' }}>What should we work on?</div>
                     <div style={{ fontSize: 12.5, color: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)', marginTop: 5 }}>
-                      {activeAgent ? `chatting with ${activeAgent.name}` : 'pick an agent'} · project knowledge is included automatically
+                      {activeAgent
+                        ? `chatting with ${activeAgent.name}${activeAgent.role === 'external' ? '' : ' · its knowledge documents are included automatically'}`
+                        : 'pick an agent from the top-left'}
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center justify-center" style={{ gap: 8 }}>
@@ -701,8 +674,6 @@ export function ProjectChatPage() {
             <div style={{ maxWidth: 760, width: '100%', margin: '0 auto' }}>
               <ChatComposer
                 value={input} onChange={setInput} onSend={send} streaming={streaming}
-                agents={agentList} agentId={agentId} onAgentChange={setAgentId}
-                onAttach={() => setPanel('knowledge')}
                 {...(activeAgent?.role === 'external' && activeAgent.external?.supportsImages
                   ? { images, onImagesChange: setImages }
                   : {})}
@@ -721,58 +692,17 @@ export function ProjectChatPage() {
             </div>
           </div>
 
-          {/* ── Right slide-over: knowledge or workspace ── */}
+          {/* ── Right slide-over: workspace ── */}
           {panel && (
             <div className="flex flex-col" style={{ width: 300, flexShrink: 0, border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-md)', background: 'var(--color-bg-surface)', minHeight: 0 }}>
               <div className="flex items-center justify-between" style={{ padding: '9px 11px', borderBottom: '1px solid var(--color-border-subtle)' }}>
                 <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
-                  {panel === 'knowledge' ? 'Knowledge' : 'Workspace'}
+                  Workspace
                 </span>
                 <button type="button" onClick={() => setPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-disabled)' }}><X style={{ width: 14, height: 14 }} /></button>
               </div>
 
-              {panel === 'knowledge' ? (
-                <div className="flex-1 overflow-y-auto" style={{ padding: 11 }}>
-                  <p style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', margin: '0 0 10px' }}>
-                    Documents added here are injected into every agent's context in this project.
-                  </p>
-                  <div className="flex flex-col gap-1.5" style={{ marginBottom: 12 }}>
-                    {(docs ?? []).map((d) => (
-                      <div key={d.id} className="flex items-center justify-between gap-2" style={{ padding: '6px 9px', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)' }}>
-                        <span className="truncate" style={{ fontSize: 11.5, color: 'var(--color-text-primary)' }}>{d.name}</span>
-                        <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
-                          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>{(d.content.length / 1000).toFixed(1)}k</span>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmDelete({ kind: 'doc', id: d.id, name: d.name })}
-                            aria-label={`Delete document ${d.name}`}
-                            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-error)', padding: 6, borderRadius: 4 }}
-                          >
-                            <Trash2 style={{ width: 12, height: 12 }} aria-hidden="true" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    {(docs ?? []).length === 0 && <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>No documents.</span>}
-                  </div>
-                  <label htmlFor="doc-name-input" className="sr-only">Document name</label>
-                  <input id="doc-name-input" placeholder="document name" value={docName} onChange={(e) => setDocName(e.target.value)} style={{ ...inputStyle, marginBottom: 8 }} />
-                  <label htmlFor="doc-content-input" className="sr-only">Document content</label>
-                  <textarea id="doc-content-input" placeholder="paste content…" value={docContent} onChange={(e) => setDocContent(e.target.value)}
-                    style={{ ...inputStyle, height: 80, padding: '7px 10px', resize: 'vertical', marginBottom: 8 }} />
-                  <div className="flex items-center gap-2">
-                    <button type="button" onClick={addDoc} disabled={createDoc.isPending} className="flex items-center gap-1.5"
-                      style={{ height: 30, padding: '0 12px', fontSize: 12, fontWeight: 600, background: 'var(--color-accent)', color: '#0d1117', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}>
-                      <Plus style={{ width: 13, height: 13 }} /> add
-                    </button>
-                    <label className="flex items-center gap-1.5" style={{ height: 30, padding: '0 10px', fontSize: 11.5, fontFamily: 'var(--font-mono)', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-tertiary)', cursor: 'pointer' }}>
-                      <Upload style={{ width: 13, height: 13 }} /> file
-                      <input type="file" accept=".txt,.md,.json,.csv,text/*" onChange={onFile} style={{ display: 'none' }} />
-                    </label>
-                  </div>
-                </div>
-              ) : (
+              {(
                 <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
                   <div style={{ borderBottom: '1px solid var(--color-border-subtle)', maxHeight: 150, overflowY: 'auto' }}>
                     <div style={{ fontSize: 9.5, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', padding: '8px 10px 4px' }}>Changed in this chat ({changed.size})</div>
@@ -827,18 +757,12 @@ export function ProjectChatPage() {
         </div>
       </Dialog>
 
-      {/* Delete confirm dialog (doc or conversation) */}
+      {/* Delete confirm dialog (conversation) */}
       <Dialog
         open={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
-        title={confirmDelete?.kind === 'doc' ? 'Delete document' : 'Delete conversation'}
-        description={
-          confirmDelete?.kind === 'doc'
-            ? `Remove "${confirmDelete.name}" from project knowledge. Agents will no longer see it.`
-            : confirmDelete?.kind === 'conv'
-              ? `Permanently delete "${confirmDelete.title}". This cannot be undone.`
-              : undefined
-        }
+        title="Delete conversation"
+        description={confirmDelete ? `Permanently delete "${confirmDelete.title}". This cannot be undone.` : undefined}
         maxWidth="420px"
       >
         <div className="flex items-center justify-end gap-2">
@@ -854,13 +778,7 @@ export function ProjectChatPage() {
             type="button"
             onClick={() => {
               if (!confirmDelete) return;
-              if (confirmDelete.kind === 'doc') {
-                deleteDoc.mutate(confirmDelete.id, {
-                  onError: (err) => showToast(err instanceof Error ? err.message : 'Delete failed', { variant: 'error' }),
-                });
-              } else {
-                conv.remove(confirmDelete.id);
-              }
+              conv.remove(confirmDelete.id);
               setConfirmDelete(null);
             }}
             className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"

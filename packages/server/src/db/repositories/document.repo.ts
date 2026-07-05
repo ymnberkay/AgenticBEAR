@@ -5,13 +5,14 @@ import type { CreateProjectDocumentInput, ProjectDocument } from '@subagent/shar
 interface DocRow {
   id: string;
   project_id: string;
+  agent_id: string | null;
   name: string;
   content: string;
   created_at: string;
 }
 
 function rowToDoc(row: DocRow): ProjectDocument {
-  return { id: row.id, projectId: row.project_id, name: row.name, content: row.content, createdAt: row.created_at };
+  return { id: row.id, projectId: row.project_id, agentId: row.agent_id, name: row.name, content: row.content, createdAt: row.created_at };
 }
 
 export const documentRepo = {
@@ -22,13 +23,23 @@ export const documentRepo = {
     return rows.map(rowToDoc);
   },
 
+  /** Documents visible to one agent: its own + legacy unassigned (project-wide) ones. */
+  async findForAgent(projectId: string, agentId: string): Promise<ProjectDocument[]> {
+    const db = getDb();
+    const rows = await db.prepare(
+      'SELECT * FROM project_documents WHERE project_id = ? AND (agent_id IS NULL OR agent_id = ?) ORDER BY created_at ASC',
+    ).all<DocRow>(projectId, agentId);
+    return rows.map(rowToDoc);
+  },
+
   async create(projectId: string, input: CreateProjectDocumentInput): Promise<ProjectDocument> {
     const db = getDb();
     const id = generateId();
     const now = new Date().toISOString();
-    await db.prepare('INSERT INTO project_documents (id, project_id, name, content, created_at) VALUES (?, ?, ?, ?, ?)')
-      .run(id, projectId, input.name, input.content, now);
-    return { id, projectId, name: input.name, content: input.content, createdAt: now };
+    const agentId = input.agentId ?? null;
+    await db.prepare('INSERT INTO project_documents (id, project_id, agent_id, name, content, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(id, projectId, agentId, input.name, input.content, now);
+    return { id, projectId, agentId, name: input.name, content: input.content, createdAt: now };
   },
 
   async remove(id: string): Promise<boolean> {

@@ -9,6 +9,7 @@ import { Dialog } from '../ui/dialog';
 import { useToast } from '../ui/toast';
 import { PromptEditor } from './prompt-editor';
 import { ModelConfigForm } from './model-config';
+import { AgentKnowledge } from './agent-knowledge';
 import { useTemplates } from '../../api/hooks/use-templates';
 import { useCreateAgent, useUpdateAgent, useDeleteAgent } from '../../api/hooks/use-agents';
 
@@ -23,7 +24,10 @@ const STEPS = [
   { key: 'prompt', label: 'Prompt', desc: 'Template & instructions' },
   { key: 'model', label: 'Model', desc: 'Provider & parameters' },
   { key: 'permissions', label: 'Permissions', desc: 'Workspace access' },
-] as const;
+];
+
+// Knowledge needs a persisted agent id to bind documents to, so it only appears when editing.
+const KNOWLEDGE_STEP = { key: 'knowledge', label: 'Knowledge', desc: 'Docs for this agent' };
 
 interface Draft {
   name: string;
@@ -241,7 +245,8 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
   const colorOptions = Object.entries(AGENT_COLORS) as [string, string][];
   const iconOptions = Object.entries(AGENT_ICONS) as [string, string][];
 
-  const last = STEPS.length - 1;
+  const steps = agent ? [...STEPS, KNOWLEDGE_STEP] : STEPS;
+  const last = steps.length - 1;
   // Per-step gate before advancing.
   const canAdvance = step === 0 ? !!name.trim() : step === 1 ? !!systemPrompt.trim() : true;
   const canCreate = !!name.trim() && !!systemPrompt.trim();
@@ -261,7 +266,7 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
           </h2>
         </div>
         <p style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginBottom: 4 }}>
-          step {step + 1} of {STEPS.length}
+          step {step + 1} of {steps.length}
         </p>
         {(isDirty || draftRestored) && (
           <span
@@ -278,7 +283,7 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
         )}
         <nav aria-label="Agent setup steps">
           <ol style={{ display: 'flex', flexDirection: 'column', gap: 4, listStyle: 'none', margin: 0, padding: 0 }}>
-            {STEPS.map((s, i) => {
+            {steps.map((s, i) => {
               const active = i === step;
               const done = i < step;
               return (
@@ -432,6 +437,9 @@ export function AgentBuilder({ projectId, agent, onClose }: AgentBuilderProps) {
 
               {/* Step 3 — Model */}
               {step === 2 && <ModelConfigForm config={modelConfig} onChange={setModelConfig} />}
+
+              {/* Step 5 — Knowledge (edit mode only: documents bind to the agent id) */}
+              {step === 4 && agent && <AgentKnowledge projectId={projectId} agentId={agent.id} />}
 
               {/* Step 4 — Permissions */}
               {step === 3 && (

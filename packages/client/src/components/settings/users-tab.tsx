@@ -35,6 +35,7 @@ export function UsersTab({ onSaved }: { onSaved: (msg: string) => void }) {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('contributor');
   const [showPassword, setShowPassword] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; username: string } | null>(null);
 
@@ -47,27 +48,28 @@ export function UsersTab({ onSaved }: { onSaved: (msg: string) => void }) {
   }
 
   const usernameError = useMemo(() => {
-    if (!username) return '';
-    if (!USERNAME_REGEX.test(username.trim())) return '3–32 chars: letters, digits, underscore, dot, hyphen.';
+    if (!username.trim()) return submitted ? 'Username is required.' : '';
+    if (!USERNAME_REGEX.test(username.trim())) return '3–32 chars: a–z, 0–9, underscore, dot, hyphen — no spaces or accented letters (ç, ğ, ı, ş…).';
     return '';
-  }, [username]);
+  }, [username, submitted]);
 
   const passwordError = useMemo(() => {
-    if (!password) return '';
+    if (!password) return submitted ? 'Password is required.' : '';
     if (password.length < MIN_PASSWORD_LENGTH) return `At least ${MIN_PASSWORD_LENGTH} characters.`;
     return '';
-  }, [password]);
+  }, [password, submitted]);
 
   const canAdd = !!username.trim() && !!password && !usernameError && !passwordError;
 
   const add = () => {
     setError('');
+    setSubmitted(true);
     if (!canAdd) return;
     createUser.mutate(
       { username: username.trim(), password, role },
       {
         onSuccess: () => {
-          setUsername(''); setPassword(''); setRole('contributor');
+          setUsername(''); setPassword(''); setRole('contributor'); setSubmitted(false);
           onSaved('User created');
         },
         onError: (e) => {
@@ -87,6 +89,7 @@ export function UsersTab({ onSaved }: { onSaved: (msg: string) => void }) {
         className="flex flex-col gap-2"
         style={{ marginBottom: 14 }}
         autoComplete="off"
+        noValidate
       >
         <div className="flex items-start gap-2">
           <div className="flex flex-col gap-1" style={{ flex: 1 }}>
@@ -103,7 +106,7 @@ export function UsersTab({ onSaved }: { onSaved: (msg: string) => void }) {
               style={{ ...inputStyle, borderColor: usernameError ? 'rgba(224,96,96,0.5)' : 'var(--color-border-default)' }}
             />
             {usernameError && (
-              <span id={`${usernameId}-err`} role="alert" style={{ fontSize: 10.5, color: 'var(--color-error)', fontFamily: 'var(--font-mono)' }}>
+              <span id={`${usernameId}-err`} role="alert" style={{ fontSize: 11.5, color: 'var(--color-error)', fontFamily: 'var(--font-mono)' }}>
                 {usernameError}
               </span>
             )}
@@ -123,7 +126,7 @@ export function UsersTab({ onSaved }: { onSaved: (msg: string) => void }) {
                 aria-invalid={!!passwordError}
                 aria-describedby={passwordError ? `${passwordId}-err` : undefined}
                 onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && canAdd) { e.preventDefault(); add(); } }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
                 style={{ ...inputStyle, paddingRight: 40, borderColor: passwordError ? 'rgba(224,96,96,0.5)' : 'var(--color-border-default)' }}
               />
               <button
@@ -138,7 +141,7 @@ export function UsersTab({ onSaved }: { onSaved: (msg: string) => void }) {
               </button>
             </div>
             {passwordError && (
-              <span id={`${passwordId}-err`} role="alert" style={{ fontSize: 10.5, color: 'var(--color-error)', fontFamily: 'var(--font-mono)' }}>
+              <span id={`${passwordId}-err`} role="alert" style={{ fontSize: 11.5, color: 'var(--color-error)', fontFamily: 'var(--font-mono)' }}>
                 {passwordError}
               </span>
             )}
@@ -151,21 +154,24 @@ export function UsersTab({ onSaved }: { onSaved: (msg: string) => void }) {
 
           <button
             type="submit"
-            disabled={createUser.isPending || !canAdd}
+            disabled={createUser.isPending}
             aria-busy={createUser.isPending || undefined}
             className="flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
             style={{
               height: 38, padding: '0 16px', borderRadius: 'var(--radius-md)',
-              background: canAdd && !createUser.isPending ? 'var(--color-accent)' : 'var(--color-bg-raised)',
-              color: canAdd && !createUser.isPending ? '#021526' : 'var(--color-text-disabled)',
+              background: createUser.isPending ? 'var(--color-bg-raised)' : 'var(--color-accent)',
+              color: createUser.isPending ? 'var(--color-text-disabled)' : '#021526',
               fontSize: 12.5, fontWeight: 600, border: 'none',
-              cursor: canAdd && !createUser.isPending ? 'pointer' : 'not-allowed',
+              cursor: createUser.isPending ? 'progress' : 'pointer',
               flexShrink: 0, whiteSpace: 'nowrap',
             }}
           >
             <UserPlus style={{ width: 13, height: 13 }} aria-hidden="true" /> {createUser.isPending ? 'Adding…' : 'Add'}
           </button>
         </div>
+        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-tertiary)' }}>
+          username: 3–32 chars, a–z 0–9 _ . - only · password: min {MIN_PASSWORD_LENGTH} chars
+        </span>
       </form>
 
       {error && (

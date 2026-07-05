@@ -524,7 +524,7 @@ async function runTurnInner(opts: RunTurnOpts): Promise<RunTurnResult> {
 
   // L4 — append the output-minimization directive (off by default) to trim output tokens.
   const minimize = minimizeDirective();
-  const systemPrompt = [identityLine(agent), await withProjectKnowledge(agent.systemPrompt, projectId), toolGuidance(workspacePath, isCoordinator), RESPONSE_DISCIPLINE, minimize]
+  const systemPrompt = [identityLine(agent), await withProjectKnowledge(agent.systemPrompt, projectId, agent.id), toolGuidance(workspacePath, isCoordinator), RESPONSE_DISCIPLINE, minimize]
     .filter(Boolean)
     .join('\n\n');
 

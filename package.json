@@ -1,6 +1,6 @@
 {
   "name": "agenticbear",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Build and manage a personal army of AI agents — use them inside Claude Code CLI via MCP",
   "homepage": "https://github.com/ymnberkay/SubAgentManager",
   "repository": {

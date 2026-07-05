@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { Send, Mic, Square, Paperclip, Loader2, ImagePlus, AudioLines, Film, X as XIcon } from 'lucide-react';
-import type { Agent } from '@subagent/shared';
+import { Send, Mic, Square, Loader2, ImagePlus, AudioLines, Film, X as XIcon } from 'lucide-react';
 import { useVoice } from './use-voice';
 import { useAudioRecorder } from './use-audio-recorder';
 import { usePublicConfig } from '../../api/hooks/use-config';
@@ -16,11 +15,7 @@ interface Props {
   value: string;
   onChange: (v: string) => void;
   onSend: () => void;
-  onAttach?: () => void;
   streaming: boolean;
-  agents: Agent[];
-  agentId: string;
-  onAgentChange: (id: string) => void;
   /** When defined, image attachments are enabled. Composer manages files via these callbacks. */
   images?: ChatImage[];
   onImagesChange?: (images: ChatImage[]) => void;
@@ -47,12 +42,11 @@ async function fileToDataUrl(f: File): Promise<string> {
   });
 }
 
-/** Claude-style composer: auto-growing field with voice dictation, attach, agent picker, send. */
-export function ChatComposer({ value, onChange, onSend, onAttach, streaming, agents, agentId, onAgentChange, images, onImagesChange, audio, onAudioChange, video, onVideoChange }: Props) {
+/** Claude-style composer: auto-growing field with voice dictation, attachments, send. */
+export function ChatComposer({ value, onChange, onSend, streaming, images, onImagesChange, audio, onAudioChange, video, onVideoChange }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaId = useId();
-  const agentSelectId = useId();
   const imagesEnabled = !!onImagesChange;
   const audioEnabled = !!onAudioChange;
   const videoEnabled = !!onVideoChange;
@@ -166,10 +160,6 @@ export function ChatComposer({ value, onChange, onSend, onAttach, streaming, age
         void addFiles(files);
         return;
       }
-    }
-    const text = e.clipboardData.getData('text/plain');
-    if (text.length > 5000 && onAttach) {
-      ref.current?.setAttribute('aria-describedby', `${textareaId}-large-paste-hint`);
     }
   };
 
@@ -308,38 +298,6 @@ export function ChatComposer({ value, onChange, onSend, onAttach, streaming, age
       />
       <div className="flex items-center justify-between" style={{ padding: '6px 8px 7px 10px' }}>
         <div className="flex items-center gap-1.5">
-          {/* Agent picker */}
-          <label htmlFor={agentSelectId} className="sr-only">Active agent</label>
-          <select
-            id={agentSelectId}
-            value={agentId}
-            disabled={streaming}
-            onChange={(e) => onAgentChange(e.target.value)}
-            title={agents.find((a) => a.id === agentId)?.name}
-            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
-            style={{
-              height: 32, maxWidth: 200, background: 'var(--color-bg-base)',
-              border: '1px solid var(--color-border-subtle)', color: 'var(--color-text-secondary)',
-              fontFamily: 'var(--font-mono)', fontSize: 11.5, padding: '0 8px', cursor: 'pointer',
-              borderRadius: 'var(--radius-sm)', outline: 'none', textOverflow: 'ellipsis',
-            }}
-          >
-            {agents.map((a) => (
-              <option key={a.id} value={a.id}>{a.role === 'orchestrator' ? '◆ ' : '• '}{a.name}</option>
-            ))}
-          </select>
-          {onAttach && (
-            <button
-              type="button"
-              onClick={onAttach}
-              aria-label="Attach knowledge document"
-              title="Attach knowledge document"
-              className="flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
-              style={{ width: 32, height: 32, background: 'none', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--color-text-secondary)' }}
-            >
-              <Paperclip style={{ width: 14, height: 14 }} aria-hidden="true" />
-            </button>
-          )}
           {(imagesEnabled || audioEnabled || videoEnabled) && (() => {
             const kinds = [imagesEnabled && 'image', audioEnabled && 'audio', videoEnabled && 'video'].filter(Boolean) as string[];
             const label = `Attach ${kinds.join(' / ')}`;
@@ -366,8 +324,8 @@ export function ChatComposer({ value, onChange, onSend, onAttach, streaming, age
                   onClick={() => fileInputRef.current?.click()}
                   aria-label={label}
                   title={`${label} · paste / drop / pick`}
-                  className="flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
-                  style={{ width: 32, height: 32, background: 'none', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--color-text-secondary)' }}
+                  className="flex items-center justify-center transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                  style={{ width: 32, height: 32, background: 'none', border: '1px solid var(--color-border-subtle)', borderRadius: '50%', cursor: 'pointer', color: 'var(--color-text-secondary)' }}
                 >
                   {imagesEnabled ? <ImagePlus style={{ width: 14, height: 14 }} aria-hidden="true" />
                     : videoEnabled ? <Film style={{ width: 14, height: 14 }} aria-hidden="true" />
@@ -385,7 +343,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, streaming, age
               title={recorder.recording ? 'Stop recording' : 'Record audio · sent to the model as a clip'}
               className="flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
               style={{
-                height: 32, padding: '0 8px', minWidth: 32, borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                height: 32, padding: '0 8px', minWidth: 32, borderRadius: 999, cursor: 'pointer',
                 background: recorder.recording ? 'var(--color-error-subtle)' : 'none',
                 border: `1px solid ${recorder.recording ? 'rgba(224,96,96,0.5)' : 'var(--color-border-subtle)'}`,
                 color: recorder.recording ? '#e06060' : 'var(--color-text-secondary)',
@@ -410,7 +368,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, streaming, age
               title={voice.listening ? 'Stop' : 'Voice dictation'}
               className="flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
               style={{
-                width: 32, height: 32, borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                width: 32, height: 32, borderRadius: '50%', cursor: 'pointer',
                 background: voice.listening ? 'var(--color-accent)' : 'none',
                 border: `1px solid ${voice.listening ? 'var(--color-accent)' : 'var(--color-border-subtle)'}`,
                 color: voice.listening ? '#021526' : 'var(--color-text-secondary)',
@@ -430,7 +388,7 @@ export function ChatComposer({ value, onChange, onSend, onAttach, streaming, age
             title="Send (Enter)"
             className="flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
             style={{
-              width: 36, height: 32, borderRadius: 'var(--radius-sm)', border: 'none',
+              height: 32, minWidth: 44, padding: '0 14px', borderRadius: 999, border: 'none',
               background: canSend ? 'var(--color-accent)' : 'var(--color-bg-raised)',
               color: canSend ? '#021526' : 'var(--color-text-disabled)',
               cursor: canSend ? 'pointer' : 'not-allowed', transition: 'background .15s',

@@ -1,14 +1,14 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams } from '@tanstack/react-router';
-import { Trash2, Copy, Check, Settings, Wifi, WifiOff, AlertTriangle, FolderOpen, GitBranch, Download, ExternalLink, Loader2 } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useParams, useNavigate } from '@tanstack/react-router';
+import { Trash2, Copy, Check, Settings, AlertTriangle, FolderOpen, GitBranch, Download, ExternalLink, Loader2 } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useProject, useUpdateProject, useDeleteProject } from '../../api/hooks/use-projects';
 import { useConnections } from '../../api/hooks/use-integrations';
 import { FolderPickerInput } from '../../components/ui/folder-picker';
 import { useToast } from '../../components/ui/toast';
 import { Dialog } from '../../components/ui/dialog';
 import { Skeleton } from '../../components/ui/skeleton';
-import { apiGet, apiPost } from '../../api/client';
+import { apiPost } from '../../api/client';
 import { ProjectSharing } from '../../components/settings/project-sharing';
 import type { ProjectStatus, WorkspaceSource, Project } from '@subagent/shared';
 
@@ -40,14 +40,8 @@ export function ProjectSettingsPage() {
   const { data: project, isLoading } = useProject(projectId);
   const updateProject = useUpdateProject();
   const deleteProject = useDeleteProject();
+  const navigate = useNavigate();
   const { show: showToast } = useToast();
-
-  const { data: mcpStatus } = useQuery({
-    queryKey: ['mcp-connections', projectId],
-    queryFn: () => apiGet<{ count: number }>(`/api/mcp/projects/${projectId}/connections`),
-    refetchInterval: 5000,
-    enabled: !!projectId,
-  });
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -71,21 +65,15 @@ export function ProjectSettingsPage() {
     },
     onError: (err) => showToast(err instanceof Error ? err.message : 'Clone failed', { variant: 'error' }),
   });
-  const [copied, setCopied] = useState<'id' | 'url' | 'claude' | 'codex' | null>(null);
+  const [copiedId, setCopiedId] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmName, setConfirmName] = useState('');
 
-  // Derive MCP URL from window origin so deployed environments don't show localhost.
-  const mcpBase = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001';
-  const mcpUrl = `${mcpBase}/mcp/projects/${projectId}`;
-  const claudeCmd = `claude mcp add agenticbear --transport sse ${mcpUrl}`;
-  const codexCmd = `codex mcp add agenticbear --transport sse ${mcpUrl}`;
-
-  const copyToClipboard = async (text: string, type: 'id' | 'url' | 'claude' | 'codex') => {
+  const copyProjectId = async () => {
     try {
-      await navigator.clipboard.writeText(text);
-      setCopied(type);
-      setTimeout(() => setCopied(null), 2000);
+      await navigator.clipboard.writeText(projectId);
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
     } catch {
       showToast('Could not copy. Select and copy manually.', { variant: 'error' });
     }
@@ -133,7 +121,7 @@ export function ProjectSettingsPage() {
 
   if (isLoading) {
     return (
-      <div style={{ maxWidth: 560 }}>
+      <div style={{ maxWidth: 640, margin: '0 auto', width: '100%' }}>
         <Skeleton height={14} width={180} className="mb-6" />
         <Skeleton height={220} className="mb-3" />
         <Skeleton height={180} className="mb-3" />
@@ -171,13 +159,20 @@ export function ProjectSettingsPage() {
 
   const handleConfirmDelete = () => {
     if (confirmName !== project.name) return;
+    const deletedName = project.name;
     deleteProject.mutate(projectId, {
+      onSuccess: () => {
+        setConfirmOpen(false);
+        showToast(`Deleted "${deletedName}"`, { variant: 'success' });
+        // Back to the dashboard — staying here would 404 on the now-deleted project.
+        void navigate({ to: '/' });
+      },
       onError: (err) => showToast(err instanceof Error ? err.message : 'Failed to delete', { variant: 'error' }),
     });
   };
 
   return (
-    <div style={{ maxWidth: 560 }}>
+    <div style={{ maxWidth: 640, margin: '0 auto', width: '100%' }}>
 
       {/* Page header */}
       <div className="flex items-center gap-2" style={{ marginBottom: 28 }}>
@@ -185,6 +180,22 @@ export function ProjectSettingsPage() {
         <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
           Project Settings
         </span>
+        <button
+          type="button"
+          onClick={copyProjectId}
+          title="Copy project ID"
+          className="flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+          style={{
+            padding: '3px 9px', borderRadius: 999, cursor: 'pointer',
+            background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)',
+            fontSize: 10, fontFamily: 'var(--font-mono)',
+            color: copiedId ? 'var(--color-success)' : 'var(--color-text-tertiary)',
+            transition: 'color .15s',
+          }}
+        >
+          id: {projectId.slice(0, 8)}…
+          {copiedId ? <Check style={{ width: 11, height: 11 }} aria-hidden="true" /> : <Copy style={{ width: 11, height: 11 }} aria-hidden="true" />}
+        </button>
         {isDirty && (
           <span
             aria-live="polite"
@@ -471,77 +482,6 @@ export function ProjectSettingsPage() {
             </button>
           </div>
         </form>
-      </section>
-
-      {/* MCP Integration section */}
-      <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: '3px solid #7c8cf8', marginBottom: 12, borderRadius: 'var(--radius-md)' }}>
-        <div className="flex items-center justify-between" style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border-subtle)' }}>
-          <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
-            MCP Integration
-          </span>
-          <div className="flex items-center gap-1.5" aria-live="polite">
-            {mcpStatus && mcpStatus.count > 0 ? (
-              <>
-                <div aria-hidden="true" style={{ width: 6, height: 6, borderRadius: '50%', background: '#6db58a', boxShadow: '0 0 4px #6db58a' }} />
-                <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: '#6db58a' }}>
-                  {mcpStatus.count} connected
-                </span>
-                <Wifi style={{ width: 11, height: 11, color: '#6db58a' }} aria-hidden="true" />
-              </>
-            ) : (
-              <>
-                <div aria-hidden="true" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-text-secondary)' }} />
-                <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
-                  no connections
-                </span>
-                <WifiOff style={{ width: 11, height: 11, color: 'var(--color-text-secondary)' }} aria-hidden="true" />
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2" style={{ padding: '12px 16px' }}>
-          {[
-            { key: 'id' as const, label: 'Project ID', value: projectId },
-            { key: 'url' as const, label: 'MCP URL — VS Code / Cursor', value: mcpUrl },
-            { key: 'claude' as const, label: 'Claude Code CLI', value: claudeCmd },
-            { key: 'codex' as const, label: 'Codex CLI', value: codexCmd },
-          ].map(({ key, label, value }) => (
-            <div
-              key={key}
-              className="flex items-center justify-between gap-3"
-              style={{ padding: '10px 12px', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-sm)' }}
-            >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginBottom: 3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  {label}
-                </div>
-                <div className="truncate" style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)' }}>
-                  {value}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(value, key)}
-                aria-label={copied === key ? `${label} copied` : `Copy ${label}`}
-                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
-                style={{
-                  flexShrink: 0, color: copied === key ? '#6db58a' : 'var(--color-text-secondary)',
-                  background: 'transparent', border: 'none', cursor: 'pointer', transition: 'color 0.15s',
-                  padding: '8px', borderRadius: 'var(--radius-sm)', minWidth: 32, minHeight: 32,
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                {copied === key ? (
-                  <Check style={{ width: 14, height: 14 }} aria-hidden="true" />
-                ) : (
-                  <Copy style={{ width: 14, height: 14 }} aria-hidden="true" />
-                )}
-                <span className="sr-only" aria-live="polite">{copied === key ? 'Copied' : ''}</span>
-              </button>
-            </div>
-          ))}
-        </div>
       </section>
 
       {/* Access — share with permission groups */}

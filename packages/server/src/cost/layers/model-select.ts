@@ -13,7 +13,7 @@ import { providerRepo } from '../../db/repositories/provider.repo.js';
 export interface Candidate {
   providerId?: string;       // undefined → built-in (resolved by model id)
   model: string;
-  catalogId: string;         // gateway id: `${providerId}/${model}` (custom) or `model` (built-in)
+  catalogId: string;         // gateway id: `${providerId}/${model}` (custom) or `${family}/${model}` (built-in)
   owner: string;             // provider label (custom) or built-in family (anthropic/openai/gemini)
   level: number;             // 1–10
   price: number;             // $/1K in+out (ranking proxy)
@@ -30,11 +30,12 @@ export function defaultLevel(model: string): number {
 
 function builtinCandidate(model: string): Candidate {
   const def = CLAUDE_MODELS[model];
+  const owner = detectBuiltinProvider(model);
   return {
     providerId: undefined,
     model,
-    catalogId: model,
-    owner: detectBuiltinProvider(model),
+    catalogId: `${owner}/${model}`,
+    owner,
     level: defaultLevel(model),
     price: (def?.costPer1kInput ?? 0) + (def?.costPer1kOutput ?? 0),
   };
@@ -67,7 +68,10 @@ async function universe(): Promise<Candidate[]> {
 }
 
 function inScope(c: Candidate, scope: string[]): boolean {
-  return scope.includes(c.catalogId) || scope.includes(`${PROVIDER_SCOPE_PREFIX}${c.owner}`);
+  // Legacy allowlists stored built-ins bare (`claude-x`); accept both shapes.
+  return scope.includes(c.catalogId)
+    || (c.providerId === undefined && scope.includes(c.model))
+    || scope.includes(`${PROVIDER_SCOPE_PREFIX}${c.owner}`);
 }
 
 /** The candidate models for this request (the requested model is always included). */

@@ -7,7 +7,7 @@
  * to carry the other's baggage.
  */
 import { useEffect, useState } from 'react';
-import { Plug, Zap, Image as ImageIcon, Mic, Film, Eye, EyeOff, Trash2, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Plug, Zap, Image as ImageIcon, Mic, Film, Eye, EyeOff, Trash2, Check, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import type { Agent, ExternalAgentAuthType } from '@subagent/shared';
 import { useCreateAgent, useUpdateAgent, useDeleteAgent } from '../../api/hooks/use-agents';
 import { apiPost } from '../../api/client';
@@ -77,18 +77,16 @@ export function ExternalAgentBuilder({ projectId, agent, onClose }: { projectId:
   const [headerName, setHeaderName] = useState(agent?.external?.headerName ?? 'X-API-Key');
   const [secret, setSecret] = useState('');
   const [secretVisible, setSecretVisible] = useState(false);
-  const [defaultModel, setDefaultModel] = useState(agent?.external?.defaultModel ?? '');
   const [supportsImages, setSupportsImages] = useState(agent?.external?.supportsImages ?? false);
   const [supportsAudio, setSupportsAudio] = useState(agent?.external?.supportsAudio ?? false);
   const [supportsVideo, setSupportsVideo] = useState(agent?.external?.supportsVideo ?? false);
   const [supportsStreaming, setSupportsStreaming] = useState(agent?.external?.supportsStreaming ?? true);
-  const [systemPrompt, setSystemPrompt] = useState(agent?.systemPrompt ?? '');
   const [color, setColor] = useState(agent?.color ?? '#c0a0d8');
   const [test, setTest] = useState<TestState>({ status: 'idle' });
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Auto-clear test result when config changes (results are only meaningful for the last-saved shape).
-  useEffect(() => { setTest({ status: 'idle' }); }, [endpointUrl, authType, headerName, secret, defaultModel]);
+  useEffect(() => { setTest({ status: 'idle' }); }, [endpointUrl, authType, headerName, secret]);
 
   const save = () => {
     const trimmed = name.trim();
@@ -100,7 +98,9 @@ export function ExternalAgentBuilder({ projectId, agent, onClose }: { projectId:
       headerName: authType === 'header' ? (headerName.trim() || 'X-API-Key') : '',
       // Send secret only when the user typed one; omit → keep existing on edit.
       ...(secret ? { secret } : {}),
-      defaultModel: defaultModel.trim(),
+      // No UI for these: the `model` field defaults to the agent name server-side, and the
+      // endpoint owns its own persona (existing values survive edits untouched).
+      defaultModel: agent?.external?.defaultModel ?? '',
       supportsImages,
       supportsAudio,
       supportsVideo,
@@ -109,7 +109,7 @@ export function ExternalAgentBuilder({ projectId, agent, onClose }: { projectId:
     };
     if (isEdit && agent) {
       updateAgent.mutate({
-        id: agent.id, name: trimmed, description, systemPrompt,
+        id: agent.id, name: trimmed, description,
         color, external,
       }, {
         onSuccess: () => { showToast('External agent saved.', { variant: 'success' }); onClose(); },
@@ -117,7 +117,7 @@ export function ExternalAgentBuilder({ projectId, agent, onClose }: { projectId:
       });
     } else {
       createAgent.mutate({
-        projectId, role: 'external', name: trimmed, description, systemPrompt,
+        projectId, role: 'external', name: trimmed, description, systemPrompt: '',
         modelConfig: { model: 'external', maxTokens: 4096, temperature: 0.7 },
         color,
         external,
@@ -189,13 +189,6 @@ export function ExternalAgentBuilder({ projectId, agent, onClose }: { projectId:
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <FieldLabel hint="Merged into the OpenAI `messages` payload as a system message. Leave blank to skip.">System prompt (optional)</FieldLabel>
-        <textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} rows={2}
-          placeholder="You are the team's internal document assistant. Answer briefly."
-          style={{ ...inputStyle, height: 'auto', padding: '8px 12px', resize: 'vertical', fontFamily: 'var(--font-mono)', fontSize: 12 }} />
-      </div>
-
-      <div className="flex flex-col gap-1.5">
         <FieldLabel required hint='Full URL of the endpoint that implements POST /v1/chat/completions (or an equivalent path).'>Endpoint URL</FieldLabel>
         <input value={endpointUrl} onChange={(e) => setEndpointUrl(e.target.value)} placeholder="https://vision.internal.company.com/v1/chat/completions"
           style={{ ...inputStyle, fontFamily: 'var(--font-mono)', fontSize: 12 }} />
@@ -244,41 +237,60 @@ export function ExternalAgentBuilder({ projectId, agent, onClose }: { projectId:
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
-        <FieldLabel hint='String sent as the `model` field. Blank → agent name.'>Model name (optional)</FieldLabel>
-        <input value={defaultModel} onChange={(e) => setDefaultModel(e.target.value)} placeholder="vision-v1"
-          style={{ ...inputStyle, fontFamily: 'var(--font-mono)', fontSize: 12 }} />
-      </div>
-
-      {/* Capabilities toggles */}
-      <div style={{ padding: 12, background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)', borderRadius: 10 }}>
-        <div style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-text-disabled)', fontWeight: 700, marginBottom: 8 }}>
-          Capabilities
+      {/* Capabilities — toggle cards */}
+      <div className="flex flex-col gap-2">
+        <FieldLabel hint="What the endpoint accepts. Toggling a card adds the matching attach button to the chat composer.">Capabilities</FieldLabel>
+        <div className="grid grid-cols-2 gap-2">
+          {([
+            { label: 'Images', desc: 'paste / drop / pick', icon: ImageIcon, on: supportsImages, toggle: () => setSupportsImages((v) => !v) },
+            { label: 'Audio', desc: 'mic record + files', icon: Mic, on: supportsAudio, toggle: () => setSupportsAudio((v) => !v) },
+            { label: 'Video', desc: 'video files', icon: Film, on: supportsVideo, toggle: () => setSupportsVideo((v) => !v) },
+            { label: 'Streaming', desc: 'SSE · off = single JSON reply', icon: Zap, on: supportsStreaming, toggle: () => setSupportsStreaming((v) => !v) },
+          ]).map(({ label, desc, icon: Icon, on, toggle }) => (
+            <button
+              key={label}
+              type="button"
+              role="switch"
+              aria-checked={on}
+              onClick={toggle}
+              className="flex items-center gap-3 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+              style={{
+                padding: '10px 12px', minHeight: 52, borderRadius: 'var(--radius-lg)', cursor: 'pointer',
+                background: on ? 'var(--color-accent-subtle)' : 'var(--color-bg-base)',
+                border: `1px solid ${on ? 'rgba(124,140,248,0.45)' : 'var(--color-border-subtle)'}`,
+              }}
+            >
+              <span
+                aria-hidden="true"
+                className="flex items-center justify-center flex-shrink-0"
+                style={{
+                  width: 30, height: 30, borderRadius: '50%',
+                  background: on ? 'var(--color-accent)' : 'var(--color-bg-raised)',
+                  color: on ? '#021526' : 'var(--color-text-secondary)',
+                  transition: 'background .15s, color .15s',
+                }}
+              >
+                <Icon style={{ width: 14, height: 14 }} />
+              </span>
+              <span className="flex flex-col min-w-0" style={{ flex: 1, gap: 1 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: on ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>{label}</span>
+                <span className="truncate" style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-tertiary)' }}>{desc}</span>
+              </span>
+              <span
+                aria-hidden="true"
+                className="flex items-center justify-center flex-shrink-0"
+                style={{
+                  width: 18, height: 18, borderRadius: '50%',
+                  border: `1.5px solid ${on ? 'var(--color-accent)' : 'var(--color-border-default)'}`,
+                  background: on ? 'var(--color-accent)' : 'transparent',
+                  color: '#021526', transition: 'background .15s, border-color .15s',
+                }}
+              >
+                {on && <Check style={{ width: 11, height: 11 }} strokeWidth={3} />}
+              </span>
+            </button>
+          ))}
         </div>
-        <label className="flex items-center gap-2 cursor-pointer" style={{ marginBottom: 8 }}>
-          <input type="checkbox" checked={supportsImages} onChange={(e) => setSupportsImages(e.target.checked)} />
-          <ImageIcon style={{ width: 13, height: 13, color: '#7c8cf8' }} />
-          <span style={{ fontSize: 12.5, color: 'var(--color-text-primary)' }}>Supports images</span>
-          <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>Composer shows an image button + accepts paste/drop.</span>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer" style={{ marginBottom: 8 }}>
-          <input type="checkbox" checked={supportsAudio} onChange={(e) => setSupportsAudio(e.target.checked)} />
-          <Mic style={{ width: 13, height: 13, color: '#d8a0c0' }} />
-          <span style={{ fontSize: 12.5, color: 'var(--color-text-primary)' }}>Supports audio</span>
-          <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>Composer shows a record button + accepts audio files.</span>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer" style={{ marginBottom: 8 }}>
-          <input type="checkbox" checked={supportsVideo} onChange={(e) => setSupportsVideo(e.target.checked)} />
-          <Film style={{ width: 13, height: 13, color: '#8fd4a0' }} />
-          <span style={{ fontSize: 12.5, color: 'var(--color-text-primary)' }}>Supports video</span>
-          <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>Composer accepts video files (OpenAI video_url shape).</span>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" checked={supportsStreaming} onChange={(e) => setSupportsStreaming(e.target.checked)} />
-          <Zap style={{ width: 13, height: 13, color: '#6db58a' }} />
-          <span style={{ fontSize: 12.5, color: 'var(--color-text-primary)' }}>Supports streaming (SSE)</span>
-          <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>Off → wait for a single JSON body reply.</span>
-        </label>
       </div>
 
       {/* Test connection */}
