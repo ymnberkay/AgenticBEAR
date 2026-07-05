@@ -1,0 +1,28 @@
+# Deployed overrides for the "agb" release (namespace agb).
+# ALWAYS pass this with -f so hub mode + SSRF allowlist + ingress survive upgrades.
+# Bump image.tag here instead of using a bare --set, otherwise Helm drops every other override.
+image:
+  repository: agenticbear
+  tag: "1.2.0"
+
+hub:
+  enabled: true
+
+ingress:
+  enabled: true
+  className: nginx
+  host: localhost
+
+security:
+  ssrfAllowedHosts:
+    - pii-agent.default.svc.cluster.local
+    - vision-agent.default.svc.cluster.local
+    - video-agent.default.svc.cluster.local
+
+session:
+  ttlSeconds: 180
+  workspace:
+    nfs:
+      enabled: false
+      server: 192.0.2.10
+      path: /exports/agb
