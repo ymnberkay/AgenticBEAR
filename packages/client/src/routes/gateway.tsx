@@ -286,14 +286,13 @@ export function GatewayPage() {
         </div>
       </div>
 
-      {/* Centered area switcher — sits between the top bar and the sidebar/content split.
-          Transparent so the page ambient shows through and joins the agentic look. */}
+      {/* Centered area switcher — no divider below, so the strip flows into the
+          sidebar/content exactly like the Agentic dashboard. */}
       <div
         className="shrink-0 flex justify-center w-full relative"
         style={{
           padding: '16px 32px',
           background: 'transparent',
-          borderBottom: '1px solid var(--color-border-subtle)',
           zIndex: 2,
         }}
       >

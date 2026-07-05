@@ -1,5 +1,5 @@
 import { Outlet, useParams, Link } from '@tanstack/react-router';
-import { Settings, Search } from 'lucide-react';
+import { Settings, Search, Boxes, ChevronRight } from 'lucide-react';
 import { BranchPill } from '../../components/layout/branch-pill';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useProject } from '../../api/hooks/use-projects';
@@ -73,29 +73,46 @@ export function ProjectDetailPage() {
         }}
       >
         <div className="relative flex items-center w-full" style={{ padding: '0 24px', height: 44 }}>
-          {/* Left: breadcrumb */}
-          <div className="flex items-center gap-2" style={{ flex: '1 1 0', minWidth: 0, fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+          {/* Left: breadcrumb — wordmark › project + status pill */}
+          <div className="flex items-center gap-2" style={{ flex: '1 1 0', minWidth: 0 }}>
             <Link
               to="/"
-              style={{ color: 'var(--color-text-disabled)', textDecoration: 'none', flexShrink: 0, transition: 'color 0.15s' }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#7c8cf8'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-disabled)'; }}
+              className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+              style={{ textDecoration: 'none', flexShrink: 0, borderRadius: 'var(--radius-sm)', padding: '3px 4px 3px 2px' }}
+              onMouseEnter={(e) => { const t = e.currentTarget.querySelector('span'); if (t) (t as HTMLElement).style.color = 'var(--color-text-primary)'; }}
+              onMouseLeave={(e) => { const t = e.currentTarget.querySelector('span'); if (t) (t as HTMLElement).style.color = 'var(--color-text-secondary)'; }}
             >
-              agenticbear
+              <span
+                aria-hidden="true"
+                className="flex items-center justify-center"
+                style={{
+                  width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                  background: 'linear-gradient(135deg, rgba(124,140,248,0.30), rgba(124,140,248,0.10))',
+                  border: '1px solid rgba(124,140,248,0.40)',
+                  color: '#7c8cf8',
+                }}
+              >
+                <Boxes style={{ width: 11, height: 11 }} />
+              </span>
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--color-text-secondary)', transition: 'color .15s' }}>
+                agenticbear
+              </span>
             </Link>
-            <span style={{ color: 'var(--color-border-default)' }}>/</span>
-            <span style={{ color: 'var(--color-text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <ChevronRight aria-hidden="true" style={{ width: 12, height: 12, color: 'var(--color-text-disabled)', flexShrink: 0 }} />
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {project.name}
             </span>
             <span
+              className="flex items-center gap-1.5"
               style={{
                 flexShrink: 0,
-                fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                fontSize: 10, fontWeight: 600, letterSpacing: '0.05em',
                 fontFamily: 'var(--font-mono)',
-                color: status.color, background: `${status.color}12`, border: `1px solid ${status.color}28`,
-                padding: '2px 7px',
+                color: status.color, background: `${status.color}14`, border: `1px solid ${status.color}30`,
+                padding: '2.5px 9px', borderRadius: 999,
               }}
             >
+              <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: '50%', background: status.color, boxShadow: `0 0 5px ${status.color}88` }} />
               {status.label}
             </span>
             <BranchPill project={project} />

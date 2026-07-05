@@ -3,7 +3,7 @@
 # Bump image.tag here instead of using a bare --set, otherwise Helm drops every other override.
 image:
   repository: agenticbear
-  tag: "1.3.3"
+  tag: "1.3.4"
 
 hub:
   enabled: true
