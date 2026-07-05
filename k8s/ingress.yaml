@@ -11,19 +11,16 @@ metadata:
   name: agenticbear
   namespace: agenticbear
   annotations:
-    # Uncomment the appropriate line for your setup:
+    # Uncomment for your setup:
     # cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    # nginx.ingress.kubernetes.io/proxy-body-size: "25m"   # for image attachments
-    # nginx.ingress.kubernetes.io/proxy-read-timeout: "600"   # for long chat streams
-    nginx.ingress.kubernetes.io/proxy-buffering: "off"      # SSE needs this off
+    nginx.ingress.kubernetes.io/proxy-body-size: "64m"       # image/audio/video attachments (matches BODY_LIMIT_MB)
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"    # long chat streams
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"       # SSE needs this off
 spec:
   ingressClassName: nginx
-  tls:
-    - hosts:
-        - agenticbear.example.com   # ← change me
-      secretName: agenticbear-tls
+  # Local cluster: no cert-manager → no tls block; add it back for a real deployment.
   rules:
-    - host: agenticbear.example.com  # ← change me
+    - host: agenticbear.localhost
       http:
         paths:
           - path: /

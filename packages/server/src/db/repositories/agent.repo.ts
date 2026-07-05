@@ -24,6 +24,8 @@ interface AgentRow {
   ext_secret: string;
   ext_default_model: string;
   ext_supports_images: number;
+  ext_supports_audio: number;
+  ext_supports_video: number;
   ext_supports_streaming: number;
   ext_payload_shape: string;
   created_at: string;
@@ -64,6 +66,8 @@ function rowToAgent(row: AgentRow): Agent {
       hasSecret: !!row.ext_secret,
       defaultModel: row.ext_default_model ?? '',
       supportsImages: (row.ext_supports_images ?? 0) === 1,
+      supportsAudio: (row.ext_supports_audio ?? 0) === 1,
+      supportsVideo: (row.ext_supports_video ?? 0) === 1,
       supportsStreaming: (row.ext_supports_streaming ?? 1) === 1,
       payloadShape: (row.ext_payload_shape as 'openai') || 'openai',
     };
@@ -120,9 +124,9 @@ export const agentRepo = {
     const ext = input.role === 'external' ? (input.external ?? {}) : {};
     await db.prepare(`
       INSERT INTO agents (id, project_id, role, name, slug, description, system_prompt, model_config, permissions, template_id, color, icon, x_axis, y_axis,
-        ext_endpoint_url, ext_auth_type, ext_header_name, ext_secret, ext_default_model, ext_supports_images, ext_supports_streaming, ext_payload_shape,
+        ext_endpoint_url, ext_auth_type, ext_header_name, ext_secret, ext_default_model, ext_supports_images, ext_supports_audio, ext_supports_video, ext_supports_streaming, ext_payload_shape,
         created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       input.projectId,
@@ -144,6 +148,8 @@ export const agentRepo = {
       ext.secret ?? '',
       ext.defaultModel ?? '',
       ext.supportsImages ? 1 : 0,
+      ext.supportsAudio ? 1 : 0,
+      ext.supportsVideo ? 1 : 0,
       ext.supportsStreaming === false ? 0 : 1,
       ext.payloadShape ?? 'openai',
       now,
@@ -190,6 +196,8 @@ export const agentRepo = {
     let extSecret = '';
     let extDefaultModel = '';
     let extSupportsImages = 0;
+    let extSupportsAudio = 0;
+    let extSupportsVideo = 0;
     let extSupportsStreaming = 1;
     let extPayloadShape = 'openai';
     if (existing.role === 'external') {
@@ -201,20 +209,22 @@ export const agentRepo = {
       extSecret = patch.secret !== undefined ? patch.secret : (row?.ext_secret ?? '');
       extDefaultModel = patch.defaultModel ?? row?.ext_default_model ?? '';
       extSupportsImages = (patch.supportsImages !== undefined ? patch.supportsImages : (row?.ext_supports_images === 1)) ? 1 : 0;
+      extSupportsAudio = (patch.supportsAudio !== undefined ? patch.supportsAudio : (row?.ext_supports_audio === 1)) ? 1 : 0;
+      extSupportsVideo = (patch.supportsVideo !== undefined ? patch.supportsVideo : (row?.ext_supports_video === 1)) ? 1 : 0;
       extSupportsStreaming = (patch.supportsStreaming !== undefined ? patch.supportsStreaming : (row?.ext_supports_streaming === 1)) ? 1 : 0;
       extPayloadShape = patch.payloadShape ?? row?.ext_payload_shape ?? 'openai';
     }
 
     await db.prepare(`
       UPDATE agents SET name = ?, slug = ?, description = ?, system_prompt = ?, model_config = ?, permissions = ?, color = ?, icon = ?, x_axis = ?, y_axis = ?,
-        ext_endpoint_url = ?, ext_auth_type = ?, ext_header_name = ?, ext_secret = ?, ext_default_model = ?, ext_supports_images = ?, ext_supports_streaming = ?, ext_payload_shape = ?,
+        ext_endpoint_url = ?, ext_auth_type = ?, ext_header_name = ?, ext_secret = ?, ext_default_model = ?, ext_supports_images = ?, ext_supports_audio = ?, ext_supports_video = ?, ext_supports_streaming = ?, ext_payload_shape = ?,
         updated_at = ?
       WHERE id = ?
     `).run(
       name, slug, description, systemPrompt,
       JSON.stringify(modelConfig), JSON.stringify(permissions),
       color, icon, xAxis, yAxis,
-      extEndpoint, extAuth, extHeader, extSecret, extDefaultModel, extSupportsImages, extSupportsStreaming, extPayloadShape,
+      extEndpoint, extAuth, extHeader, extSecret, extDefaultModel, extSupportsImages, extSupportsAudio, extSupportsVideo, extSupportsStreaming, extPayloadShape,
       now, id,
     );
 

@@ -12,6 +12,7 @@ import type { FastifyInstance } from 'fastify';
 import { generateId, isBuiltinProviderId, MODEL_GROUPS, CLAUDE_MODELS, PROVIDER_SCOPE_PREFIX } from '@subagent/shared';
 import type { GatewayKey } from '@subagent/shared';
 import { ClaudeService, type ClaudeCallResult, type ClaudeMessage } from '../services/claude.service.js';
+import type { ContentPart, MessageContent } from '../llm/content.js';
 import { detectBuiltinProvider } from '../llm/provider-registry.js';
 import { providerRepo } from '../db/repositories/provider.repo.js';
 import { settingsRepo } from '../db/repositories/settings.repo.js';
@@ -26,7 +27,18 @@ import type { FastifyRequest } from 'fastify';
 
 const log = createLogger('gateway');
 
-interface OpenAIContentPart { type?: string; text?: string }
+interface OpenAIContentPart {
+  type?: string;
+  text?: string;
+  /** OpenAI vision shape — data-URI (base64) or https URL. */
+  image_url?: { url?: string };
+  /** Video extension used by OpenAI-compatible multimodal endpoints (Qwen, vLLM, …). */
+  video_url?: { url?: string };
+  /** Audio by URL (vLLM/Qwen convention) — data-URI or https URL. */
+  audio_url?: { url?: string };
+  /** OpenAI's official audio-in shape — base64 payload + container format ('wav', 'mp3', …). */
+  input_audio?: { data?: string; format?: string };
+}
 interface OpenAIMessage { role: string; content: string | OpenAIContentPart[] }
 interface OpenAIChatRequest {
   model?: string;
@@ -156,14 +168,34 @@ function partText(c: string | OpenAIContentPart[]): string {
   return (c ?? []).map((p) => p.text ?? '').join('');
 }
 
-/** Split OpenAI messages into a system prompt + user/assistant turns. */
-function splitMessages(messages: OpenAIMessage[]): { systemPrompt?: string; turns: ClaudeMessage[] } {
+/**
+ * Normalize an OpenAI content body, KEEPING media parts (image_url/video_url) so they reach the
+ * provider. Text-only bodies collapse back to a plain string (identical to the pre-media behavior).
+ */
+function partContent(c: string | OpenAIContentPart[]): MessageContent {
+  if (typeof c === 'string') return c;
+  const parts: ContentPart[] = [];
+  for (const p of c ?? []) {
+    if (p.type === 'image_url' && p.image_url?.url) parts.push({ type: 'image_url', image_url: { url: p.image_url.url } });
+    else if (p.type === 'video_url' && p.video_url?.url) parts.push({ type: 'video_url', video_url: { url: p.video_url.url } });
+    else if (p.type === 'audio_url' && p.audio_url?.url) parts.push({ type: 'audio_url', audio_url: { url: p.audio_url.url } });
+    else if (p.type === 'input_audio' && p.input_audio?.data) {
+      // Normalize OpenAI's {data, format} to a data-URI; the egress converts it back.
+      parts.push({ type: 'audio_url', audio_url: { url: `data:audio/${p.input_audio.format || 'wav'};base64,${p.input_audio.data}` } });
+    }
+    else if (typeof p.text === 'string') parts.push({ type: 'text', text: p.text });
+  }
+  if (parts.every((p) => p.type === 'text')) return partText(c);
+  return parts;
+}
+
+/** Split OpenAI messages into a system prompt + user/assistant turns (media parts preserved). */
+export function splitMessages(messages: OpenAIMessage[]): { systemPrompt?: string; turns: ClaudeMessage[] } {
   const systemParts: string[] = [];
   const turns: ClaudeMessage[] = [];
   for (const m of messages) {
-    const text = partText(m.content);
-    if (m.role === 'system') systemParts.push(text);
-    else if (m.role === 'user' || m.role === 'assistant') turns.push({ role: m.role, content: text });
+    if (m.role === 'system') systemParts.push(partText(m.content));
+    else if (m.role === 'user' || m.role === 'assistant') turns.push({ role: m.role, content: partContent(m.content) });
     // tool/function roles are ignored in v1
   }
   return { systemPrompt: systemParts.length ? systemParts.join('\n\n') : undefined, turns };
@@ -369,8 +401,25 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
 
     // ── DLP egress guard — redact (or block) secrets/PII before the prompt leaves to the provider ──
     // Single shared helper with the agentic path: both call `redactEgress` so policy can never drift.
+    // Media parts (image/video) pass through unscanned; every text slot — plain turns AND text parts
+    // inside multimodal turns — is scanned and written back in place.
     {
-      const guarded = await redactEgress({ systemPrompt, turns, model: body.model });
+      const slots: Array<{ turn: number; part: number | null }> = [];
+      const dlpTurns: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+      turns.forEach((t, ti) => {
+        if (typeof t.content === 'string') {
+          slots.push({ turn: ti, part: null });
+          dlpTurns.push({ role: t.role, content: t.content });
+        } else {
+          t.content.forEach((p, pi) => {
+            if (p.type === 'text') {
+              slots.push({ turn: ti, part: pi });
+              dlpTurns.push({ role: t.role, content: p.text });
+            }
+          });
+        }
+      });
+      const guarded = await redactEgress({ systemPrompt, turns: dlpTurns, model: body.model });
       if (guarded.redacted > 0) {
         if (costConfig.dlp.block) {
           await recordEvent(request, body.model, groupId, 'dlp_blocked', guarded.types.join(',') || 'dlp', null);
@@ -381,10 +430,12 @@ export async function gatewayRoutes(app: FastifyInstance): Promise<void> {
         log.info(`DLP redacted ${guarded.redacted} item(s) [${guarded.types.join(', ')}] before egress`);
       }
       systemPrompt = guarded.systemPrompt;
-      for (let i = 0; i < turns.length; i++) {
+      slots.forEach((s, i) => {
         const next = guarded.turns[i]?.content;
-        if (typeof next === 'string') turns[i]!.content = next;
-      }
+        if (typeof next !== 'string') return;
+        if (s.part === null) turns[s.turn]!.content = next;
+        else (turns[s.turn]!.content as ContentPart[])[s.part] = { type: 'text', text: next };
+      });
     }
 
     const maxTokens = body.max_completion_tokens ?? body.max_tokens ?? DEFAULT_MAX_TOKENS;

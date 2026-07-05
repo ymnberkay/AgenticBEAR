@@ -7,7 +7,7 @@
  * to carry the other's baggage.
  */
 import { useEffect, useState } from 'react';
-import { Plug, Zap, Image as ImageIcon, Eye, EyeOff, Trash2, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Plug, Zap, Image as ImageIcon, Mic, Film, Eye, EyeOff, Trash2, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import type { Agent, ExternalAgentAuthType } from '@subagent/shared';
 import { useCreateAgent, useUpdateAgent, useDeleteAgent } from '../../api/hooks/use-agents';
 import { apiPost } from '../../api/client';
@@ -79,6 +79,8 @@ export function ExternalAgentBuilder({ projectId, agent, onClose }: { projectId:
   const [secretVisible, setSecretVisible] = useState(false);
   const [defaultModel, setDefaultModel] = useState(agent?.external?.defaultModel ?? '');
   const [supportsImages, setSupportsImages] = useState(agent?.external?.supportsImages ?? false);
+  const [supportsAudio, setSupportsAudio] = useState(agent?.external?.supportsAudio ?? false);
+  const [supportsVideo, setSupportsVideo] = useState(agent?.external?.supportsVideo ?? false);
   const [supportsStreaming, setSupportsStreaming] = useState(agent?.external?.supportsStreaming ?? true);
   const [systemPrompt, setSystemPrompt] = useState(agent?.systemPrompt ?? '');
   const [color, setColor] = useState(agent?.color ?? '#c0a0d8');
@@ -100,6 +102,8 @@ export function ExternalAgentBuilder({ projectId, agent, onClose }: { projectId:
       ...(secret ? { secret } : {}),
       defaultModel: defaultModel.trim(),
       supportsImages,
+      supportsAudio,
+      supportsVideo,
       supportsStreaming,
       payloadShape: 'openai' as const,
     };
@@ -256,6 +260,18 @@ export function ExternalAgentBuilder({ projectId, agent, onClose }: { projectId:
           <ImageIcon style={{ width: 13, height: 13, color: '#7c8cf8' }} />
           <span style={{ fontSize: 12.5, color: 'var(--color-text-primary)' }}>Supports images</span>
           <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>Composer shows an image button + accepts paste/drop.</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer" style={{ marginBottom: 8 }}>
+          <input type="checkbox" checked={supportsAudio} onChange={(e) => setSupportsAudio(e.target.checked)} />
+          <Mic style={{ width: 13, height: 13, color: '#d8a0c0' }} />
+          <span style={{ fontSize: 12.5, color: 'var(--color-text-primary)' }}>Supports audio</span>
+          <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>Composer shows a record button + accepts audio files.</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer" style={{ marginBottom: 8 }}>
+          <input type="checkbox" checked={supportsVideo} onChange={(e) => setSupportsVideo(e.target.checked)} />
+          <Film style={{ width: 13, height: 13, color: '#8fd4a0' }} />
+          <span style={{ fontSize: 12.5, color: 'var(--color-text-primary)' }}>Supports video</span>
+          <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>Composer accepts video files (OpenAI video_url shape).</span>
         </label>
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" checked={supportsStreaming} onChange={(e) => setSupportsStreaming(e.target.checked)} />

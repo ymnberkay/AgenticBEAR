@@ -9,9 +9,36 @@
  *
  * DNS is resolved here and the checked result is returned so callers can pin the connection to the
  * validated IP if they want to close the TOCTOU/DNS-rebinding window.
+ *
+ * Escape hatch: SSRF_ALLOWED_HOSTS (comma-separated) lists hostnames that may resolve to private
+ * addresses — e.g. in-cluster agent services (`pii-agent.default.svc.cluster.local`). Entries are
+ * exact hostnames or `*.suffix` wildcards. Only the operator can set env, so a project member
+ * still cannot point an agent at an arbitrary internal service.
  */
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+
+/** Parse SSRF_ALLOWED_HOSTS. Read per call (not module-load) so tests and re-config work. */
+function allowedHostPatterns(): string[] {
+  return (process.env.SSRF_ALLOWED_HOSTS ?? '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/** True when `hostname` matches an allowlist entry (exact, or `*.suffix` wildcard). */
+export function isAllowlistedHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  for (const pat of allowedHostPatterns()) {
+    if (pat.startsWith('*.')) {
+      const suffix = pat.slice(1); // ".svc.cluster.local"
+      if (host.endsWith(suffix) && host.length > suffix.length) return true;
+    } else if (host === pat) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /** True if `ip` (v4 or v6 literal) is loopback, private, link-local, or otherwise non-public. */
 export function isPrivateIp(ip: string): boolean {
@@ -77,6 +104,10 @@ export async function assertPublicHttpUrl(raw: string): Promise<SafeUrl> {
     }
   }
 
+  // Operator allowlist (SSRF_ALLOWED_HOSTS) — trusted internal hosts skip the private-IP check.
+  // Hostnames only: a literal-IP entry would silently re-open the metadata/loopback door.
+  const allowlisted = !isIP(hostname) && isAllowlistedHost(hostname);
+
   // Literal IP → check directly, no DNS.
   if (isIP(hostname)) {
     if (isPrivateIp(hostname)) throw new Error('Endpoint URL resolves to a non-public address.');
@@ -91,8 +122,10 @@ export async function assertPublicHttpUrl(raw: string): Promise<SafeUrl> {
   }
   if (resolved.length === 0) throw new Error('Endpoint URL host could not be resolved.');
   // Reject if ANY resolved address is non-public (defends against split/rebinding tricks).
-  for (const r of resolved) {
-    if (isPrivateIp(r.address)) throw new Error('Endpoint URL resolves to a non-public address.');
+  if (!allowlisted) {
+    for (const r of resolved) {
+      if (isPrivateIp(r.address)) throw new Error('Endpoint URL resolves to a non-public address.');
+    }
   }
   const first = resolved[0]!;
   return { url, address: first.address, family: first.family };

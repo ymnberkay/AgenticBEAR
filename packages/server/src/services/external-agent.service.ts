@@ -23,7 +23,9 @@ const log = createLogger('external-agent');
 
 export type ExternalContentPart =
   | { type: 'text'; text: string }
-  | { type: 'image_url'; image_url: { url: string } };
+  | { type: 'image_url'; image_url: { url: string } }
+  | { type: 'input_audio'; input_audio: { data: string; format: string } }
+  | { type: 'video_url'; video_url: { url: string } };
 
 export interface ExternalMessage {
   role: 'user' | 'assistant' | 'system';

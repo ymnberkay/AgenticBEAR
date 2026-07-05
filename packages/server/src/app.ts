@@ -38,6 +38,7 @@ import { rbacHook } from './middleware/rbac.js';
 export async function buildApp(clientDist?: string): Promise<FastifyInstance> {
   const app = Fastify({
     logger: false, // We use our own logger
+    bodyLimit: config.bodyLimitMb * 1024 * 1024,
   });
 
   await registerCors(app);
@@ -96,6 +97,19 @@ export async function buildApp(clientDist?: string): Promise<FastifyInstance> {
   // Health check
   app.get('/api/health', async () => {
     return { status: 'ok', timestamp: new Date().toISOString() };
+  });
+
+  // Public runtime config — the client reads operator-set upload limits from here
+  // (fed by env / Helm values) instead of compiling them into the bundle.
+  app.get('/api/config', async () => {
+    const u = config.uploads;
+    return {
+      uploads: {
+        maxImageMb: u.maxImageMb, maxAudioMb: u.maxAudioMb, maxVideoMb: u.maxVideoMb,
+        maxImages: u.maxImages, maxAudioClips: u.maxAudioClips, maxVideos: u.maxVideos,
+      },
+      bodyLimitMb: config.bodyLimitMb,
+    };
   });
 
   // In production, serve built React client as static files (hub/standalone only)

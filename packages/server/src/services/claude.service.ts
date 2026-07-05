@@ -3,13 +3,15 @@ import type { ClaudeModel } from '@subagent/shared';
 import { costMiddleware } from '../cost/middleware.js';
 import type { CallMeta, Classifier, Executor } from '../cost/types.js';
 import { complete as llmComplete } from '../llm/client.js';
+import type { MessageContent } from '../llm/content.js';
 import { modelPricing, resolveProvider } from '../llm/provider-registry.js';
 
 const log = createLogger('claude');
 
 export interface ClaudeMessage {
   role: 'user' | 'assistant';
-  content: string;
+  /** Plain text or multimodal (image/video) parts — see llm/content.ts. */
+  content: MessageContent;
 }
 
 export interface ClaudeCallParams {

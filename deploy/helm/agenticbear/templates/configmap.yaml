@@ -38,8 +38,24 @@ data:
   DLP_PII:     {{ .Values.dlp.pii     | quote }}
   DLP_BLOCK:   {{ .Values.dlp.block   | quote }}
 
+  # ── SSRF guard — in-cluster hosts external agents may call (reaches session pods too) ──
+  {{- with (.Values.security).ssrfAllowedHosts }}
+  SSRF_ALLOWED_HOSTS: {{ join "," . | quote }}
+  {{- end }}
+
   # ── Issue-tracker inbound pull ──
   ISSUE_PULL_INTERVAL_MS: {{ .Values.issuePull.intervalMs | quote }}
+
+  # ── Chat attachment upload limits (client reads these via /api/config) ──
+  {{- with .Values.uploads }}
+  BODY_LIMIT_MB:   {{ .bodyLimitMb   | quote }}
+  MAX_IMAGE_MB:    {{ .maxImageMb    | quote }}
+  MAX_AUDIO_MB:    {{ .maxAudioMb    | quote }}
+  MAX_VIDEO_MB:    {{ .maxVideoMb    | quote }}
+  MAX_IMAGES:      {{ .maxImages     | quote }}
+  MAX_AUDIO_CLIPS: {{ .maxAudioClips | quote }}
+  MAX_VIDEOS:      {{ .maxVideos     | quote }}
+  {{- end }}
 
   # ── Agent runtime ──
   AGENT_SHELL: {{ .Values.agent.shell | quote }}

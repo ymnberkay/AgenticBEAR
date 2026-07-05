@@ -12,6 +12,7 @@
 import type { ClaudeModel } from '@subagent/shared';
 import type { RouterTier } from '../config.js';
 import { costConfig } from '../config.js';
+import { contentText, hasMediaParts } from '../../llm/content.js';
 import { modelPricing } from '../../llm/provider-registry.js';
 import { actualCallCost } from '../pricing.js';
 import {
@@ -34,16 +35,21 @@ export interface RouterDecision {
 /** Sınıflandırmaya gönderilecek kullanıcı metni için üst sınır (maliyeti küçük tut). */
 const CLASSIFY_INPUT_CHAR_CAP = 2000;
 
-/** Bu çağrı router'a sokulmalı mı? routing/classification kendisi router'dan geçmez. */
+/**
+ * Bu çağrı router'a sokulmalı mı? routing/classification kendisi router'dan geçmez.
+ * Media (image/video) taşıyan istekler de geçmez — sınıflandırıcı görseli göremez ve
+ * downgrade hedefi vision desteklemeyebilir; istenen modelde kal.
+ */
 export function isRoutable(req: LlmRequest): boolean {
+  if (hasMediaParts(req.messages)) return false;
   return req.meta.callKind !== 'routing' && req.meta.callKind !== 'classification';
 }
 
 function lastUserText(req: LlmRequest): string {
   for (let i = req.messages.length - 1; i >= 0; i--) {
-    if (req.messages[i].role === 'user') return req.messages[i].content;
+    if (req.messages[i].role === 'user') return contentText(req.messages[i].content);
   }
-  return req.messages.map((m) => m.content).join('\n');
+  return req.messages.map((m) => contentText(m.content)).join('\n');
 }
 
 function keepRequested(req: LlmRequest, tier: RouterTier | null): RouterDecision {

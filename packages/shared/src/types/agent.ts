@@ -25,6 +25,10 @@ export interface ExternalAgentConfig {
   defaultModel: string;
   /** True → composer allows image attachments (OpenAI image_url shape). */
   supportsImages: boolean;
+  /** True → composer allows audio attachments (mic recording / audio files, OpenAI input_audio shape). */
+  supportsAudio: boolean;
+  /** True → composer allows video attachments (video files, OpenAI video_url shape). */
+  supportsVideo: boolean;
   /** True → we parse SSE frames; false → wait for a JSON body. */
   supportsStreaming: boolean;
   payloadShape: ExternalAgentPayloadShape;

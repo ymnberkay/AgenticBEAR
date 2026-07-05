@@ -32,7 +32,8 @@ function load(projectId: string): Conversation[] {
 /** Multi-conversation chat history, persisted per project in localStorage. */
 export function useConversations(projectId: string) {
   const [conversations, setConversations] = useState<Conversation[]>(() => load(projectId));
-  const [activeId, setActiveId] = useState<string | null>(() => load(projectId)[0]?.id ?? null);
+  // Entering chat always lands on a fresh (unsaved) chat; older ones are picked from the rail.
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   // Persist on change.
   useEffect(() => {
@@ -41,9 +42,8 @@ export function useConversations(projectId: string) {
 
   // Reload when switching projects.
   useEffect(() => {
-    const list = load(projectId);
-    setConversations(list);
-    setActiveId(list[0]?.id ?? null);
+    setConversations(load(projectId));
+    setActiveId(null);
   }, [projectId]);
 
   const active = conversations.find((c) => c.id === activeId) ?? null;

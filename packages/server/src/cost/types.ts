@@ -4,12 +4,14 @@
  */
 import type Anthropic from '@anthropic-ai/sdk';
 import type { ClaudeModel, ProviderKind } from '@subagent/shared';
+import type { MessageContent } from '../llm/content.js';
 import type { RouterTier } from './config.js';
 import type { Pricing } from './pricing.js';
 
 export interface LlmMessage {
   role: 'user' | 'assistant';
-  content: string;
+  /** Düz metin veya multimodal (image/video) parçalar — bkz. llm/content.ts. */
+  content: MessageContent;
 }
 
 /**

@@ -16,6 +16,7 @@ import { costConfig } from '../config.js';
 import { getEmbedder } from '../embedding.js';
 import { QdrantStore } from '../vector-store.js';
 import { canonicalText, namespaceOf, promptHash, agentNamespace } from '../hash.js';
+import { hasMediaParts } from '../../llm/content.js';
 import { poolFor, cheapest } from './model-select.js';
 import type { CacheKind, CachePayload, Classifier, Embedder, LlmRequest, LlmResult, VectorStore } from '../types.js';
 
@@ -67,6 +68,8 @@ export function __setBackendsForTest(opts: { embedder?: Embedder | null; store?:
  */
 export function isCacheable(req: LlmRequest): boolean {
   if (req.meta.cacheable !== true) return false;
+  // Media (image/video) girdisi metin anahtarına sığmaz → yanlış hit riski; cache dışı bırak.
+  if (hasMediaParts(req.messages)) return false;
   // FAQ-mode (lastUser) keys explicitly opt into caching regardless of temperature.
   if (req.meta.cacheScope !== 'lastUser' && typeof req.temperature === 'number' && req.temperature > 0.3) return false;
   if (req.meta.callKind === 'routing' || req.meta.callKind === 'classification') return false;

@@ -10,7 +10,7 @@ namespace: agenticbear
 resources:
   - namespace.yaml
   - configmap.yaml
-  # - secret.yaml            # copy secret.example.yaml → secret.yaml, then uncomment
+  - secret.yaml              # copied from secret.example.yaml (git-ignored)
   - pvc.yaml
   # - postgres.yaml          # uncomment for the bundled in-cluster Postgres
   - deployment.yaml
@@ -20,7 +20,8 @@ resources:
 commonLabels:
   app.kubernetes.io/part-of: agenticbear
 
-# You can override the image tag per-cluster with a kustomize overlay, e.g.:
-#   images:
-#     - name: ghcr.io/ymnberkay/agenticbear
-#       newTag: 1.2.3
+# Local Docker Desktop cluster: the image is built locally (no registry pull).
+images:
+  - name: ghcr.io/ymnberkay/agenticbear
+    newName: agenticbear
+    newTag: "1.1.0"

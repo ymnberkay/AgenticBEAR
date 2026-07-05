@@ -117,3 +117,8 @@ export type {
   UpdateGoalInput,
   BulkCreateGoalsResult,
 } from './goal.js';
+
+export type {
+  UploadLimits,
+  PublicConfig,
+} from './config.js';

@@ -19,6 +19,7 @@ import {
 } from './provider-registry.js';
 import { acquire, modelTimeoutMs } from '../services/rate-limiter.service.js';
 import { extendedTtlEnabled } from '../cost/layers/prompt-cache.js';
+import { parseDataUrl, type MessageContent } from './content.js';
 
 /** Catalog model id used to key per-model limits (custom → `providerId/model`; built-in → bare id). */
 export function limiterKey(providerId: string | null | undefined, model: string): string {
@@ -29,7 +30,8 @@ const log = createLogger('llm');
 
 export interface UnifiedMessage {
   role: 'user' | 'assistant';
-  content: string;
+  /** Plain text or multimodal (image/video) parts — see content.ts. */
+  content: MessageContent;
 }
 
 export interface UnifiedRequest {
@@ -84,6 +86,22 @@ export async function complete(
   }
 }
 
+/** OpenAI-style parts → Anthropic content blocks. Video/audio have no Anthropic equivalent → hard error. */
+function toAnthropicContent(content: MessageContent, providerLabel: string): string | Anthropic.ContentBlockParam[] {
+  if (typeof content === 'string') return content;
+  return content.map((p): Anthropic.ContentBlockParam => {
+    if (p.type === 'text') return { type: 'text', text: p.text };
+    if (p.type === 'image_url') {
+      const parsed = parseDataUrl(p.image_url.url);
+      return parsed
+        ? { type: 'image', source: { type: 'base64', media_type: parsed.mediaType as 'image/png', data: parsed.data } }
+        : ({ type: 'image', source: { type: 'url', url: p.image_url.url } } as Anthropic.ContentBlockParam);
+    }
+    const kind = p.type === 'video_url' ? 'video' : 'ses';
+    throw new Error(`${providerLabel} ${kind} girdisini desteklemiyor — ${kind} için OpenAI-uyumlu veya Gemini bir model kullanın`);
+  });
+}
+
 // ── Anthropic (native + compatible) ───────────────────────────────────────────
 async function callAnthropic(
   req: UnifiedRequest,
@@ -107,7 +125,7 @@ async function callAnthropic(
     max_tokens: req.maxTokens,
     temperature: req.temperature,
     system,
-    messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
+    messages: req.messages.map((m) => ({ role: m.role, content: toAnthropicContent(m.content, provider.label) })),
     stop_sequences: req.stopSequences,
   };
 
@@ -164,6 +182,21 @@ function chatCompletionsUrl(base: string): string {
   }
 }
 
+/**
+ * Internal parts → OpenAI wire shape. Text/image/video pass through untouched; audio data-URIs
+ * become the official `input_audio` {data, format} shape (remote audio URLs stay `audio_url`,
+ * the vLLM/Qwen convention).
+ */
+function toOpenAiContent(content: MessageContent): string | unknown[] {
+  if (typeof content === 'string') return content;
+  return content.map((p) => {
+    if (p.type !== 'audio_url') return p;
+    const parsed = parseDataUrl(p.audio_url.url);
+    if (!parsed) return p;
+    return { type: 'input_audio', input_audio: { data: parsed.data, format: parsed.mediaType.split('/')[1] ?? 'wav' } };
+  });
+}
+
 // ── OpenAI-compatible (OpenAI, DeepSeek, Azure Foundry, Ollama, LM Studio, Groq, …) ──
 async function callOpenAICompatible(
   req: UnifiedRequest,
@@ -172,9 +205,11 @@ async function callOpenAICompatible(
   timeoutMs?: number,
 ): Promise<UnifiedResult> {
   const url = chatCompletionsUrl(provider.baseUrl || 'https://api.openai.com/v1');
-  const messages: Array<{ role: string; content: string }> = [];
+  // Multimodal parts already use the OpenAI vision shape (image_url/video_url) → pass through as-is.
+  // Audio data-URIs are rewritten to OpenAI's official `input_audio` {data, format} shape.
+  const messages: Array<{ role: string; content: string | unknown[] }> = [];
   if (req.systemPrompt) messages.push({ role: 'system', content: req.systemPrompt });
-  for (const m of req.messages) messages.push({ role: m.role, content: m.content });
+  for (const m of req.messages) messages.push({ role: m.role, content: toOpenAiContent(m.content) });
 
   const body: Record<string, unknown> = { model: req.model, messages };
   // o-series reasoning models reject temperature / use max_completion_tokens.
@@ -221,6 +256,19 @@ async function callOpenAICompatible(
   };
 }
 
+/** OpenAI-style parts → Gemini parts. Data-URIs become inline_data; plain URLs become file_data. */
+function toGeminiParts(content: MessageContent): Array<Record<string, unknown>> {
+  if (typeof content === 'string') return [{ text: content }];
+  return content.map((p) => {
+    if (p.type === 'text') return { text: p.text };
+    const url = p.type === 'image_url' ? p.image_url.url : p.type === 'video_url' ? p.video_url.url : p.audio_url.url;
+    const parsed = parseDataUrl(url);
+    return parsed
+      ? { inline_data: { mime_type: parsed.mediaType, data: parsed.data } }
+      : { file_data: { file_uri: url } };
+  });
+}
+
 // ── Gemini ────────────────────────────────────────────────────────────────────
 async function callGemini(
   req: UnifiedRequest,
@@ -240,7 +288,7 @@ async function callGemini(
       ...(req.systemPrompt ? { system_instruction: { parts: [{ text: req.systemPrompt }] } } : {}),
       contents: req.messages.map((m) => ({
         role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }],
+        parts: toGeminiParts(m.content),
       })),
       generationConfig: {
         ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),

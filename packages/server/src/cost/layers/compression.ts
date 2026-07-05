@@ -8,6 +8,7 @@
  *   - safe transforms only (whitespace/JSON minify + head/tail truncation), no neural/AST rewrite.
  */
 import { costConfig } from '../config.js';
+import { hasMediaParts } from '../../llm/content.js';
 import { estimatePrefixTokens } from './prompt-cache.js';
 import type { LlmRequest } from '../types.js';
 
@@ -95,6 +96,7 @@ export function compress(req: LlmRequest): CompressionResult {
   let originalTokens = 0;
   let compressedTokens = 0;
   const messages = req.messages.map((m) => {
+    if (typeof m.content !== 'string') return m; // multimodal parts pass through untouched
     const compressed = compressText(m.content);
     originalTokens += estimatePrefixTokens(m.content);
     compressedTokens += estimatePrefixTokens(compressed);
@@ -103,9 +105,9 @@ export function compress(req: LlmRequest): CompressionResult {
   return { req: { ...req, messages }, originalTokens, compressedTokens };
 }
 
-/** Should this request be compressed? Off when meta opts out. */
+/** Should this request be compressed? Off when meta opts out or media (image/video) is attached. */
 export function isCompressible(req: LlmRequest): boolean {
-  return req.meta.compressible !== false;
+  return req.meta.compressible !== false && !hasMediaParts(req.messages);
 }
 
 /**

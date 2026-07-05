@@ -12,6 +12,18 @@ export interface ChatImage {
   name?: string;
 }
 
+/** Audio clip (mic recording / audio file) sent alongside the CURRENT user message. */
+export interface ChatAudio {
+  dataUrl: string;
+  name?: string;
+}
+
+/** Video clip sent alongside the CURRENT user message (external agents with supportsVideo). */
+export interface ChatVideo {
+  dataUrl: string;
+  name?: string;
+}
+
 export interface ToolEvent {
   kind: 'tool' | 'toolResult' | 'write' | 'delegate' | 'pendingWrite';
   name?: string;
@@ -70,7 +82,7 @@ export async function streamChat(
   agentId: string,
   messages: ChatMessage[],
   handlers: StreamHandlers,
-  opts: { images?: ChatImage[] } = {},
+  opts: { images?: ChatImage[]; audio?: ChatAudio[]; video?: ChatVideo[] } = {},
 ): Promise<void> {
   let res: Response;
   try {
@@ -78,7 +90,12 @@ export async function streamChat(
     res = await apiFetch(`/api/projects/${projectId}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ agentId, messages, ...(opts.images && opts.images.length > 0 ? { images: opts.images } : {}) }),
+      body: JSON.stringify({
+        agentId, messages,
+        ...(opts.images && opts.images.length > 0 ? { images: opts.images } : {}),
+        ...(opts.audio && opts.audio.length > 0 ? { audio: opts.audio } : {}),
+        ...(opts.video && opts.video.length > 0 ? { video: opts.video } : {}),
+      }),
     });
   } catch (e) {
     handlers.onError?.(e instanceof Error ? e.message : 'network error');

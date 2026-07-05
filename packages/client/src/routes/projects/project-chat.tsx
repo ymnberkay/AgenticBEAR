@@ -13,7 +13,7 @@ import { DiffView } from '../../components/workspace/diff-view';
 import { streamChat, sendApprovalDecision, type ChatMessage, type ToolEvent, type ApprovalRequest } from '../../api/chat';
 import type { FileChange } from '@subagent/shared';
 import { ChatMessage as ChatBubble } from '../../components/chat/chat-message';
-import { ChatComposer, type ChatImage } from '../../components/chat/chat-composer';
+import { ChatComposer, type ChatImage, type ChatAudio, type ChatVideo } from '../../components/chat/chat-composer';
 import { useConversations, type ChatEntry } from '../../components/chat/use-conversations';
 import { useToast } from '../../components/ui/toast';
 import { Dialog } from '../../components/ui/dialog';
@@ -80,6 +80,8 @@ export function ProjectChatPage() {
   // Draft persists across navigating away/back (restored on remount).
   const [input, setInput] = useState(() => { try { return localStorage.getItem(draftKey) ?? ''; } catch { return ''; } });
   const [images, setImages] = useState<ChatImage[]>([]);
+  const [audioClips, setAudioClips] = useState<ChatAudio[]>([]);
+  const [videoClips, setVideoClips] = useState<ChatVideo[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [agentId, setAgentId] = useState('');
   const [railOpen, setRailOpen] = useState(true);
@@ -186,19 +188,25 @@ export function ProjectChatPage() {
 
   async function send() {
     const text = input.trim();
-    if (!text || !agentId || streaming) return;
+    const hasAttachments = images.length > 0 || audioClips.length > 0 || videoClips.length > 0;
+    if ((!text && !hasAttachments) || !agentId || streaming) return;
     setStreamError(null);
 
     // Ensure a conversation exists.
     let id = conv.activeId;
     if (!id) id = conv.startNew(agentId);
 
+    // Attachment-only turn → give the transcript (and the model) a minimal text stand-in.
+    const turnText = text
+      || (audioClips.length > 0 ? '🎤 (voice message)'
+        : videoClips.length > 0 ? '🎬 (video)'
+        : '🖼 (image)');
     const history: ChatMessage[] = [
       ...messages.map((m) => ({ role: m.role, content: m.content })),
-      { role: 'user', content: text },
+      { role: 'user', content: turnText },
     ];
     // `work` is the live source of truth; we clone it into state on each chunk for rendering.
-    const work: ChatEntry[] = [...messages, { role: 'user', content: text }, { role: 'assistant', content: '' }];
+    const work: ChatEntry[] = [...messages, { role: 'user', content: turnText }, { role: 'assistant', content: '' }];
     setMessages([...work]);
     setInput('');
     setStreaming(true);
@@ -207,9 +215,13 @@ export function ProjectChatPage() {
 
     const touched: string[] = [];
     lastInputRef.current = { history, text };
-    // Snapshot images for THIS turn, then clear the composer's list — attachments are per-turn.
+    // Snapshot attachments for THIS turn, then clear the composer's lists — attachments are per-turn.
     const turnImages = images;
+    const turnAudio = audioClips;
+    const turnVideo = videoClips;
     setImages([]);
+    setAudioClips([]);
+    setVideoClips([]);
     await streamChat(projectId, agentId, history, {
       onDelta: (t) => setLast((last) => ({ ...last, content: last.content + t })),
       onTool: (e) => {
@@ -231,7 +243,11 @@ export function ProjectChatPage() {
         setApproval(null);
         showToast(m, { variant: 'error' });
       },
-    }, { images: turnImages.length > 0 ? turnImages.map((im) => ({ dataUrl: im.dataUrl, name: im.name })) : undefined });
+    }, {
+      images: turnImages.length > 0 ? turnImages.map((im) => ({ dataUrl: im.dataUrl, name: im.name })) : undefined,
+      audio: turnAudio.length > 0 ? turnAudio.map((a) => ({ dataUrl: a.dataUrl, name: a.name })) : undefined,
+      video: turnVideo.length > 0 ? turnVideo.map((v) => ({ dataUrl: v.dataUrl, name: v.name })) : undefined,
+    });
     setStreaming(false);
     setApproval(null);
 
@@ -689,6 +705,12 @@ export function ProjectChatPage() {
                 onAttach={() => setPanel('knowledge')}
                 {...(activeAgent?.role === 'external' && activeAgent.external?.supportsImages
                   ? { images, onImagesChange: setImages }
+                  : {})}
+                {...(activeAgent?.role === 'external' && activeAgent.external?.supportsAudio
+                  ? { audio: audioClips, onAudioChange: setAudioClips }
+                  : {})}
+                {...(activeAgent?.role === 'external' && activeAgent.external?.supportsVideo
+                  ? { video: videoClips, onVideoChange: setVideoClips }
                   : {})}
               />
               <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', textAlign: 'center', marginTop: 6 }}>

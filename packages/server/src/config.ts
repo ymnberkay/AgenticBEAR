@@ -42,6 +42,22 @@ export const config = {
   dbPath: process.env.DB_PATH ?? defaultDbPath,
   // In production the client is served from the same origin
   clientUrl: process.env.CLIENT_URL ?? (isProduction ? `http://localhost:${port}` : 'http://localhost:5173'),
+  /** Max request body (MB). Base64 image/video attachments blow past Fastify's 1 MiB default. */
+  bodyLimitMb: parseInt(process.env.BODY_LIMIT_MB ?? '64', 10),
+  /**
+   * Per-attachment upload limits — surfaced to the client via GET /api/config.
+   * NOTE: base64 inflates a file ~1.34x, so a single attachment must satisfy
+   * `maxVideoMb * 1.34 < bodyLimitMb`. Defaults keep a 40 MB video under the 64 MB body cap;
+   * raise both together (MAX_VIDEO_MB + BODY_LIMIT_MB) for larger clips.
+   */
+  uploads: {
+    maxImageMb: parseInt(process.env.MAX_IMAGE_MB ?? '20', 10),
+    maxAudioMb: parseInt(process.env.MAX_AUDIO_MB ?? '25', 10),
+    maxVideoMb: parseInt(process.env.MAX_VIDEO_MB ?? '40', 10),
+    maxImages: parseInt(process.env.MAX_IMAGES ?? '4', 10),
+    maxAudioClips: parseInt(process.env.MAX_AUDIO_CLIPS ?? '2', 10),
+    maxVideos: parseInt(process.env.MAX_VIDEOS ?? '1', 10),
+  },
   auth: {
     /** HMAC secret for session tokens. CHANGE in production (AUTH_SECRET). */
     secret: process.env.AUTH_SECRET ?? 'agenticbear-dev-secret-change-me',

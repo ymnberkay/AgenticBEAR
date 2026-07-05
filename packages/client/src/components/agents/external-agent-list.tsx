@@ -2,7 +2,7 @@
  * Section on the Agents page listing external agents (team-built HTTP proxies).
  * Own list because their metadata is quite different from specialists.
  */
-import { Plug, Plus, Image as ImageIcon, Zap } from 'lucide-react';
+import { Plug, Plus, Image as ImageIcon, Mic, Film, Zap } from 'lucide-react';
 import type { Agent } from '@subagent/shared';
 
 export function ExternalAgentList({ agents, onAdd, onEdit }: {
@@ -85,6 +85,8 @@ export function ExternalAgentList({ agents, onAdd, onEdit }: {
               </div>
               <div className="flex items-center gap-2 flex-wrap" style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
                 {a.external?.supportsImages && <span className="flex items-center gap-1" style={{ color: '#7c8cf8' }}><ImageIcon style={{ width: 10, height: 10 }} /> images</span>}
+                {a.external?.supportsAudio && <span className="flex items-center gap-1" style={{ color: '#d8a0c0' }}><Mic style={{ width: 10, height: 10 }} /> audio</span>}
+                {a.external?.supportsVideo && <span className="flex items-center gap-1" style={{ color: '#8fd4a0' }}><Film style={{ width: 10, height: 10 }} /> video</span>}
                 {a.external?.supportsStreaming && <span className="flex items-center gap-1" style={{ color: '#6db58a' }}><Zap style={{ width: 10, height: 10 }} /> streaming</span>}
                 {a.external?.authType && a.external.authType !== 'none' && <span>{a.external.authType}</span>}
               </div>

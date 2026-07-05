@@ -37,6 +37,19 @@ server:
   #  COST_SEMANTIC_THRESHOLD: "0.92"
   #  AGENT_SHELL: "off"
 
+# ── Chat attachment upload limits (image / audio / video) ──
+# Surfaced to the client via GET /api/config, so raising a limit here takes effect after a
+# `helm upgrade` — no client rebuild. NOTE: base64 inflates a file ~1.34x, so keep
+# `maxVideoMb * 1.34 < bodyLimitMb`; raise bodyLimitMb alongside larger video caps.
+uploads:
+  bodyLimitMb: 64        # hard cap on the whole request body (all attachments + text)
+  maxImageMb: 20
+  maxAudioMb: 25
+  maxVideoMb: 40
+  maxImages: 4
+  maxAudioClips: 2
+  maxVideos: 1
+
 # ── Auth / bootstrap (the first admin is seeded on first boot) ──
 auth:
   adminUsername: admin
@@ -78,6 +91,16 @@ dlp:
   secrets: "true"
   pii: "true"
   block: "false"            # true → return 422 instead of redacting
+
+# ── SSRF egress guard ──
+security:
+  # External-agent endpoints normally must resolve to PUBLIC addresses. Hostnames listed
+  # here may resolve to private/cluster IPs — use it for trusted in-cluster agent services.
+  # Exact hostnames or `*.suffix` wildcards; literal IPs are never accepted.
+  #   ssrfAllowedHosts:
+  #     - pii-agent.default.svc.cluster.local
+  #     - "*.agents.svc.cluster.local"
+  ssrfAllowedHosts: []
 
 # ── Inbound issue-tracker pull scheduler (SonarQube / Azure Boards / etc.) ──
 issuePull:

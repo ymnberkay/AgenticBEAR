@@ -25,7 +25,7 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
   if (request.method === 'OPTIONS') return;            // CORS preflight
   const url = request.url.split('?')[0];
   if (!url.startsWith('/api/')) return;                // /v1 gateway, /mcp, static → not user-auth
-  if (url === '/api/auth/login' || url === '/api/health') return; // public (login + k8s health probe)
+  if (url === '/api/auth/login' || url === '/api/health' || url === '/api/config') return; // public (login + k8s health probe + client bootstrap config)
   const user = await authenticate(request);
   if (!user) {
     reply.status(401).send({ error: true, message: 'Authentication required' });

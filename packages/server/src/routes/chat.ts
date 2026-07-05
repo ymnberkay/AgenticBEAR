@@ -31,6 +31,10 @@ const APPROVAL_TIMEOUT_MS = 10 * 60_000;
 
 /** Client-shape image attachment. Data-URIs are the only allowed shape (base64). */
 interface ChatImage { dataUrl: string; name?: string }
+/** Client-shape audio attachment (mic recording or audio file). Data-URI only. */
+interface ChatAudio { dataUrl: string; name?: string }
+/** Client-shape video attachment. Data-URI only. */
+interface ChatVideo { dataUrl: string; name?: string }
 
 interface ChatBody {
   agentId: string;
@@ -38,6 +42,17 @@ interface ChatBody {
   /** Attachments for the CURRENT (last) user message. Ignored for external agents that don't
    *  support images. Silently discarded for orchestrator/specialist agents (no vision path v1). */
   images?: ChatImage[];
+  /** Audio clips for the CURRENT (last) user message — external agents with supportsAudio only. */
+  audio?: ChatAudio[];
+  /** Video clips for the CURRENT (last) user message — external agents with supportsVideo only. */
+  video?: ChatVideo[];
+}
+
+/** data:audio/webm;base64,… → OpenAI input_audio {data, format}; null when not a data-URI. */
+function audioPart(dataUrl: string): { type: 'input_audio'; input_audio: { data: string; format: string } } | null {
+  const m = /^data:audio\/([^;,]+);base64,(.+)$/s.exec(dataUrl);
+  if (!m) return null;
+  return { type: 'input_audio', input_audio: { data: m[2]!, format: m[1]! } };
 }
 
 /**
@@ -180,6 +195,8 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       const turns: ChatTurn[] = messages.map((m) => ({ role: m.role, content: m.content }));
       const lastUser = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
       const images = Array.isArray(request.body?.images) ? request.body!.images : [];
+      const audio = Array.isArray(request.body?.audio) ? request.body!.audio : [];
+      const video = Array.isArray(request.body?.video) ? request.body!.video : [];
 
       reply.hijack();
       const raw = reply.raw;
@@ -199,13 +216,18 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
             raw.end();
             return;
           }
-          // Attach images to the LAST user turn only, using OpenAI multimodal shape.
+          // Attach images/audio/video to the LAST user turn only, using OpenAI multimodal shape.
+          const wantImages = images.length > 0 && agentWithSecret.external?.supportsImages;
+          const wantAudio = audio.length > 0 && agentWithSecret.external?.supportsAudio;
+          const wantVideo = video.length > 0 && agentWithSecret.external?.supportsVideo;
           const extMessages: ExternalMessage[] = messages.map((m, i) => {
-            const isLastUser = i === messages.length - 1 && m.role === 'user' && images.length > 0 && agentWithSecret.external?.supportsImages;
+            const isLastUser = i === messages.length - 1 && m.role === 'user' && (wantImages || wantAudio || wantVideo);
             if (!isLastUser) return { role: m.role, content: m.content };
             const parts = [
               { type: 'text' as const, text: m.content },
-              ...images.map((im) => ({ type: 'image_url' as const, image_url: { url: im.dataUrl } })),
+              ...(wantImages ? images.map((im) => ({ type: 'image_url' as const, image_url: { url: im.dataUrl } })) : []),
+              ...(wantAudio ? audio.map((a) => audioPart(a.dataUrl)).filter((p): p is NonNullable<typeof p> => p !== null) : []),
+              ...(wantVideo ? video.map((v) => ({ type: 'video_url' as const, video_url: { url: v.dataUrl } })) : []),
             ];
             return { role: m.role, content: parts };
           });
