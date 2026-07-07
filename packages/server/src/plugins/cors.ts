@@ -8,6 +8,8 @@ export async function registerCors(app: FastifyInstance): Promise<void> {
     origin: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    // Sliding-session renewal: the client must be able to read the reissued token.
+    exposedHeaders: ['x-agb-refresh-token'],
     credentials: true,
   });
 }

@@ -1,9 +1,9 @@
-# Deployed overrides for the "agb" release (namespace agb).
+# Deployed overrides for the "agb" release (namespace llmhub).
 # ALWAYS pass this with -f so hub mode + SSRF allowlist + ingress survive upgrades.
 # Bump image.tag here instead of using a bare --set, otherwise Helm drops every other override.
 image:
   repository: agenticbear
-  tag: "1.3.4"
+  tag: "1.6.0"
 
 hub:
   enabled: true
@@ -26,4 +26,24 @@ session:
       enabled: false
       server: 192.0.2.10
       path: /exports/agb
-1
+
+# ── Entra ID SSO ──
+# Azure Portal → Entra ID → App registrations → AgenticBEAR:
+#   Redirect URI (Web): http://localhost/api/auth/sso/entra/callback
+#   tenantId = Directory (tenant) ID, clientId = Application (client) ID (Overview page)
+#   clientSecret: pass on the command line (this file is in git):
+#     helm upgrade ... --set auth.sso.entra.clientSecret='<secret VALUE>'
+auth:
+  sso:
+    # Required in production when SSO is on (redirect URIs are built from it,
+    # never from request headers). Must match the ingress host.
+    publicUrl: "http://localhost"
+    # Strict mode: only users an admin added (Settings → Users → Add from Entra ID)
+    # may sign in — no JIT provisioning, no auto-linking by username/email.
+    autoProvision: false
+    autoLink: false
+    entra:
+      enabled: false
+      tenantId: ""
+      clientId: ""
+      clientSecret: ""   # leave empty here; supply via --set (see above)

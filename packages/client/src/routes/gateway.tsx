@@ -259,7 +259,10 @@ export function GatewayPage() {
           zIndex: 3,
         }}
       >
-        <div style={{ flex: '1 1 0', minWidth: 0 }} />
+        {/* Left — product-area switcher (Agentic | Gateway) */}
+        <div className="flex items-center" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <AreaSwitcher active="gateway" />
+        </div>
         <button
           type="button"
           onClick={() => openModal('command-palette')}
@@ -286,18 +289,6 @@ export function GatewayPage() {
         </div>
       </div>
 
-      {/* Centered area switcher — no divider below, so the strip flows into the
-          sidebar/content exactly like the Agentic dashboard. */}
-      <div
-        className="shrink-0 flex justify-center w-full relative"
-        style={{
-          padding: '16px 32px',
-          background: 'transparent',
-          zIndex: 2,
-        }}
-      >
-        <AreaSwitcher active="gateway" />
-      </div>
 
       {/* Body: left section nav + content */}
       <div className="flex-1 flex min-h-0 relative" style={{ zIndex: 1 }}>

@@ -153,26 +153,26 @@ export function ProjectDetailPage() {
             )}
           </AnimatePresence>
 
-          {/* Right: settings */}
+          {/* Right: settings — icon button, matches the account-menu affordance */}
           <div className="flex items-center justify-end" style={{ flex: '1 1 0', minWidth: 0 }}>
             <Link
               to="/projects/$projectId/settings"
               params={{ projectId: project.id }}
-              className="flex items-center gap-2"
+              aria-label="Project settings"
+              title="Project settings"
+              className="flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
               style={{
-                height: 30, padding: '0 13px', borderRadius: 'var(--radius-md)',
+                width: 34, height: 34, borderRadius: '50%',
                 color: 'var(--color-text-secondary)',
                 border: '1px solid var(--color-border-subtle)',
-                background: 'var(--color-bg-surface)',
-                fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 500,
+                background: 'transparent',
                 textDecoration: 'none',
                 transition: 'all 0.15s ease',
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-text-primary)'; e.currentTarget.style.borderColor = 'var(--glass-border-hover)'; e.currentTarget.style.background = 'var(--color-bg-raised)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-secondary)'; e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; e.currentTarget.style.background = 'var(--color-bg-surface)'; }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-accent)'; e.currentTarget.style.borderColor = 'rgba(124,140,248,0.4)'; e.currentTarget.style.background = 'var(--color-accent-subtle)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-secondary)'; e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; e.currentTarget.style.background = 'transparent'; }}
             >
-              <Settings style={{ width: 13, height: 13 }} />
-              <span>Settings</span>
+              <Settings style={{ width: 15, height: 15 }} />
             </Link>
           </div>
         </div>

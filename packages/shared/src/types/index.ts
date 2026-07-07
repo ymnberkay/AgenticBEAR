@@ -99,7 +99,33 @@ export type {
   AuthResult,
   SessionPodStatus,
   SessionInfo,
+  SsoProviderId,
+  MfaMode,
+  SsoProviderInfo,
+  AuthMethodsInfo,
+  MfaChallenge,
+  MfaVerifyInput,
+  MfaSetupInfo,
+  ChangePasswordInput,
+  EntraDirectoryUser,
+  AddEntraUserInput,
 } from './auth.js';
+
+export type {
+  Capability,
+  CapabilityInfo,
+  CustomRole,
+  CreateRoleInput,
+  UpdateRoleInput,
+} from './role.js';
+export {
+  CAPABILITY_CATALOG,
+  ALL_CAPABILITIES,
+  WRITE_CAPABILITIES,
+  BUILTIN_ROLE_CAPS,
+  BUILTIN_ROLE_IDS,
+  isBuiltinRole,
+} from './role.js';
 
 export type {
   ProjectDocument,

@@ -441,25 +441,6 @@ export function ProjectIssuesPage() {
         </div>
       )}
 
-      {/* Tracker link prompt — only when no tracker is linked yet (linked state lives in the toolbar above). */}
-      {!linkedConn && (
-        <div className="flex items-center gap-2" style={{ marginBottom: 12, fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
-          <Link2 style={{ width: 13, height: 13 }} aria-hidden="true" />
-          {unlinkedConns.length > 0 ? (
-            <span className="flex items-center gap-2">
-              Not linked to a tracker.
-              <select defaultValue="" onChange={(e) => { if (e.target.value) linkIntegration.mutate({ connectionId: e.target.value, syncEnabled: true }); }}
-                style={{ ...inputStyle, height: 26, width: 'auto', fontSize: 11.5, cursor: 'pointer' }}>
-                <option value="">Link a tracker…</option>
-                {unlinkedConns.map((c) => <option key={c.id} value={c.id}>{c.label} ({c.kind})</option>)}
-              </select>
-            </span>
-          ) : (
-            <span>No tracker connections — add one in Settings → Integrations to sync issues to Jira/GitHub/Azure.</span>
-          )}
-        </div>
-      )}
-
       {/* Create form */}
       {open && (
         <div className="flex flex-col gap-2" style={{ padding: 14, marginBottom: 12, background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }}>

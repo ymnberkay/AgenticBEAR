@@ -5,19 +5,32 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { User } from '@subagent/shared';
 import { config } from '../config.js';
-import { verifyToken } from '../security/auth-service.js';
+import { verifyToken, signToken, needsRefresh } from '../security/auth-service.js';
 import { userRepo } from '../db/repositories/user.repo.js';
 import { markActivity } from '../services/session-activity.js';
+import type { EffectiveAccess } from '../security/capabilities.js';
 
-export type AuthedRequest = FastifyRequest & { authUser?: User };
+/** authUser is set by authHook; authAccess by the rbac preHandler (resolved capabilities). */
+export type AuthedRequest = FastifyRequest & { authUser?: User; authAccess?: EffectiveAccess };
 
-export async function authenticate(request: FastifyRequest): Promise<User | null> {
+/**
+ * Resolve the session user. Tokens minted before a `token_version` bump (password change,
+ * admin "revoke sessions") are rejected even though their HMAC still verifies.
+ */
+export async function authenticate(request: FastifyRequest, reply?: FastifyReply): Promise<User | null> {
   const header = request.headers['authorization'];
   let token = header && header.startsWith('Bearer ') ? header.slice(7).trim() : undefined;
   if (!token) token = (request.query as { token?: string } | undefined)?.token;
   if (!token) return null;
-  const uid = verifyToken(token);
-  return uid ? (await userRepo.findById(uid)) ?? null : null;
+  const claims = verifyToken(token);
+  if (!claims) return null;
+  const found = await userRepo.findForAuth(claims.uid);
+  if (!found || found.tokenVersion !== claims.tokenVersion) return null;
+  // Sliding session: reissue past the half-life; the client swaps tokens transparently.
+  if (reply && needsRefresh(claims)) {
+    reply.header('x-agb-refresh-token', signToken(claims.uid, found.tokenVersion));
+  }
+  return found.user;
 }
 
 /** Global onRequest hook: gate /api/* (except login) behind a valid session. */
@@ -25,8 +38,14 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
   if (request.method === 'OPTIONS') return;            // CORS preflight
   const url = request.url.split('?')[0];
   if (!url.startsWith('/api/')) return;                // /v1 gateway, /mcp, static → not user-auth
-  if (url === '/api/auth/login' || url === '/api/health' || url === '/api/config') return; // public (login + k8s health probe + client bootstrap config)
-  const user = await authenticate(request);
+  // Public: login surfaces (password, SSO redirects, MFA second step), k8s health probe,
+  // client bootstrap config.
+  if (
+    url === '/api/auth/login' || url === '/api/auth/methods' || url === '/api/auth/mfa/verify' ||
+    url === '/api/auth/verify' || url.startsWith('/api/auth/sso/') ||
+    url === '/api/health' || url === '/api/config'
+  ) return;
+  const user = await authenticate(request, reply);
   if (!user) {
     reply.status(401).send({ error: true, message: 'Authentication required' });
     return;
@@ -41,10 +60,14 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
   (request as AuthedRequest).authUser = user;
 }
 
-/** Reject non-admin users (for user-management endpoints). */
+/**
+ * Gate governance endpoints (users, groups, roles). Built-in admins pass; so do holders of a
+ * custom role granting `users.manage` (resolved by the rbac preHandler into request.authAccess).
+ */
 export function requireAdmin(request: FastifyRequest, reply: FastifyReply): boolean {
-  const user = (request as AuthedRequest).authUser;
-  if (!user || user.role !== 'admin') {
+  const { authUser: user, authAccess: access } = request as AuthedRequest;
+  const ok = !!user && (user.role === 'admin' || !!access?.isFullAdmin || !!access?.capabilities.has('users.manage'));
+  if (!ok) {
     reply.status(403).send({ error: true, message: 'Admin access required' });
     return false;
   }

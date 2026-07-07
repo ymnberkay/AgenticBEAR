@@ -1,4 +1,5 @@
 /** Shared building blocks for the Settings tabs (boxed section, inputs, pager, money fmt). */
+import { Plus } from 'lucide-react';
 import type { ReactNode, CSSProperties } from 'react';
 
 export const inputStyle: CSSProperties = {
@@ -6,6 +7,27 @@ export const inputStyle: CSSProperties = {
   border: '1px solid var(--color-border-default)', color: 'var(--color-text-primary)',
   fontFamily: 'var(--font-mono)', fontSize: 13, outline: 'none', borderRadius: 'var(--radius-md)',
 };
+
+/**
+ * The consistent "＋ Add …" control every Settings section puts in its header (Section `action`).
+ * One look for Users / Groups / Integrations / Security.
+ */
+export function AddButton({ label, onClick, icon }: { label: string; onClick: () => void; icon?: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+      style={{
+        height: 30, padding: '0 12px', borderRadius: 999,
+        background: 'var(--color-accent)', color: '#021526',
+        fontSize: 11.5, fontWeight: 600, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+      }}
+    >
+      {icon ?? <Plus style={{ width: 12, height: 12 }} aria-hidden="true" />} {label}
+    </button>
+  );
+}
 
 export function Section({
   icon, color, title, action, children,

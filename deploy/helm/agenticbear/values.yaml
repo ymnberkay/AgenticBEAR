@@ -59,6 +59,92 @@ auth:
   # (persisted in the chart's Secret; rotating it logs everyone out).
   secret: ""
 
+  # ── Login methods — enable any combination; each deployment picks its own mix ──
+  # (enterprise on-prem pattern: local passwords, Entra ID, any OIDC IdP, GitHub, TOTP 2FA)
+  local:
+    enabled: true                # false → SSO-only sign-in (needs ≥1 provider below)
+    # Admins may still password-login while local auth is disabled, so a broken IdP can't
+    # lock the operator out. Set false for strict SSO-only.
+    adminBreakGlass: true
+
+  # Minimum length for local passwords (create / admin reset / self change).
+  # Admin-set passwords are provisional: the user must pick their own at first login.
+  passwordMinLength: 8
+
+  # Require newly-added users to confirm their email before they can sign in. Needs SMTP
+  # configured (below) and the user to have an email; otherwise ignored (users created active).
+  requireEmailVerification: false
+
+  # TOTP two-factor for password logins: "off" | "optional" | "required".
+  #   optional → users enroll themselves (user menu → Two-factor auth)
+  #   required → enrollment is forced at next password login
+  # SSO sign-ins delegate MFA to the IdP (enforce it there — e.g. Entra Conditional Access).
+  mfa:
+    mode: "off"
+
+  sso:
+    # External base URL for OAuth redirect URIs, e.g. https://agb.example.com.
+    # REQUIRED in production once any provider is enabled (redirect URIs must not be
+    # derived from request headers). Dev-only fallback: X-Forwarded-Proto/Host.
+    publicUrl: ""
+    autoProvision: true          # create users on first SSO login (JIT)
+    autoLink: true               # attach an SSO identity to an existing matching username/email
+    defaultRole: contributor     # role for JIT-provisioned users: admin | contributor | viewer
+
+    # Bring your own Secret for the client secrets below (ExternalSecrets / Vault). When set,
+    # the chart Secret omits them and the Deployment adds an envFrom secretRef to this name.
+    # Expected keys: AUTH_ENTRA_CLIENT_SECRET / AUTH_OIDC_CLIENT_SECRET / AUTH_GITHUB_CLIENT_SECRET.
+    existingSecret: ""
+
+    # ── IdP group → permission-group sync ──
+    # Claim that carries group memberships in the id_token/userinfo (Entra: add the "groups"
+    # optional claim under App registration → Token configuration).
+    groupsClaim: "groups"
+    # IdP group/team → AgenticBEAR permission-group NAME. When non-empty, a user's permission
+    # groups are REPLACED from this mapping at every SSO login (the IdP is the source of
+    # truth; manual assignments to SSO users won't stick). GitHub keys are "org/team-slug".
+    groupMapping: {}
+    #  "f2a3b1c4-…-entra-object-id": "Engineering"
+    #  "platform-admins": "Admins"
+    #  "acme-inc/platform-team": "Platform"
+
+    # Microsoft Entra ID (Azure AD). App registration redirect URI:
+    #   <publicUrl>/api/auth/sso/entra/callback
+    entra:
+      enabled: false
+      tenantId: ""
+      clientId: ""
+      clientSecret: ""           # goes into the chart Secret, not the ConfigMap
+
+    # Any OIDC-compliant IdP (Okta, Keycloak, Auth0, …). Redirect URI:
+    #   <publicUrl>/api/auth/sso/oidc/callback
+    oidc:
+      enabled: false
+      displayName: "SSO"         # login-button label, e.g. "Okta"
+      issuer: ""                 # e.g. https://login.example.com/realms/main (discovery under /.well-known)
+      clientId: ""
+      clientSecret: ""
+      scopes: "openid profile email"
+
+    # GitHub OAuth app (or GitHub Enterprise Server via baseUrl). Callback URL:
+    #   <publicUrl>/api/auth/sso/github/callback
+    github:
+      enabled: false
+      clientId: ""
+      clientSecret: ""
+      org: ""                    # restrict sign-in to active members of this org ("" = anyone)
+      baseUrl: ""                # GHE server base, e.g. https://github.corp.example ("" = github.com)
+
+# ── Outbound email (SMTP) — used for account-verification links ──
+# Enabled when host + (from or user) are set. Password goes into the chart Secret.
+smtp:
+  host: ""              # e.g. smtp.sendgrid.net
+  port: 587
+  secure: false         # true → implicit TLS (usually port 465); false → STARTTLS
+  user: ""              # SMTP username (optional for open relays)
+  password: ""          # SMTP password → Secret; or use --set
+  from: ""              # From address, e.g. "AgenticBEAR <no-reply@acme.dev>"
+
 # ── LLM provider keys (optional — can also be set later in the UI → Settings).
 # Any left empty are simply not injected.
 providerKeys:

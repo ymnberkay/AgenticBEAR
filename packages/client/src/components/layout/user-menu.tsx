@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useId, type KeyboardEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, LogOut, ChevronDown } from 'lucide-react';
+import { Settings, LogOut, ChevronDown, ShieldCheck } from 'lucide-react';
 import { useMe, logout } from '../../api/hooks/use-auth';
+import { TwoFactorDialog } from '../settings/two-factor-dialog';
 
 const roleColor: Record<string, string> = {
   admin: 'var(--color-accent)',
@@ -15,6 +16,7 @@ export function UserMenu() {
   const me = useMe();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [twoFactorOpen, setTwoFactorOpen] = useState(false);
   const [focusedIdx, setFocusedIdx] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -23,6 +25,7 @@ export function UserMenu() {
 
   const items = [
     { id: 'settings', label: 'Settings', icon: Settings, action: () => { setOpen(false); navigate({ to: '/settings' }); } },
+    { id: '2fa', label: 'Two-factor auth', icon: ShieldCheck, action: () => { setOpen(false); setTwoFactorOpen(true); } },
     { id: 'logout', label: 'Log out', icon: LogOut, action: () => { setOpen(false); logout(); }, danger: true },
   ];
 
@@ -177,6 +180,8 @@ export function UserMenu() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <TwoFactorDialog open={twoFactorOpen} onClose={() => setTwoFactorOpen(false)} />
     </div>
   );
 }

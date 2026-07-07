@@ -25,8 +25,13 @@ async function main() {
     logger.info('Built-in templates seeded');
 
     if ((await userRepo.count()) === 0) {
-      await userRepo.create({ username: config.auth.adminUsername, password: config.auth.adminPassword, role: 'admin' });
-      logger.info(`Seeded admin user "${config.auth.adminUsername}" (change AUTH_ADMIN_PASSWORD in production)`);
+      // Default credentials are a well-known pair — force a rotation at first login.
+      const defaultPassword = config.auth.adminPassword === 'admin';
+      await userRepo.create({
+        username: config.auth.adminUsername, password: config.auth.adminPassword, role: 'admin',
+        mustChangePassword: defaultPassword,
+      });
+      logger.info(`Seeded admin user "${config.auth.adminUsername}"${defaultPassword ? ' with the DEFAULT password — rotation forced at first login' : ''}`);
     }
   }
 

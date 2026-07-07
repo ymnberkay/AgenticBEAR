@@ -1,6 +1,6 @@
 import { getDb } from '../client.js';
 import { generateId } from '@subagent/shared';
-import type { PermissionGroup, UserRole } from '@subagent/shared';
+import type { PermissionGroup } from '@subagent/shared';
 
 interface GroupRow {
   id: string;
@@ -17,7 +17,7 @@ function rowToGroup(row: GroupRow): PermissionGroup {
   return {
     id: row.id,
     name: row.name,
-    role: row.role as UserRole,
+    role: row.role, // built-in key or custom role id
     projectIds,
     tokenQuota: row.token_quota ?? null,
     createdAt: row.created_at,
@@ -48,7 +48,7 @@ export const groupRepo = {
     return [...set];
   },
 
-  async create(input: { name: string; role?: UserRole; projectIds?: string[]; tokenQuota?: number | null }): Promise<PermissionGroup> {
+  async create(input: { name: string; role?: string; projectIds?: string[]; tokenQuota?: number | null }): Promise<PermissionGroup> {
     const db = getDb();
     const id = generateId();
     const now = new Date().toISOString();
@@ -57,7 +57,7 @@ export const groupRepo = {
     return rowToGroup((await db.prepare('SELECT * FROM permission_groups WHERE id = ?').get<GroupRow>(id))!);
   },
 
-  async update(id: string, fields: { name?: string; role?: UserRole; projectIds?: string[]; tokenQuota?: number | null }): Promise<PermissionGroup | undefined> {
+  async update(id: string, fields: { name?: string; role?: string; projectIds?: string[]; tokenQuota?: number | null }): Promise<PermissionGroup | undefined> {
     const db = getDb();
     const cur = await db.prepare('SELECT * FROM permission_groups WHERE id = ?').get<GroupRow>(id);
     if (!cur) return undefined;

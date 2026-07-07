@@ -1,4 +1,4 @@
-import { Plus, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useProjects } from '../api/hooks/use-projects';
 import { useUIStore } from '../stores/ui.store';
@@ -13,8 +13,6 @@ export function DashboardPage() {
   const openModal = useUIStore((s) => s.openModal);
   const closeModal = useUIStore((s) => s.closeModal);
   const paletteOpen = useUIStore((s) => s.commandPaletteOpen);
-
-  const projectCount = projects?.length ?? 0;
 
   return (
     <div className="h-full flex flex-col" style={{ background: 'var(--color-bg-base)', position: 'relative' }}>
@@ -36,16 +34,9 @@ export function DashboardPage() {
           zIndex: 2,
         }}
       >
-        <div className="flex items-center gap-2.5" style={{ flex: '1 1 0', minWidth: 0 }}>
-          {!isLoading && (
-            <span style={{
-              fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)',
-              background: 'var(--color-bg-raised)', border: '1px solid var(--color-border-subtle)',
-              padding: '3px 8px', borderRadius: 999, letterSpacing: '0.04em',
-            }} title={`${projectCount} projects`}>
-              {projectCount} projects
-            </span>
-          )}
+        {/* Left — product-area switcher (Agentic | Gateway) */}
+        <div className="flex items-center" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <AreaSwitcher active="agentic" />
         </div>
 
         <AnimatePresence>
@@ -90,24 +81,8 @@ export function DashboardPage() {
           )}
         </AnimatePresence>
 
-        <div className="flex items-center gap-3 justify-end" style={{ flex: '1 1 0', minWidth: 0 }}>
-          <button
-            type="button"
-            onClick={() => openModal('create-project')}
-            className="flex items-center gap-2 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
-            style={{
-              height: 36, padding: '0 16px', borderRadius: 'var(--radius-md)',
-              background: 'var(--color-accent)', color: '#021526',
-              fontSize: 13, fontWeight: 600,
-              fontFamily: 'var(--font-sans)', border: 'none', whiteSpace: 'nowrap', cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-accent-hover)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; }}
-          >
-            <Plus style={{ width: 14, height: 14 }} aria-hidden="true" />
-            New Project
-          </button>
-          <div style={{ width: 1, height: 22, background: 'var(--color-border-subtle)' }} />
+        {/* Right — account menu (New Project moved down to the project toolbar) */}
+        <div className="flex items-center justify-end" style={{ flex: '1 1 0', minWidth: 0 }}>
           <UserMenu />
         </div>
       </div>
@@ -117,11 +92,6 @@ export function DashboardPage() {
         className="flex-1 overflow-y-auto animate-fade-in-up"
         style={{ padding: '24px 32px 32px', animationDelay: '90ms', position: 'relative', zIndex: 1 }}
       >
-        {/* Centered area switcher — where the project filter row used to sit */}
-        <div className="flex justify-center" style={{ marginBottom: 22 }}>
-          <AreaSwitcher active="agentic" />
-        </div>
-
         <ProjectList
           projects={projects}
           isLoading={isLoading}

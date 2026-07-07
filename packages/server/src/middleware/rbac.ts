@@ -10,6 +10,7 @@ import { type AuthedRequest } from './require-auth.js';
 import { groupRepo } from '../db/repositories/group.repo.js';
 import { runRepo } from '../db/repositories/run.repo.js';
 import { agentRepo } from '../db/repositories/agent.repo.js';
+import { resolveAccess } from '../security/capabilities.js';
 
 /** Project ids a user may access (admin → all handled by callers; here = group union). */
 export function accessibleProjectIds(user: User): Promise<string[]> {
@@ -44,21 +45,33 @@ const ADMIN_ONLY_PREFIXES = ['/api/gateway-keys', '/api/gateway-usage', '/api/pr
 
 export async function rbacHook(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const user = (request as AuthedRequest).authUser;
-  if (!user || user.role === 'admin') return; // unauth handled earlier; admin = full access
+  if (!user) return; // unauth handled earlier
   const url = request.url.split('?')[0];
   if (!url.startsWith('/api/')) return;
   const method = request.method;
 
-  // Admin-only management surfaces — block non-admins outright (reads included; these leak
-  // provider config / key metadata and must not reach contributors or viewers).
+  // Effective capabilities = own role ∪ every group's role (custom roles included). Additive,
+  // so admin.full always wins. One resolve per request; also yields accessible project ids.
+  const access = await resolveAccess(user);
+  (request as AuthedRequest).authAccess = access; // read by requireAdmin in governance routes
+  if (access.isFullAdmin) return; // full administrator — unrestricted
+
+  // Admin-only management surfaces — block anyone lacking the matching capability (reads
+  // included; these leak provider config / key metadata).
   if (ADMIN_ONLY_PREFIXES.some((p) => url === p || url.startsWith(`${p}/`))) {
-    reply.status(403).send({ error: true, message: 'Admin access required' });
-    return;
+    const cap = url.startsWith('/api/settings') ? 'settings.manage' : 'gateway.manage';
+    if (!access.capabilities.has(cap)) {
+      reply.status(403).send({ error: true, message: 'Admin access required' });
+      return;
+    }
+    return; // holds the capability → allowed
   }
 
-  // Project creation is admin-only (users/groups routes already requireAdmin).
+  // Project creation needs the projects.create capability.
   if (url === '/api/projects' && method === 'POST') {
-    reply.status(403).send({ error: true, message: 'Only admins can create projects' });
+    if (!access.capabilities.has('projects.create')) {
+      reply.status(403).send({ error: true, message: 'You do not have permission to create projects' });
+    }
     return;
   }
   if (url === '/api/projects' && method === 'GET') return; // list route filters to accessible
@@ -66,11 +79,11 @@ export async function rbacHook(request: FastifyRequest, reply: FastifyReply): Pr
   const pid = await resolveProjectId(url);
   if (pid === undefined || pid === null) return; // not project-scoped, or entity missing (route 404s)
 
-  if (!(await accessibleProjectIds(user)).includes(pid)) {
+  if (!access.projectIds.includes(pid)) {
     reply.status(403).send({ error: true, message: 'No access to this project' });
     return;
   }
-  if (user.role === 'viewer' && method !== 'GET') {
-    reply.status(403).send({ error: true, message: 'Read-only access (viewer)' });
+  if (method !== 'GET' && !access.canWrite) {
+    reply.status(403).send({ error: true, message: 'Read-only access' });
   }
 }

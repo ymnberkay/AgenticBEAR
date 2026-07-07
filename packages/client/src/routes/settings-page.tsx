@@ -5,6 +5,7 @@ import { useToast } from '../components/ui/toast';
 import { GeneralTab } from '../components/settings/general-tab';
 import { SecurityTab } from '../components/settings/security-tab';
 import { UsersTab } from '../components/settings/users-tab';
+import { RolesTab } from '../components/settings/roles-tab';
 import { GroupsTab } from '../components/settings/groups-tab';
 import { IntegrationsTab } from '../components/settings/integrations-tab';
 import { AdminRequired } from '../components/layout/admin-required';
@@ -14,6 +15,7 @@ const TABS = [
   { id: 'general', label: 'General' },
   { id: 'security', label: 'Security' },
   { id: 'users', label: 'Users' },
+  { id: 'roles', label: 'Roles' },
   { id: 'groups', label: 'Groups' },
   { id: 'integrations', label: 'Integrations' },
 ] as const;
@@ -99,9 +101,6 @@ export function SettingsPage() {
           <h1 style={{ fontSize: 18, fontWeight: 600, color: 'var(--color-text-primary)', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
             Organization Settings
           </h1>
-          <p style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginTop: 6 }}>
-            organization profile, security, members, and issue-tracker integrations
-          </p>
         </div>
 
         {/* Tab bar — segmented pills with proper tablist semantics */}
@@ -157,6 +156,7 @@ export function SettingsPage() {
         {tab === 'general' && <GeneralTab onSaved={showToast} />}
         {tab === 'security' && <SecurityTab onSaved={showToast} />}
         {tab === 'users' && <UsersTab onSaved={showToast} />}
+        {tab === 'roles' && <RolesTab onSaved={showToast} />}
         {tab === 'groups' && <GroupsTab onSaved={showToast} />}
         {tab === 'integrations' && <IntegrationsTab onSaved={showToast} />}
       </div>

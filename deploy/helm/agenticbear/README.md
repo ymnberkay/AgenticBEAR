@@ -62,6 +62,132 @@ kubectl -n agb get secret agb-agenticbear-secret \
   -o jsonpath='{.data.AUTH_SECRET}' | base64 -d
 ```
 
+## Login methods (SSO + 2FA)
+
+Every method toggles independently in `values.yaml` under `auth:` — run local
+passwords only, add one or more SSO providers, or go SSO-only. New SSO users are
+JIT-provisioned with `auth.sso.defaultRole` and show up in Settings → Users with
+a provider badge.
+
+`auth.sso.publicUrl` (the external ingress URL) is **required in production**
+once a provider is enabled — redirect URIs are built from it, never from
+request headers. OIDC flows use PKCE (S256) automatically.
+
+Built-in hardening (no configuration needed): login/MFA brute-force throttling,
+sliding session renewal, TOTP secrets encrypted at rest, replay-proof TOTP
+codes, and audit events (`auth.login`, `auth.login.sso`, `auth.mfa.*`,
+`auth.sessions.revoked`, …) in the activity log. Admin-set passwords are
+provisional — the user must choose their own at first login
+(`auth.passwordMinLength` applies everywhere).
+
+### Microsoft Entra ID
+
+1. Entra admin center → App registrations → New registration.
+2. Redirect URI (Web): `https://<host>/api/auth/sso/entra/callback`
+3. Certificates & secrets → new client secret.
+
+```yaml
+auth:
+  sso:
+    publicUrl: "https://agb.example.com"
+    entra:
+      enabled: true
+      tenantId: "00000000-0000-0000-0000-000000000000"
+      clientId: "11111111-1111-1111-1111-111111111111"
+      clientSecret: "***"          # or --set-file auth.sso.entra.clientSecret=./entra.key
+```
+
+### Generic OIDC (Okta, Keycloak, Auth0, …)
+
+Any IdP with a `/.well-known/openid-configuration` endpoint. Redirect URI:
+`https://<host>/api/auth/sso/oidc/callback`
+
+```yaml
+auth:
+  sso:
+    oidc:
+      enabled: true
+      displayName: "Okta"          # login-button label
+      issuer: "https://acme.okta.com"
+      clientId: "..."
+      clientSecret: "***"
+```
+
+### GitHub (github.com or GitHub Enterprise)
+
+GitHub → Settings → Developer settings → OAuth Apps. Authorization callback URL:
+`https://<host>/api/auth/sso/github/callback`
+
+```yaml
+auth:
+  sso:
+    github:
+      enabled: true
+      clientId: "..."
+      clientSecret: "***"
+      org: "acme-inc"              # optional: only active org members may sign in
+      # baseUrl: "https://github.corp.example"   # GitHub Enterprise Server
+```
+
+### TOTP two-factor (password logins)
+
+```yaml
+auth:
+  mfa:
+    mode: "required"   # off | optional | required
+```
+
+`optional` lets users enroll from the user menu (→ Two-factor auth); `required`
+forces enrollment at the next password login. Admins can reset a lost
+authenticator from Settings → Users. SSO sign-ins deliberately skip local TOTP —
+enforce MFA at the IdP (e.g. Entra Conditional Access), which is where
+enterprise on-prem deployments expect it.
+
+### SSO-only sign-in
+
+```yaml
+auth:
+  local:
+    enabled: false       # hides the password form
+    adminBreakGlass: true  # admins can still password-login via "Administrator sign-in"
+```
+
+Keep `adminBreakGlass: true` until the IdP config is proven — it's the recovery
+path if SSO breaks. `false` makes sign-in strictly SSO. With a single provider
+and local auth off, the login page skips the button and redirects straight to
+the IdP; `https://<host>/?login=local` keeps the break-glass form reachable.
+
+### Map IdP groups to permission groups
+
+When `groupMapping` is non-empty the IdP becomes the source of truth: the
+user's permission groups are replaced from the mapping at every SSO login.
+Values are permission-group **names** (Settings → Groups — create them first).
+
+```yaml
+auth:
+  sso:
+    groupsClaim: "groups"          # claim in the id_token/userinfo
+    groupMapping:
+      "9a1b2c3d-entra-group-object-id": "Engineering"
+      "platform-admins": "Admins"        # Keycloak/Okta group name
+      "acme-inc/platform-team": "Platform"  # GitHub org/team-slug
+```
+
+Entra sends group **object IDs**: App registration → Token configuration →
+Add groups claim. GitHub team mapping needs the OAuth app to grant `read:org`
+(requested automatically when a mapping is configured).
+
+### Bring your own Secret for SSO client secrets
+
+```yaml
+auth:
+  sso:
+    existingSecret: "agb-sso-credentials"   # pre-created, e.g. via ExternalSecrets
+```
+
+Expected keys: `AUTH_ENTRA_CLIENT_SECRET`, `AUTH_OIDC_CLIENT_SECRET`,
+`AUTH_GITHUB_CLIENT_SECRET`. The chart then omits them from its own Secret.
+
 ## Common overrides
 
 ### Swap the bundled Postgres for a managed one

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FolderPlus } from 'lucide-react';
+import { FolderPlus, Plus } from 'lucide-react';
 import type { Project } from '@subagent/shared';
 import { ProjectCard } from './project-card';
 import { Skeleton } from '../ui/skeleton';
@@ -181,56 +181,76 @@ export function ProjectList({ projects, isLoading, onCreateProject }: ProjectLis
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Toolbar — status filter + sort. Global ⌘K search handles project lookup. */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex items-center gap-1" role="group" aria-label="Status filter">
-          {([
-            { id: 'all' as const, label: `All (${projects.length})` },
-            { id: 'active' as const, label: 'Active' },
-            { id: 'draft' as const, label: 'Draft' },
-            { id: 'archived' as const, label: 'Archived' },
-          ]).map((opt) => {
-            const isActive = status === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setStatus(opt.id)}
-                aria-pressed={isActive}
-                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
-                style={{
-                  height: 32, padding: '0 10px', fontSize: 11.5,
-                  fontFamily: 'var(--font-mono)',
-                  background: isActive ? 'var(--color-accent-subtle)' : 'var(--color-bg-surface)',
-                  border: `1px solid ${isActive ? 'var(--color-accent)' : 'var(--color-border-subtle)'}`,
-                  color: isActive ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-                  borderRadius: 'var(--radius-sm)', cursor: 'pointer',
-                }}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
+      {/* Toolbar — status filter + sort on the left, New Project on the right (under the
+          account menu). Global ⌘K search handles project lookup. */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1" role="group" aria-label="Status filter">
+            {([
+              { id: 'all' as const, label: `All (${projects.length})` },
+              { id: 'active' as const, label: 'Active' },
+              { id: 'draft' as const, label: 'Draft' },
+              { id: 'archived' as const, label: 'Archived' },
+            ]).map((opt) => {
+              const isActive = status === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setStatus(opt.id)}
+                  aria-pressed={isActive}
+                  className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+                  style={{
+                    height: 32, padding: '0 10px', fontSize: 11.5,
+                    fontFamily: 'var(--font-mono)',
+                    background: isActive ? 'var(--color-accent-subtle)' : 'var(--color-bg-surface)',
+                    border: `1px solid ${isActive ? 'var(--color-accent)' : 'var(--color-border-subtle)'}`,
+                    color: isActive ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                    borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <label className="inline-flex items-center gap-1.5">
+            <span className="sr-only">Sort</span>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              aria-label="Sort projects"
+              style={{
+                height: 32, padding: '0 8px', background: 'var(--color-bg-surface)',
+                border: '1px solid var(--color-border-subtle)', color: 'var(--color-text-secondary)',
+                fontFamily: 'var(--font-mono)', fontSize: 11.5, borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="updated">Recently updated</option>
+              <option value="created">Recently created</option>
+              <option value="name">Name (A→Z)</option>
+            </select>
+          </label>
         </div>
 
-        <label className="inline-flex items-center gap-1.5">
-          <span className="sr-only">Sort</span>
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
-            aria-label="Sort projects"
-            style={{
-              height: 32, padding: '0 8px', background: 'var(--color-bg-surface)',
-              border: '1px solid var(--color-border-subtle)', color: 'var(--color-text-secondary)',
-              fontFamily: 'var(--font-mono)', fontSize: 11.5, borderRadius: 'var(--radius-sm)',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="updated">Recently updated</option>
-            <option value="created">Recently created</option>
-            <option value="name">Name (A→Z)</option>
-          </select>
-        </label>
+        <button
+          type="button"
+          onClick={onCreateProject}
+          className="flex items-center gap-2 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+          style={{
+            height: 32, padding: '0 14px', borderRadius: 'var(--radius-md)',
+            background: 'var(--color-accent)', color: '#021526',
+            fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
+            border: 'none', whiteSpace: 'nowrap', cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-accent-hover)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; }}
+        >
+          <Plus style={{ width: 14, height: 14 }} aria-hidden="true" />
+          New Project
+        </button>
       </div>
 
       {filtered.length === 0 ? (

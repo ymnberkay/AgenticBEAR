@@ -460,6 +460,42 @@ ALTER TABLE agents ADD COLUMN ext_supports_video INTEGER NOT NULL DEFAULT 0;`,
 ALTER TABLE project_documents ADD COLUMN agent_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_project_documents_agent ON project_documents(agent_id);`,
 
+  '036_auth_sso.sql': `-- Pluggable auth: SSO identities (Entra/OIDC/GitHub) + TOTP 2FA on users.
+ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN totp_secret TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS user_identities (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  email TEXT NOT NULL DEFAULT '',
+  display_name TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(provider, subject)
+);
+CREATE INDEX IF NOT EXISTS idx_user_identities_user ON user_identities(user_id);`,
+
+  '037_auth_hardening.sql': `-- Session revocation (token_version), DB-backed TOTP replay guard, forced password rotation.
+ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN totp_last_counter INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0;`,
+
+  '038_custom_roles.sql': `-- Admin-defined roles: a named capability set attachable to permission groups.
+CREATE TABLE IF NOT EXISTS custom_roles (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  capabilities TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);`,
+
+  '039_custom_role_description.sql': `-- Free-text description for custom roles.
+ALTER TABLE custom_roles ADD COLUMN description TEXT NOT NULL DEFAULT '';`,
+
+  '040_user_verification.sql': `-- Email verification: users start 'pending' and activate via an emailed link.
+ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active';
+ALTER TABLE users ADD COLUMN verify_token TEXT NOT NULL DEFAULT '';`,
+
   '020_activity_log.sql': `-- Per-project audit trail: who did what (chat, file approve/reject, agent CRUD, runs).
 CREATE TABLE IF NOT EXISTS activity_log (
   id TEXT PRIMARY KEY,
@@ -483,7 +519,7 @@ function toDialect(sql: string, driver: 'sqlite' | 'postgres'): string {
   return sql.replace(/datetime\('now'\)/g, "now()::text");
 }
 
-const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql', '007_gateway.sql', '008_gateway_key_scope.sql', '009_agent_canvas_and_knowledge.sql', '010_run_step_breakdown.sql', '011_run_step_compression.sql', '012_gateway_key_expiry.sql', '013_gateway_key_cache_scope.sql', '014_settings_dlp_rules.sql', '015_users.sql', '016_settings_dlp_disabled_models.sql', '017_provider_auth.sql', '018_governance.sql', '019_group_usage.sql', '020_activity_log.sql', '021_enabled_models.sql', '022_org_profile.sql', '023_issues_integrations.sql', '024_curation_and_key_limits.sql', '025_issue_labels_and_pull.sql', '026_project_goals.sql', '027_project_git_workspace.sql', '028_project_sonarqube_key.sql', '029_external_agents.sql', '030_user_token_quota.sql', '031_user_usage.sql', '032_gateway_observability.sql', '033_external_agent_audio.sql', '034_external_agent_video.sql', '035_document_agent.sql'];
+const migrationFiles = ['001_initial.sql', '002_agent_activity.sql', '003_agent_memory.sql', '004_settings_provider_keys.sql', '005_llm_providers.sql', '006_cost_savings.sql', '007_gateway.sql', '008_gateway_key_scope.sql', '009_agent_canvas_and_knowledge.sql', '010_run_step_breakdown.sql', '011_run_step_compression.sql', '012_gateway_key_expiry.sql', '013_gateway_key_cache_scope.sql', '014_settings_dlp_rules.sql', '015_users.sql', '016_settings_dlp_disabled_models.sql', '017_provider_auth.sql', '018_governance.sql', '019_group_usage.sql', '020_activity_log.sql', '021_enabled_models.sql', '022_org_profile.sql', '023_issues_integrations.sql', '024_curation_and_key_limits.sql', '025_issue_labels_and_pull.sql', '026_project_goals.sql', '027_project_git_workspace.sql', '028_project_sonarqube_key.sql', '029_external_agents.sql', '030_user_token_quota.sql', '031_user_usage.sql', '032_gateway_observability.sql', '033_external_agent_audio.sql', '034_external_agent_video.sql', '035_document_agent.sql', '036_auth_sso.sql', '037_auth_hardening.sql', '038_custom_roles.sql', '039_custom_role_description.sql', '040_user_verification.sql'];
 
 let db: Db | undefined;
 

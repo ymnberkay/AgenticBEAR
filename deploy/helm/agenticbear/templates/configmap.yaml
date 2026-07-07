@@ -18,6 +18,64 @@ data:
   AUTH_ADMIN_USERNAME: {{ .Values.auth.adminUsername | quote }}
   AUTH_TOKEN_TTL_HOURS: {{ .Values.auth.tokenTtlHours | quote }}
 
+  # ── Login methods (client secrets live in the Secret) ──
+  {{- with .Values.auth.local }}
+  AUTH_LOCAL_ENABLED: {{ .enabled | quote }}
+  AUTH_LOCAL_ADMIN_BREAK_GLASS: {{ .adminBreakGlass | quote }}
+  {{- end }}
+  {{- with .Values.auth.mfa }}
+  AUTH_MFA_MODE: {{ .mode | quote }}
+  {{- end }}
+  AUTH_PASSWORD_MIN_LENGTH: {{ .Values.auth.passwordMinLength | quote }}
+  AUTH_REQUIRE_EMAIL_VERIFICATION: {{ .Values.auth.requireEmailVerification | quote }}
+  {{- with .Values.smtp }}
+  {{- if .host }}
+  SMTP_HOST: {{ .host | quote }}
+  SMTP_PORT: {{ .port | quote }}
+  SMTP_SECURE: {{ .secure | quote }}
+  {{- if .user }}
+  SMTP_USER: {{ .user | quote }}
+  {{- end }}
+  {{- if .from }}
+  SMTP_FROM: {{ .from | quote }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- with .Values.auth.sso }}
+  {{- if .publicUrl }}
+  AUTH_PUBLIC_URL: {{ .publicUrl | quote }}
+  {{- end }}
+  AUTH_SSO_AUTO_PROVISION: {{ .autoProvision | quote }}
+  AUTH_SSO_AUTO_LINK: {{ .autoLink | quote }}
+  AUTH_SSO_DEFAULT_ROLE: {{ .defaultRole | quote }}
+  AUTH_SSO_GROUPS_CLAIM: {{ .groupsClaim | quote }}
+  {{- if .groupMapping }}
+  AUTH_SSO_GROUP_MAPPING: {{ .groupMapping | toJson | quote }}
+  {{- end }}
+  {{- if .entra.enabled }}
+  AUTH_ENTRA_ENABLED: "true"
+  AUTH_ENTRA_TENANT_ID: {{ .entra.tenantId | quote }}
+  AUTH_ENTRA_CLIENT_ID: {{ .entra.clientId | quote }}
+  {{- end }}
+  {{- if .oidc.enabled }}
+  AUTH_OIDC_ENABLED: "true"
+  AUTH_OIDC_DISPLAY_NAME: {{ .oidc.displayName | quote }}
+  AUTH_OIDC_ISSUER: {{ .oidc.issuer | quote }}
+  AUTH_OIDC_CLIENT_ID: {{ .oidc.clientId | quote }}
+  AUTH_OIDC_SCOPES: {{ .oidc.scopes | quote }}
+  {{- end }}
+  {{- if .github.enabled }}
+  AUTH_GITHUB_ENABLED: "true"
+  AUTH_GITHUB_CLIENT_ID: {{ .github.clientId | quote }}
+  {{- if .github.org }}
+  AUTH_GITHUB_ORG: {{ .github.org | quote }}
+  {{- end }}
+  {{- if .github.baseUrl }}
+  AUTH_GITHUB_BASE_URL: {{ .github.baseUrl | quote }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+
   # ── Cost middleware ──
   COST_LAYER_COMPRESSION:    {{ .Values.cost.layers.compression    | quote }}
   COST_LAYER_SEMANTIC_CACHE: {{ .Values.cost.layers.semanticCache  | quote }}

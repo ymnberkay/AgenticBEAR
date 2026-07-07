@@ -21,6 +21,8 @@ run it). Start with the overview, or jump straight to the runbook.
 | [operations/deployment.md](operations/deployment.md) | Docker-compose test, Kubernetes via Helm (primary), raw `k8s/` manifests, sizing, backups, troubleshooting |
 | [operations/release.md](operations/release.md) | End-to-end release runbook for the real environment: build → push to ACR → helm release, rollback, uninstall, field notes |
 | [operations/ci-cd.md](operations/ci-cd.md) | Pipelines: GitHub Actions and Azure DevOps — what they do, required secrets, one-time setup |
+| [operations/helm-values.md](operations/helm-values.md) | Every chart value explained: image/server/auth/SSO/cost/DLP/hub-session knobs, defaults and gotchas |
+| [operations/sso-setup.md](operations/sso-setup.md) | Wiring Entra ID / OIDC / GitHub: redirect URIs (incl. localhost), Graph permissions, group mapping, MFA modes, error table |
 
 ## Other
 

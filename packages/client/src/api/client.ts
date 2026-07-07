@@ -39,6 +39,9 @@ export function authHeaders(extra?: Record<string, string>): Record<string, stri
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
+  // Sliding session: past its half-life the server reissues the token in a header.
+  const refreshed = response.headers.get('x-agb-refresh-token');
+  if (refreshed && getToken()) setToken(refreshed);
   if (response.status === 401) {
     // Session invalid/expired → drop token and let the app fall back to the login screen.
     clearToken();
@@ -49,8 +52,12 @@ async function handleResponse<T>(response: Response): Promise<T> {
     const body = await response.text();
     let message: string;
     try {
-      const json = JSON.parse(body);
-      message = json.error || json.message || body;
+      const json = JSON.parse(body) as { error?: unknown; message?: unknown };
+      // API errors are { error: true, message: '…' } — the boolean flag is NOT the message.
+      message =
+        (typeof json.message === 'string' && json.message) ||
+        (typeof json.error === 'string' && json.error) ||
+        body;
     } catch {
       message = body || response.statusText;
     }
@@ -122,10 +129,11 @@ export async function apiGet<T>(path: string): Promise<T> {
 }
 
 export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
+  // No Content-Type on empty POSTs — Fastify rejects 'application/json' with an empty body.
   const response = await apiFetch(path, {
     method: 'POST',
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
-    body: body ? JSON.stringify(body) : undefined,
+    headers: body === undefined ? authHeaders() : authHeaders({ 'Content-Type': 'application/json' }),
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
   return handleResponse<T>(response);
 }

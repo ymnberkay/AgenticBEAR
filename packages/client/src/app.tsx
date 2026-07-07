@@ -8,7 +8,7 @@ import {
   Outlet,
   redirect,
 } from '@tanstack/react-router';
-import { getToken } from './api/client';
+import { authHeaders, getToken, setToken, setSessionBase } from './api/client';
 import { useMe } from './api/hooks/use-auth';
 import { LoginPage } from './routes/login-page';
 import { AppShell } from './components/layout/app-shell';
@@ -198,6 +198,36 @@ declare module '@tanstack/react-router' {
 
 // ── Auth gate ──────────────────────────────────────────────────────────────────
 
+/**
+ * SSO callback lands on /#sso_token=… (or /#sso_error=…) — the token rides the URL fragment so
+ * it never reaches server/proxy logs. Consumed once at module load, before React queries run.
+ */
+function consumeSsoFragment(): { token?: string; error?: string; notice?: string } {
+  const h = window.location.hash;
+  const strip = () => window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  if (h.startsWith('#sso_token=')) {
+    strip();
+    return { token: decodeURIComponent(h.slice('#sso_token='.length)) };
+  }
+  if (h.startsWith('#sso_error=')) {
+    strip();
+    return { error: decodeURIComponent(h.slice('#sso_error='.length)) };
+  }
+  // Email-verification landing (from the confirmation email).
+  if (h === '#verified=1') {
+    strip();
+    return { notice: 'Email confirmed — your account is active. Please sign in.' };
+  }
+  if (h.startsWith('#verify_error=')) {
+    strip();
+    return { error: decodeURIComponent(h.slice('#verify_error='.length)) };
+  }
+  return {};
+}
+
+const ssoResult = consumeSsoFragment();
+if (ssoResult.token) setToken(ssoResult.token);
+
 function AuthGate() {
   const [authed, setAuthed] = useState(!!getToken());
   const me = useMe();
@@ -208,7 +238,18 @@ function AuthGate() {
     return () => window.removeEventListener('auth:unauthorized', onUnauth);
   }, []);
 
-  if (!authed || !getToken()) return <LoginPage onSuccess={() => setAuthed(true)} />;
+  // After an SSO sign-in the hub hasn't told us where the session pod lives (password logins get
+  // it in the login response). Hub answers /api/auth/session; standalone 404s → same-origin.
+  useEffect(() => {
+    if (!ssoResult.token) return;
+    ssoResult.token = undefined; // one-shot
+    fetch('/api/auth/session', { headers: authHeaders() })
+      .then((r) => (r.ok ? (r.json() as Promise<{ baseUrl?: string }>) : null))
+      .then((info) => { if (info?.baseUrl) setSessionBase(info.baseUrl); })
+      .catch(() => {});
+  }, []);
+
+  if (!authed || !getToken()) return <LoginPage onSuccess={() => setAuthed(true)} notice={ssoResult.error ?? ssoResult.notice} />;
   if (me.isError) return <LoginPage onSuccess={() => { setAuthed(true); me.refetch(); }} notice="Your session has expired. Please sign in again." />;
   if (me.isLoading) {
     return (

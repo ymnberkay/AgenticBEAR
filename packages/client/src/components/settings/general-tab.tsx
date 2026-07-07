@@ -4,12 +4,11 @@ import { useSettings, useUpdateSettings } from '../../api/hooks/use-settings';
 import { useToast } from '../ui/toast';
 import { Section, inputStyle } from './ui';
 
-function Field({ label, helper, children }: { label: string; helper?: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
       <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>{label}</label>
       {children}
-      {helper && <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>{helper}</span>}
     </div>
   );
 }
@@ -65,21 +64,21 @@ export function GeneralTab({ onSaved }: { onSaved?: (msg: string) => void } = {}
     <div className="flex flex-col gap-3">
       <Section icon={<Building2 style={{ width: 13, height: 13 }} />} color="#7c8cf8" title="Organization" action={saveBtn}>
         <div className="flex flex-col gap-5">
-          <Field label="Organization name" helper="Shown across the app for this organization.">
+          <Field label="Organization name">
             <input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="e.g. Acme Engineering" style={inputStyle} />
           </Field>
-          <Field label="Description" helper="A short description of what this organization does.">
+          <Field label="Description">
             <textarea value={orgDescription} onChange={(e) => setOrgDescription(e.target.value)} placeholder="What does your team build?" rows={3}
               style={{ ...inputStyle, height: 'auto', padding: '8px 10px', resize: 'vertical', fontFamily: 'var(--font-sans)' }} />
           </Field>
           <div className="flex flex-col gap-5 sm:flex-row" style={{ gap: 20 }}>
             <div style={{ flex: 1 }}>
-              <Field label="Contact email" helper="Primary contact / owner.">
+              <Field label="Contact email">
                 <input type="email" value={orgContact} onChange={(e) => setOrgContact(e.target.value)} placeholder="team@acme.dev" style={inputStyle} />
               </Field>
             </div>
             <div style={{ flex: 1 }}>
-              <Field label="Website" helper="Optional org/website URL.">
+              <Field label="Website">
                 <input value={orgWebsite} onChange={(e) => setOrgWebsite(e.target.value)} placeholder="https://acme.dev" style={inputStyle} />
               </Field>
             </div>

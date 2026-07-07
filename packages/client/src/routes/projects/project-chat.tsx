@@ -49,13 +49,6 @@ function activityLine(e: ToolEvent): string | null {
   }
 }
 
-const SUGGESTIONS = [
-  { icon: '⚡', text: 'Summarize what this project does' },
-  { icon: '🛠️', text: 'Write a small helper function under src' },
-  { icon: '🔎', text: 'List the files and explain the structure' },
-  { icon: '📝', text: 'Draft a README for this project' },
-];
-
 export function ProjectChatPage() {
   const { projectId } = useParams({ strict: false }) as { projectId: string };
   const { data: agents } = useAgents(projectId);
@@ -463,16 +456,6 @@ export function ProjectChatPage() {
                         ? `chatting with ${activeAgent.name}${activeAgent.role === 'external' ? '' : ' · its knowledge documents are included automatically'}`
                         : 'pick an agent from the top-left'}
                     </div>
-                  </div>
-                  <div className="flex flex-wrap items-center justify-center" style={{ gap: 8 }}>
-                    {SUGGESTIONS.map((s) => (
-                      <button key={s.text} type="button" onClick={() => setInput(s.text)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 12px', fontSize: 12.5, background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-secondary)', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--glass-border-hover)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-subtle)'; e.currentTarget.style.color = 'var(--color-text-secondary)'; }}>
-                        <span>{s.icon}</span>{s.text}
-                      </button>
-                    ))}
                   </div>
                 </div>
               ) : (

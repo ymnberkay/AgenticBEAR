@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from '@tanstack/react-router';
-import { Trash2, Copy, Check, Settings, AlertTriangle, FolderOpen, GitBranch, Download, ExternalLink, Loader2 } from 'lucide-react';
+import { Trash2, Copy, Check, Settings, AlertTriangle, FolderOpen, GitBranch, Download, ExternalLink, Loader2, Link2, X } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useProject, useUpdateProject, useDeleteProject } from '../../api/hooks/use-projects';
-import { useConnections } from '../../api/hooks/use-integrations';
+import { useConnections, useProjectIntegrations, useLinkIntegration, useUnlinkIntegration } from '../../api/hooks/use-integrations';
 import { FolderPickerInput } from '../../components/ui/folder-picker';
 import { useToast } from '../../components/ui/toast';
 import { Dialog } from '../../components/ui/dialog';
@@ -290,9 +290,6 @@ export function ProjectSettingsPage() {
                   onChange={setWorkspacePath}
                   inputStyle={{ ...fieldStyle, height: 38, padding: '0 12px', fontFamily: 'var(--font-mono)', fontSize: 12 }}
                 />
-                <p style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginTop: 6 }}>
-                  Agents will read and write files in this directory.
-                </p>
               </div>
             ) : (
               <>
@@ -308,9 +305,6 @@ export function ProjectSettingsPage() {
                     onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(124,140,248,0.5)'; }}
                     onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
                   />
-                  <p style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginTop: 6 }}>
-                    HTTPS URL. SSH URLs are not supported in this version.
-                  </p>
                 </div>
 
                 <div className="grid" style={{ gridTemplateColumns: '2fr 1fr', gap: 12 }}>
@@ -329,11 +323,6 @@ export function ProjectSettingsPage() {
                         </option>
                       ))}
                     </select>
-                    {gitCandidates.length === 0 && (
-                      <p style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)', marginTop: 6 }}>
-                        No credentialed GitHub / Azure DevOps integrations. Add one under Settings → Integrations to enable private repos.
-                      </p>
-                    )}
                   </div>
                   <div>
                     <FieldLabel htmlFor="git-branch">Default branch</FieldLabel>
@@ -434,11 +423,6 @@ export function ProjectSettingsPage() {
                     onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(124,140,248,0.5)'; }}
                     onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-default)'; }}
                   />
-                  <p style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginTop: 6 }}>
-                    {sqConn
-                      ? <>Linked to <b style={{ color: 'var(--color-accent)' }}>{sqConn.label}</b>. Agents can then run <code>sonarqube_scan_findings()</code> to pull findings into Issues.</>
-                      : 'No SonarQube integration configured. Add one under Settings → Integrations to enable scanning.'}
-                  </p>
                 </div>
               );
             })()}
@@ -483,6 +467,9 @@ export function ProjectSettingsPage() {
           </div>
         </form>
       </section>
+
+      {/* Issue tracker — link/unlink the connection this project syncs issues with */}
+      <IssueTrackerSection projectId={projectId} />
 
       {/* Access — share with permission groups */}
       <ProjectSharing projectId={projectId} />
@@ -637,5 +624,62 @@ function DeleteConfirmDialog({
         </button>
       </div>
     </Dialog>
+  );
+}
+
+/** Issue-tracker linking — moved here from the Issues page so it doesn't crowd the issue list. */
+function IssueTrackerSection({ projectId }: { projectId: string }) {
+  const { data: links } = useProjectIntegrations(projectId);
+  const { data: connections } = useConnections();
+  const linkIntegration = useLinkIntegration(projectId);
+  const unlinkIntegration = useUnlinkIntegration(projectId);
+  const { show: showToast } = useToast();
+
+  const linked = links?.[0];
+  const linkedConn = connections?.find((c) => c.id === linked?.connectionId);
+  const available = (connections ?? []).filter((c) => c.enabled && !(links ?? []).some((l) => l.connectionId === c.id));
+
+  return (
+    <section style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', borderLeft: '3px solid #7c8cf8', marginBottom: 12, borderRadius: 'var(--radius-md)' }}>
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+          Issue Tracker
+        </span>
+      </div>
+      <div style={{ padding: 16 }}>
+        {linked ? (
+          <div className="flex items-center justify-between gap-3" style={{ padding: '10px 12px', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-md)' }}>
+            <div className="flex items-center gap-2 min-w-0">
+              <Link2 style={{ width: 13, height: 13, color: 'var(--color-accent)', flexShrink: 0 }} aria-hidden="true" />
+              <span className="truncate" style={{ fontSize: 12.5, color: 'var(--color-text-primary)' }}>
+                {linkedConn?.label ?? 'Linked tracker'} <span style={{ color: 'var(--color-text-disabled)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>· {linkedConn?.kind ?? ''}</span>
+              </span>
+            </div>
+            <button type="button"
+              onClick={() => unlinkIntegration.mutate(linked.connectionId, {
+                onSuccess: () => showToast('Tracker unlinked'),
+                onError: (err) => showToast(err instanceof Error ? err.message : 'Unlink failed', { variant: 'error' }),
+              })}
+              className="flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
+              style={{ height: 30, padding: '0 11px', borderRadius: 'var(--radius-sm)', background: 'none', border: '1px solid var(--color-border-subtle)', color: 'var(--color-text-secondary)', fontSize: 11.5, fontFamily: 'var(--font-mono)', cursor: 'pointer', flexShrink: 0 }}>
+              <X style={{ width: 12, height: 12 }} aria-hidden="true" /> Unlink
+            </button>
+          </div>
+        ) : available.length > 0 ? (
+          <div>
+            <FieldLabel htmlFor="issue-tracker-link">Link a tracker connection</FieldLabel>
+            <select id="issue-tracker-link" defaultValue="" onChange={(e) => { if (e.target.value) linkIntegration.mutate({ connectionId: e.target.value, syncEnabled: true }); }}
+              style={{ ...fieldStyle, height: 38, padding: '0 12px', cursor: 'pointer' }}>
+              <option value="">Select a connection…</option>
+              {available.map((c) => <option key={c.id} value={c.id}>{c.label} ({c.kind})</option>)}
+            </select>
+          </div>
+        ) : (
+          <span style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-disabled)' }}>
+            No tracker connections — add one under Settings → Integrations.
+          </span>
+        )}
+      </div>
+    </section>
   );
 }

@@ -78,6 +78,11 @@ spec:
                 name: {{ include "agenticbear.configName" . }}
             - secretRef:
                 name: {{ include "agenticbear.secretName" . }}
+            {{- with (.Values.auth.sso).existingSecret }}
+            # Operator-managed SSO client secrets (ExternalSecrets / Vault / sealed-secrets).
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
           # Redirect the git-workspace clone root at the persistent volume so
           # `git clone` output survives pod restarts. Without this, `HOME=/data`
           # + emptyDir `/data` would wipe every cloned repo when the pod cycles.
