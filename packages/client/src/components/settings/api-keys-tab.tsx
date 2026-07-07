@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react';
-import { Zap, KeyRound, Plus, Trash2, Copy, Check, X, AlertTriangle, RotateCw } from 'lucide-react';
-import { PROVIDER_SCOPE_PREFIX } from '@subagent/shared';
+import { useEffect, useState, type CSSProperties } from 'react';
+import { Zap, KeyRound, Trash2, Copy, Check, AlertTriangle, RotateCw } from 'lucide-react';
+import { PROVIDER_SCOPE_PREFIX, type CreateGatewayKeyInput, type PermissionGroup } from '@subagent/shared';
 import {
-  useGatewayKeys, useCreateGatewayKey, useDeleteGatewayKey, useRegenerateGatewayKey, useModelCatalog, useSetGatewayKeyCacheScope, useSetGatewayKeyGroup, useSetGatewayKeyLimits,
+  useGatewayKeys, useCreateGatewayKey, useDeleteGatewayKey, useRegenerateGatewayKey, useModelCatalog, useSetGatewayKeyCacheScope, useSetGatewayKeyGroup, useSetGatewayKeyLimits, type CatalogModel,
 } from '../../api/hooks/use-gateway';
 import { useGroups } from '../../api/hooks/use-auth';
 import { useToast } from '../ui/toast';
 import { Dialog } from '../ui/dialog';
 import { ModelScopePicker } from './model-scope-picker';
-import { inputStyle } from './ui';
+import { AddButton, inputStyle } from './ui';
 import { Panel } from './gateway-ui';
 
 const EXPIRY_OPTIONS = [
@@ -18,6 +18,109 @@ const EXPIRY_OPTIONS = [
   { label: '90 days', days: 90 },
   { label: '1 year', days: 365 },
 ];
+
+const dialogFieldLabel: CSSProperties = {
+  fontSize: 10.5, fontFamily: 'var(--font-mono)', letterSpacing: '0.07em',
+  textTransform: 'uppercase', color: 'var(--color-text-secondary)', marginBottom: 6, display: 'block',
+};
+
+/** Create a gateway API key — a focused modal (name, model scope, expiry, group, rate limit, FAQ mode). */
+function CreateKeyDialog({ open, onClose, catalog, groups, pending, onSubmit }: {
+  open: boolean;
+  onClose: () => void;
+  catalog: CatalogModel[];
+  groups: PermissionGroup[];
+  pending: boolean;
+  onSubmit: (input: CreateGatewayKeyInput) => void;
+}) {
+  const [name, setName] = useState('');
+  const [scope, setScope] = useState<string[]>([]);
+  const [expiryDays, setExpiryDays] = useState(0);
+  const [faqMode, setFaqMode] = useState(false);
+  const [groupId, setGroupId] = useState('');
+  const [rateLimit, setRateLimit] = useState('');
+  const [nameError, setNameError] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setName(''); setScope([]); setExpiryDays(0); setFaqMode(false); setGroupId(''); setRateLimit(''); setNameError('');
+  }, [open]);
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) { setNameError('Give the key a name so you can find it later.'); return; }
+    const expiresAt = expiryDays === 0 ? null : new Date(Date.now() + expiryDays * 86_400_000).toISOString();
+    const rl = parseFloat(rateLimit);
+    onSubmit({
+      name: name.trim(), allowedModels: scope, expiresAt,
+      cacheScope: faqMode ? 'lastUser' : 'conversation', groupId: groupId || null,
+      rateLimitPerMin: Number.isFinite(rl) && rl > 0 ? Math.round(rl) : null,
+    });
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} title="New API key" maxWidth="500px">
+      <form onSubmit={submit} className="flex flex-col" style={{ gap: 16 }}>
+        <div>
+          <label htmlFor="new-key-name" style={dialogFieldLabel}>Name</label>
+          <input id="new-key-name" required autoFocus autoComplete="off" placeholder="e.g. billing-app"
+            value={name} onChange={(e) => { setName(e.target.value); if (nameError) setNameError(''); }}
+            aria-invalid={!!nameError}
+            style={{ ...inputStyle, borderColor: nameError ? 'rgba(224,96,96,0.5)' : 'var(--color-border-default)' }} />
+          {nameError && <span role="alert" style={{ fontSize: 11, color: 'var(--color-error)', fontFamily: 'var(--font-mono)', marginTop: 5, display: 'block' }}>{nameError}</span>}
+        </div>
+
+        <div>
+          <label style={dialogFieldLabel}>Models</label>
+          <ModelScopePicker catalog={catalog} value={scope} onChange={setScope} />
+        </div>
+
+        <div className="flex flex-wrap" style={{ gap: 14 }}>
+          <div style={{ flex: '1 1 140px' }}>
+            <label htmlFor="new-key-expiry" style={dialogFieldLabel}>Expires</label>
+            <select id="new-key-expiry" value={expiryDays} onChange={(e) => setExpiryDays(Number(e.target.value))} style={{ ...inputStyle, cursor: 'pointer' }}>
+              {EXPIRY_OPTIONS.map((o) => <option key={o.days} value={o.days}>{o.label}</option>)}
+            </select>
+          </div>
+          <div style={{ flex: '1 1 180px' }}>
+            <label htmlFor="new-key-group" style={dialogFieldLabel}>Group (token quota)</label>
+            <select id="new-key-group" value={groupId} onChange={(e) => setGroupId(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+              <option value="">No group (unlimited)</option>
+              {groups.map((g) => <option key={g.id} value={g.id}>{g.name}{g.tokenQuota ? ` · ${g.tokenQuota.toLocaleString()} tok/mo` : ''}</option>)}
+            </select>
+          </div>
+          <div style={{ flex: '1 1 120px' }}>
+            <label htmlFor="new-key-rate" style={dialogFieldLabel}>Rate limit</label>
+            <div style={{ position: 'relative' }}>
+              <input id="new-key-rate" type="number" min={0} step={1} inputMode="numeric" placeholder="∞"
+                value={rateLimit} onChange={(e) => setRateLimit(e.target.value)}
+                style={{ ...inputStyle, paddingRight: 52, textAlign: 'right' }} />
+              <span aria-hidden="true" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', pointerEvents: 'none' }}>/ min</span>
+            </div>
+          </div>
+        </div>
+
+        <label className="flex items-start gap-2" style={{ cursor: 'pointer', padding: '10px 12px', background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-md)' }}>
+          <input type="checkbox" checked={faqMode} onChange={(e) => setFaqMode(e.target.checked)} style={{ marginTop: 2, accentColor: '#7c8cf8' }} />
+          <span>
+            <span style={{ fontSize: 12.5, color: 'var(--color-text-primary)' }}>FAQ mode (cache by question only)</span>
+            <span style={{ display: 'block', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginTop: 2 }}>
+              For chatbots asking the same question repeatedly — ignores history, caches by the last question.
+            </span>
+          </span>
+        </label>
+
+        <div className="flex justify-end gap-2" style={{ marginTop: 2 }}>
+          <button type="button" onClick={onClose} style={{ height: 36, padding: '0 14px', borderRadius: 'var(--radius-md)', background: 'none', border: '1px solid var(--color-border-default)', color: 'var(--color-text-secondary)', fontSize: 12.5, cursor: 'pointer' }}>Cancel</button>
+          <button type="submit" disabled={pending}
+            style={{ height: 36, padding: '0 16px', borderRadius: 'var(--radius-md)', background: 'var(--color-accent)', color: '#021526', fontSize: 12.5, fontWeight: 600, border: 'none', cursor: pending ? 'wait' : 'pointer' }}>
+            {pending ? 'Creating…' : 'Create key'}
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
 
 /** Human summary of a key's model scope: "all models" / "anthropic + 2 models" / etc. */
 function scopeLabel(allowedModels: string[]): string {
@@ -59,15 +162,8 @@ export function ApiKeysTab() {
   // Regenerate (rotate secret) confirm
   const [regenTarget, setRegenTarget] = useState<{ id: string; name: string } | null>(null);
 
-  // Creation form
+  // Create-key dialog
   const [formOpen, setFormOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [scope, setScope] = useState<string[]>([]);
-  const [expiryDays, setExpiryDays] = useState(0);
-  const [faqMode, setFaqMode] = useState(false);
-  const [groupId, setGroupId] = useState<string>('');
-  const [rateLimit, setRateLimit] = useState('');
-  const [nameError, setNameError] = useState('');
 
   const baseUrl = `${window.location.origin}/v1`;
   const exampleModel = catalog?.[0]?.id ?? 'claude-sonnet-4-20250514';
@@ -83,38 +179,15 @@ export function ApiKeysTab() {
     }
   };
 
-  const resetForm = () => {
-    setName('');
-    setScope([]);
-    setExpiryDays(0);
-    setFaqMode(false);
-    setGroupId('');
-    setRateLimit('');
-    setNameError('');
-    setFormOpen(false);
-  };
-
-  const submit = () => {
-    if (!name.trim()) {
-      setNameError('Give the key a name so you can find it later.');
-      return;
-    }
-    const expiresAt = expiryDays === 0 ? null : new Date(Date.now() + expiryDays * 86_400_000).toISOString();
-    const rl = parseFloat(rateLimit);
-    createKey.mutate(
-      {
-        name: name.trim(), allowedModels: scope, expiresAt, cacheScope: faqMode ? 'lastUser' : 'conversation', groupId: groupId || null,
-        rateLimitPerMin: Number.isFinite(rl) && rl > 0 ? Math.round(rl) : null,
+  const submit = (input: CreateGatewayKeyInput) => {
+    createKey.mutate(input, {
+      onSuccess: (k) => {
+        setCreatedKey(k.key);
+        setAcknowledged(false);
+        setFormOpen(false);
       },
-      {
-        onSuccess: (k) => {
-          setCreatedKey(k.key);
-          setAcknowledged(false);
-          resetForm();
-        },
-        onError: (err) => showToast(err instanceof Error ? err.message : 'Failed to create key', { variant: 'error' }),
-      },
-    );
+      onError: (err) => showToast(err instanceof Error ? err.message : 'Failed to create key', { variant: 'error' }),
+    });
   };
 
   const confirmRevoke = () => {
@@ -217,131 +290,9 @@ print(resp.choices[0].message.content)`;
         icon={<KeyRound style={{ width: 12, height: 12 }} aria-hidden="true" />}
         color="#7c8cf8"
         title="API keys"
-        action={!formOpen && (
-          <button
-            type="button"
-            onClick={() => setFormOpen(true)}
-            className="flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
-            style={{ height: 32, padding: '0 12px', fontSize: 11.5, fontFamily: 'var(--font-sans)', fontWeight: 600, color: '#021526', background: 'var(--color-accent)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-accent-hover)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; }}
-          >
-            <Plus style={{ width: 12, height: 12 }} aria-hidden="true" /> New key
-          </button>
-        )}
+        action={<AddButton label="New key" onClick={() => setFormOpen(true)} icon={<KeyRound style={{ width: 12, height: 12 }} aria-hidden="true" />} />}
       >
-        <p style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginTop: 0, marginBottom: 12 }}>
-          Keys your internal apps use to call the gateway.
-        </p>
-
-        {/* Creation form */}
-        {formOpen && (
-          <div style={{ padding: 14, marginBottom: 14, background: 'var(--color-bg-base)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }}>
-            <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)' }}>New API key</span>
-              <button
-                type="button"
-                onClick={resetForm}
-                aria-label="Cancel key creation"
-                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: 6, borderRadius: 4 }}
-              >
-                <X style={{ width: 14, height: 14 }} aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="new-key-name" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
-                  Name <span aria-hidden="true" style={{ color: 'var(--color-error)', marginLeft: 2 }}>*</span>
-                </label>
-                <input
-                  id="new-key-name"
-                  required
-                  aria-invalid={!!nameError}
-                  aria-describedby={nameError ? 'new-key-name-err' : undefined}
-                  placeholder="e.g. billing-app"
-                  value={name}
-                  onChange={(e) => { setName(e.target.value); if (nameError) setNameError(''); }}
-                  autoComplete="off"
-                  style={{ ...inputStyle, borderColor: nameError ? 'rgba(224,96,96,0.5)' : 'var(--color-border-default)' }}
-                />
-                {nameError && (
-                  <span id="new-key-name-err" role="alert" style={{ fontSize: 11, color: 'var(--color-error)' }}>
-                    {nameError}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>Models</label>
-                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', marginTop: -4 }}>
-                  Select a provider to allow all its models, or pick individual ones. Empty = all.
-                </span>
-                <ModelScopePicker catalog={catalog ?? []} value={scope} onChange={setScope} />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="new-key-expiry" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>Expires</label>
-                <select id="new-key-expiry" value={expiryDays} onChange={(e) => setExpiryDays(Number(e.target.value))}
-                  style={{ ...inputStyle, cursor: 'pointer', width: 'auto', minWidth: 140 }}>
-                  {EXPIRY_OPTIONS.map((o) => <option key={o.days} value={o.days}>{o.label}</option>)}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="new-key-group" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>Group (token quota)</label>
-                <select id="new-key-group" value={groupId} onChange={(e) => setGroupId(e.target.value)}
-                  style={{ ...inputStyle, cursor: 'pointer', width: 'auto', minWidth: 180 }}>
-                  <option value="">No group (unlimited)</option>
-                  {(groups ?? []).map((g) => <option key={g.id} value={g.id}>{g.name}{g.tokenQuota ? ` · ${g.tokenQuota.toLocaleString()} tok/mo` : ''}</option>)}
-                </select>
-                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
-                  Calls with this key count against the group's shared monthly token quota.
-                </span>
-              </div>
-
-              {/* Per-key guardrail: request throttle. Token budgets live on users & groups. */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="new-key-rate" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>Rate limit</label>
-                  <div style={{ position: 'relative', width: 150 }}>
-                    <input id="new-key-rate" type="number" min={0} step={1} inputMode="numeric" placeholder="∞" value={rateLimit} onChange={(e) => setRateLimit(e.target.value)}
-                      style={{ ...inputStyle, paddingRight: 56, textAlign: 'right' }} />
-                    <span aria-hidden="true" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', pointerEvents: 'none' }}>/ min</span>
-                  </div>
-                </div>
-                <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', flex: '1 1 160px', minWidth: 0 }}>
-                  Requests/min throttle. Blank = unlimited. Monthly token budgets are set per user &amp; group (Settings → Users / Groups), not per key.
-                </span>
-              </div>
-
-              <label className="flex items-start gap-2" style={{ cursor: 'pointer' }}>
-                <input type="checkbox" checked={faqMode} onChange={(e) => setFaqMode(e.target.checked)} style={{ marginTop: 2 }} />
-                <span>
-                  <span style={{ fontSize: 12.5, color: 'var(--color-text-primary)' }}>FAQ mode (cache by question only)</span>
-                  <span style={{ display: 'block', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
-                    For chatbots that ask the same question repeatedly: ignores history and caches by the last question only → repeated questions hit cache. Leave off for context-dependent assistants.
-                  </span>
-                </span>
-              </label>
-
-              <div className="flex items-center gap-2">
-                <button type="button" disabled={createKey.isPending} onClick={submit}
-                  aria-busy={createKey.isPending || undefined}
-                  className="flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
-                  style={{ height: 36, padding: '0 16px', background: createKey.isPending ? 'var(--color-bg-raised)' : 'var(--color-accent)', color: createKey.isPending ? 'var(--color-text-disabled)' : '#021526', fontSize: 12.5, fontWeight: 600, border: 'none', borderRadius: 'var(--radius-md)', cursor: createKey.isPending ? 'not-allowed' : 'pointer' }}
-                  onMouseEnter={(e) => { if (!createKey.isPending) e.currentTarget.style.background = 'var(--color-accent-hover)'; }}
-                  onMouseLeave={(e) => { if (!createKey.isPending) e.currentTarget.style.background = 'var(--color-accent)'; }}>
-                  <Plus style={{ width: 13, height: 13 }} aria-hidden="true" /> {createKey.isPending ? 'Creating…' : 'Create key'}
-                </button>
-                <button type="button" onClick={resetForm}
-                  className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
-                  style={{ height: 36, padding: '0 14px', background: 'none', border: '1px solid var(--color-border-default)', color: 'var(--color-text-primary)', fontSize: 12.5, fontFamily: 'var(--font-sans)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>Cancel</button>
-              </div>
-            </div>
-          </div>
-        )}
+        <CreateKeyDialog open={formOpen} onClose={() => setFormOpen(false)} catalog={catalog ?? []} groups={groups ?? []} pending={createKey.isPending} onSubmit={submit} />
 
         {/* Key list */}
         <div className="flex flex-col gap-1.5">

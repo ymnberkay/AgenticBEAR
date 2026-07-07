@@ -158,9 +158,9 @@ export function ModelsTab({ onSaved }: { onSaved?: (msg: string) => void } = {})
           className="flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
           style={{
             fontSize: 11, fontFamily: 'var(--font-mono)', color: '#7c8cf8',
-            background: 'none', border: 'none',
+            background: 'transparent', border: '1px solid rgba(124,140,248,0.3)',
             cursor: refreshCatalog.isPending ? 'wait' : 'pointer',
-            padding: '6px 8px', borderRadius: 4, minHeight: 28,
+            padding: '0 12px', borderRadius: 999, height: 28,
           }}
         >
           <RefreshCw className={refreshCatalog.isPending ? 'animate-spin' : ''} style={{ width: 12, height: 12 }} aria-hidden="true" />
@@ -206,7 +206,7 @@ export function ModelsTab({ onSaved }: { onSaved?: (msg: string) => void } = {})
             {providerOptions.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
 
-          <div className="flex items-center gap-1" role="group" aria-label="Limit scope">
+          <div className="flex items-center" style={{ gap: 3, padding: 3, background: 'var(--color-bg-base)', border: '1px solid var(--color-border-subtle)', borderRadius: 999 }} role="group" aria-label="Limit scope">
             {([
               { id: 'all' as const, label: `All (${list.length})` },
               { id: 'limited' as const, label: `Configured (${limitedCount})` },
@@ -220,12 +220,12 @@ export function ModelsTab({ onSaved }: { onSaved?: (msg: string) => void } = {})
                   aria-pressed={isActive}
                   className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
                   style={{
-                    height: 32, padding: '0 10px', fontSize: 11.5,
+                    height: 28, padding: '0 12px', fontSize: 11.5,
                     fontFamily: 'var(--font-mono)',
-                    background: isActive ? 'var(--color-accent-subtle)' : 'var(--color-bg-surface)',
-                    border: `1px solid ${isActive ? 'var(--color-accent)' : 'var(--color-border-subtle)'}`,
+                    background: isActive ? 'var(--color-accent-subtle)' : 'transparent',
+                    border: `1px solid ${isActive ? 'var(--color-accent)' : 'transparent'}`,
                     color: isActive ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-                    borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                    borderRadius: 999, cursor: 'pointer',
                   }}
                 >
                   {opt.label}
@@ -255,7 +255,7 @@ export function ModelsTab({ onSaved }: { onSaved?: (msg: string) => void } = {})
               type="button"
               onClick={() => updateSettings.mutate({ enabledModels: curationOn ? list.map((m) => m.id) : [] }, { onError: (err) => showToast(err instanceof Error ? err.message : 'Failed', { variant: 'error' }) })}
               className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
-              style={{ height: 28, padding: '0 10px', fontSize: 11, fontFamily: 'var(--font-mono)', background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', color: 'var(--color-text-secondary)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
+              style={{ height: 28, padding: '0 12px', fontSize: 11, fontFamily: 'var(--font-mono)', background: 'transparent', border: '1px solid var(--color-border-default)', color: 'var(--color-text-secondary)', borderRadius: 999, cursor: 'pointer' }}
             >
               Enable all
             </button>
@@ -263,7 +263,7 @@ export function ModelsTab({ onSaved }: { onSaved?: (msg: string) => void } = {})
               type="button"
               onClick={() => updateSettings.mutate({ enabledModels: [], modelCurationEnabled: true }, { onError: (err) => showToast(err instanceof Error ? err.message : 'Failed', { variant: 'error' }) })}
               className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
-              style={{ height: 28, padding: '0 10px', fontSize: 11, fontFamily: 'var(--font-mono)', background: 'var(--color-bg-surface)', border: '1px solid var(--color-border-subtle)', color: 'var(--color-text-secondary)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
+              style={{ height: 28, padding: '0 12px', fontSize: 11, fontFamily: 'var(--font-mono)', background: 'transparent', border: '1px solid var(--color-border-default)', color: 'var(--color-text-secondary)', borderRadius: 999, cursor: 'pointer' }}
             >
               Disable all
             </button>
@@ -336,14 +336,12 @@ interface ModelRowProps {
 function ModelRow({ model, limit, isLimited, isExpanded, isSaved, isErrored, enabled, onToggleEnabled, onToggle, onCommit }: ModelRowProps) {
   const panelId = useId();
   const summary = summarizeLimit(limit);
-  const accent = isLimited ? '#7c8cf8' : 'var(--color-border-subtle)';
 
   return (
     <div
       style={{
         background: 'var(--color-bg-base)',
-        border: '1px solid var(--color-border-subtle)',
-        borderLeft: `3px solid ${accent}`,
+        border: `1px solid ${isExpanded ? 'rgba(124,140,248,0.35)' : 'var(--color-border-subtle)'}`,
         borderRadius: 'var(--radius-md)',
         overflow: 'hidden',
         transition: 'border-color 0.15s',
@@ -576,13 +574,13 @@ function LimitEditor({ limit, onCommit }: LimitEditorProps) {
                 title={p.description}
                 className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
                 style={{
-                  height: 30, padding: '0 12px',
+                  height: 30, padding: '0 14px',
                   fontSize: 12, fontFamily: 'var(--font-sans)',
                   fontWeight: 500,
                   background: isActive ? 'var(--color-accent-subtle)' : 'var(--color-bg-base)',
                   border: `1px solid ${isActive ? 'var(--color-accent)' : 'var(--color-border-subtle)'}`,
                   color: isActive ? 'var(--color-accent)' : 'var(--color-text-primary)',
-                  borderRadius: 'var(--radius-sm)',
+                  borderRadius: 999,
                   cursor: 'pointer',
                   transition: 'all 0.12s',
                 }}
@@ -673,12 +671,12 @@ function LimitEditor({ limit, onCommit }: LimitEditorProps) {
           disabled={!limit || Object.keys(limit).length === 0}
           className="flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cf8]"
           style={{
-            height: 30, padding: '0 12px',
+            height: 30, padding: '0 14px',
             background: 'transparent',
             border: '1px solid var(--color-border-default)',
             color: 'var(--color-text-primary)',
             fontSize: 11.5, fontFamily: 'var(--font-mono)',
-            borderRadius: 'var(--radius-sm)',
+            borderRadius: 999,
             cursor: limit && Object.keys(limit).length > 0 ? 'pointer' : 'not-allowed',
             opacity: limit && Object.keys(limit).length > 0 ? 1 : 0.5,
           }}
